@@ -1,1 +1,1 @@
-# 2reckiy.github.io
+# 2reckiy
