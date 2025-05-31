@@ -2,28 +2,107 @@
   position: relative;
   width: 100%;
   height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 
-  background-color: #252525;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-end;
+
+  background-color: #30363a;
 }
 
 .snake-canvas-container {
   position: relative;
+  margin: 0 0 3px 3px;
+  border-radius: 6px;
+
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
 
-  background-color: #181818;
+  background-color: #30363a;
+  border: 2px dashed;
+}
+
+.snake-canvas-container canvas {
+  padding: 2px;            
+}
+
+.snake-time-container {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%);
+
+  color: #ffffff;
+  font-size: 1rem;
 }
 
 .snake-score-container {
   position: absolute;
-  top: 24px;
+  top: 0;
   right: 0;
-  transform: translate(-50%, -50%);
 
   color: #ffffff;
   font-size: 1.5rem;
+}
+
+.game-over-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  color: #ffffff;
+  font-size: 2rem;
+  text-align: center;
+  background-color: #000000db;
+}
+
+.game-over-container button {
+  padding: unset;
+  border: unset;
+  margin: unset;
+  background: unset;
+  color: unset;
+  padding: 10px 20px;
+  background: #ff5bce;
+  color: #ffffff;
+  font-size: 4rem;
+  box-shadow: rgba(240, 46, 170, 0.4) 5px 5px, rgba(240, 46, 170, 0.3) 10px 10px, rgba(240, 46, 170, 0.2) 15px 15px, rgba(240, 46, 170, 0.1) 20px 20px, rgba(240, 46, 170, 0.05) 25px 25px;
+  cursor: pointer;
+}
+
+.game-over-container button:hover {
+  box-shadow: none;
+}
+
+.snake-furyoku-container {
+  display: flex;
+  position: relative;
+  width: 100%;
+  margin-bottom: 5px;
+  align-items: center;
+  justify-content: center;
+  height: calc(100vh - 41px);
+}
+
+.furyoku-bar {
+  height: 100%;
+  width: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+
+  border-radius: 4px;
+  background: #00000033;
+}
+
+.furyoku-fill {
+  border-radius: 4px;
+  background-color: #944f8f;
 }
