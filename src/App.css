@@ -5,9 +5,86 @@
   flex-direction: column;
   overflow: hidden;
 
+  background-color: #30363a;
   color: #ffffff;
   font-size: 16px;
   line-height: 1.5;
+}
+
+.games-container {
+  display: flex;
+  gap: 2rem;
+  padding: 1rem;
+}
+
+.game-container {
+  width: 192px;
+  height: 240px;
+  overflow: hidden;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.8);
+  transform-origin: center top;
+  transform-style: preserve-3d;
+  transform: translateZ(0);
+  transition: 0.3s;
+  cursor: pointer;
+  border-radius: 10px;
+  border: 2px solid #272727;
+}
+
+.game-container:hover {
+  box-shadow: 0 8px 16px 3px rgba(0, 0, 0, 0.6);
+  transform: translateY(-3px) scale(1.05) rotateX(15deg);
+}
+
+.game-container::after {
+  position: absolute;
+  content: "";
+  z-index: 10;
+  width: 200%;
+  height: 100%;
+  top: -90%;
+  left: -20px;
+  opacity: 0.1;
+  transform: rotate(45deg);
+  background: linear-gradient(to top, transparent, #fff 15%, rgba(255, 255, 255, 0.5));
+  transition: 0.3s;
+}
+
+.game-container:hover::after {
+  transform: rotate(25deg);
+  top: -40%;
+  opacity: 0.15;
+}
+
+.game-container img {
+  width: 100%;
+  min-height: 100%;
+}
+
+.game-container .game-title-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+
+  display: flex;
+  align-items: end;
+
+  transform: translateY(100%);
+  transition: 0.3s;
+  background: #0000008c;
+
+}
+
+.game-container:hover .game-title-container {
+  transform: none;
+}
+
+.game-container .game-title-container .game-title {
+  padding: 20px;
+  font-size: 20px;
+  color: #ffffff;
 }
 
 .footer {

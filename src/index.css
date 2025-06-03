@@ -1,4 +1,8 @@
-
+@font-face{
+  font-family: "Pixelify Sans";
+  src:local("PixelifySans-Regular.ttf"),
+  url('./assets/fonts/PixelifySans-Regular.ttf') 
+}
 
 :root {
   font-synthesis: none;
@@ -15,6 +19,6 @@ html, body {
 }
 
 body {
-  font-family: "Doto", "Sixtyfour", "Pixelify Sans", monospace;
+  font-family: "Pixelify Sans", "Doto", "Sixtyfour", monospace;
   color: #ffffff;
 }
