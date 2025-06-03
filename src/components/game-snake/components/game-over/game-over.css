@@ -1,0 +1,35 @@
+
+.game-over-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  color: #ffffff;
+  font-size: 2rem;
+  text-align: center;
+  background-color: #000000db;
+}
+
+.game-over-container button {
+  padding: unset;
+  border: unset;
+  margin: unset;
+  background: unset;
+  color: unset;
+  padding: 10px 20px;
+  background: #ff5bce;
+  color: #ffffff;
+  font-size: 4rem;
+  box-shadow: rgba(240, 46, 170, 0.4) 5px 5px, rgba(240, 46, 170, 0.3) 10px 10px, rgba(240, 46, 170, 0.2) 15px 15px, rgba(240, 46, 170, 0.1) 20px 20px, rgba(240, 46, 170, 0.05) 25px 25px;
+  cursor: pointer;
+}
+
+.game-over-container button:hover {
+  box-shadow: none;
+}

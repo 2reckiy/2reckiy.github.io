@@ -5,10 +5,10 @@ export class AudioManager {
     this.unlocked = false;
 
     this.sounds = {
-      food: this.createBeep(440, 0.1),
-      gameOver: this.createBeep(120, 0.5),
-      speed: this.createBeep(880, 0.1),
+      eat: this.createBeep(440, 0.1),
+      accelerate: this.createBeep(880, 0.1),
       levelUp: this.createBeep(660, 0.1),
+      gameOver: this.createBeep(120, 0.5),
     };
   }
 
