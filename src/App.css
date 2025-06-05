@@ -59,6 +59,7 @@
 .game-container img {
   width: 100%;
   min-height: 100%;
+  pointer-events: none;
 }
 
 .game-container .game-title-container {
@@ -74,6 +75,7 @@
   transform: translateY(100%);
   transition: 0.3s;
   background: #0000008c;
+  pointer-events: none;
 
 }
 
