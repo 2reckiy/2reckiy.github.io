@@ -5,7 +5,7 @@
   flex-direction: column;
   overflow: hidden;
 
-  background-color: #30363a;
+  background-color: #ffffff;
   color: #ffffff;
   font-size: 16px;
   line-height: 1.5;
@@ -19,16 +19,15 @@
 
 .game-container {
   width: 192px;
-  height: 240px;
+  height: 269px;
   overflow: hidden;
-  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.8);
   transform-origin: center top;
   transform-style: preserve-3d;
   transform: translateZ(0);
   transition: 0.3s;
   cursor: pointer;
-  border-radius: 10px;
   border: 2px solid #272727;
+  box-shadow: 8px 8px 0px 0px rgb(0, 0, 0);
 }
 
 .game-container:hover {
@@ -56,10 +55,38 @@
   opacity: 0.15;
 }
 
-.game-container img {
+.game-container .game-logo {
+  height: 100%;
   width: 100%;
-  min-height: 100%;
+
+  
+  background-size: 100%;
+  background-repeat:  no-repeat ;
   pointer-events: none;
+}
+
+.game-container.snake {
+  background-color: #049146;
+}
+
+.game-container.snake .game-logo {
+  background-image: url("./assets/images/snake-logo.jpg");
+}
+
+.game-container.catcher {
+  background-color: #049146;
+}
+
+.game-container.catcher .game-logo {
+  background-image: url("./assets/images/catcher-logo.png");
+}
+
+.game-container.duel-due {
+  background-color: #ffffff;
+}
+
+.game-container.duel-due .game-logo {
+  background-image: url("./assets/images/duel-due.jpg");
 }
 
 .game-container .game-title-container {

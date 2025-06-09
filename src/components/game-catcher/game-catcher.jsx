@@ -1,23 +1,45 @@
-import './game-catcher.css';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { GameEngine } from './engine';
-import { useAudio } from '../../providers/audio-provider';
-import { GameOver } from './components/game-over/game-over';
-import { Timer } from './components/timer/timer';
-import { useGameStore } from './store';
-import { POSITION } from './constants';
-import { Score } from './components/score/score';
+import "./game-catcher.css";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { GameEngine } from "./engine";
+import { useAudio } from "../../providers/audio-provider";
+import { GameOver } from "./components/game-over/game-over";
+import { Timer } from "./components/timer/timer";
+import { useGameStore } from "./store";
+import { POSITION } from "./constants";
+import bg from "./assets/background_2.jpg";
+import baba1 from "./assets/egg_4.png";
+import baba2 from "./assets/egg_5.png";
+import baba3 from "./assets/egg_6.png";
 
-const GRID_CELL_SIZE = 20;
+import charaBot from "./assets/chara_1.png";
+import charaTop from "./assets/chara_2.png";
+import charaEmpty from "./assets/chara_3.png";
+import { Lifes } from './components/lifes/lifes';
+import { Settings } from './components/settings/settings';
+
+const BG_RATIO = 0.411;
+const LIFES_COUNT = 3;
 
 const getGridSize = () => {
   return {
-    width: Math.floor((window.innerWidth - 24) / GRID_CELL_SIZE),
-    height: Math.floor((window.innerHeight - 24) / GRID_CELL_SIZE),
+    width: window.innerWidth,
+    height: window.innerHeight,
   };
-}
+};
 
-export const GameCatcher = () => { 
+const loadImage = async (src) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = (e) => {
+      console.log(e);
+      reject(e);
+    };
+    img.src = src;
+  });
+};
+
+export const GameCatcher = () => {
   const canvasRef = useRef();
   const engineRef = useRef(null);
   const audio = useAudio();
@@ -26,43 +48,41 @@ export const GameCatcher = () => {
     height: 0,
   });
 
-  const gameOver = useGameStore(s => s.gameOver);
+  const gameOver = useGameStore((s) => s.gameOver);
+  const settingsOpen = useGameStore((s) => s.settingsOpen);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const engine = new GameEngine({
-      store: useGameStore.getState(),
-      audio,
-      canvas,
-      gridWidth: 0,
-      gridHeight: 0,
-      cellSize: GRID_CELL_SIZE,
-    });
-
-    engineRef.current = engine;
-
+    let engine;
     const handleKeyDown = (e) => {
+      console.log(e)
       switch (e.code) {
-        case "Space": engine.useFuryoku(true); break;
-        case "KeyQ": engine.moveCatcher(POSITION.TOP_LEFT); break;
-        case "KeyW": engine.moveCatcher(POSITION.TOP_RIGHT); break;
-        case "KeyA": engine.moveCatcher(POSITION.BOTTOM_LEFT); break;
-        case "KeyS": engine.moveCatcher(POSITION.BOTTOM_RIGHT); break;
+        case "Escape":
+          engine.toggleSettings();
+          break;
+        case "KeyQ":
+          engine.moveCatcher(POSITION.TOP_LEFT);
+          break;
+        case "KeyW":
+          engine.moveCatcher(POSITION.TOP_RIGHT);
+          break;
+        case "KeyA":
+          engine.moveCatcher(POSITION.BOTTOM_LEFT);
+          break;
+        case "KeyS":
+          engine.moveCatcher(POSITION.BOTTOM_RIGHT);
+          break;
       }
     };
 
-    const handleKeyUp = (e) => {
-      switch (e.code) {
-        case "Space": engine.useFuryoku(false); break;
-      }
-    }
-
     const handleResize = () => {
       const gridSize = getGridSize();
-      const width = gridSize.width * GRID_CELL_SIZE;
-      const height = gridSize.height * GRID_CELL_SIZE;
+      const width = gridSize.width;
+      const height = gridSize.height;
 
-      engine.resize({canvasWidth: width, canvasHeight: height, gridWidth: gridSize.width, gridHeight: gridSize.height});
+      engine.resize({
+        canvasWidth: width,
+        canvasHeight: height,
+      });
 
       setCanvasSize({
         width,
@@ -70,18 +90,41 @@ export const GameCatcher = () => {
       });
     };
 
-    handleResize();
-    engine.start();
+    async function initGame() {
+      const canvas = canvasRef.current;
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    window.addEventListener('resize', handleResize);
+      let assets = [];
+      try {
+        assets = await Promise.all(
+          [bg, baba1, baba2, baba3, charaBot, charaTop, charaEmpty].map((src) => loadImage(src)),
+        );
+      } catch (error) {
+        console.log(error)
+      }
+
+      engine = new GameEngine({
+        store: useGameStore.getState(),
+        assets,
+        audio,
+        canvas,
+        bgRatio: BG_RATIO,
+        lifes: LIFES_COUNT,
+      });
+      engineRef.current = engine;
+
+      handleResize();
+      engine.start();
+
+      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("resize", handleResize);
+    }
+
+    initGame();
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-      window.removeEventListener('resize', handleResize);
-    }
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   const restartGame = useCallback(() => {
@@ -89,17 +132,18 @@ export const GameCatcher = () => {
   }, []);
 
   return (
-    <div className="container">
-      <div className="canvas-container">
+    <div className="game-catcher-container">
+      <div className="game-catcher-canvas-container">
         <canvas ref={canvasRef} width={canvasSize.width} height={canvasSize.height} className="border" />
       </div>
-      <div className="score-container">
-        <Score />
-      </div>
-      <div className="time-container">
+      <div className="game-catcher-time-container">
         <Timer />
       </div>
+      <div className="game-catcher-lifes-container">
+        <Lifes />
+      </div>
 
+      {settingsOpen && <Settings />}
       {gameOver && <GameOver onRestart={restartGame} />}
     </div>
   );

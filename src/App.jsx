@@ -1,56 +1,59 @@
 import { useCallback, useState } from "react";
 import "./App.css";
 import { AudioProvider } from "./providers/audio-provider";
-import snakePreview from "./assets/images/snake-preview.png";
-import { GameDuelDue } from './components/game-duel-due/game-duel-due';
+import { GameDuelDue } from "./components/game-duel-due/game-duel-due";
+import { GameCatcher } from "./components/game-catcher/game-catcher";
+import { GameSnake } from "./components/game-snake/game-snake";
+import { Banner } from "./components/banner/banner";
+import classNames from "classnames";
 
 const GAMES = [
   {
     id: "snake",
     title: "Snake",
-    preview: snakePreview,
   },
   {
     id: "catcher",
     title: "Catcher",
-    preview: snakePreview,
   },
   {
     id: "duel-due",
     title: "Duel Due",
-    preview: snakePreview,
   },
 ];
 
 export const App = () => {
-  const [previewGame, setPreviewGame] = useState(GAMES[0].id);
   const [game, setGame] = useState("");
 
   const onPreviewGameSelect = useCallback(
     (e) => {
-      if (e.target.id === previewGame) {
+      if (e.target.id === game) {
         return;
       }
 
-      setPreviewGame(e.target.id);
       setGame(e.target.id);
     },
-    [previewGame],
+    [game],
   );
 
   return (
     <div className="app-container">
       {!game && (
-        <div className="games-container">
-          {GAMES.map((g) => (
-            <div className="game-container" key={g.id} id={g.id} onClick={onPreviewGameSelect}>
-              <img src={g.preview} alt="Logo" />
-              <div className="game-title-container">
-                <span className="game-title">{g.title}</span>
+        <>
+          <div>
+            <Banner game={game} />
+          </div>
+          <div className="games-container">
+            {GAMES.map((g) => (
+              <div className={classNames("game-container", g.id)} key={g.id} id={g.id} onClick={onPreviewGameSelect}>
+                <div className={classNames("game-logo", g.id)}></div>
+                <div className="game-title-container">
+                  <span className="game-title">{g.title}</span>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
 
       <AudioProvider>

@@ -1,0 +1,14 @@
+.timer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+.score {
+  font-size: 2rem;
+  color: #00dbff;
+}
+.time {
+  font-size: 1.2rem;
+  color: #ffffff;
+}

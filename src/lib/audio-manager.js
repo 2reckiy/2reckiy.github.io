@@ -8,6 +8,8 @@ export class AudioManager {
       eat: this.createBeep(440, 0.1),
       accelerate: this.createBeep(880, 0.1),
       levelUp: this.createBeep(660, 0.1),
+      miss: this.createBeep(220, 0.25),
+      catch: this.createBeep(440, 0.1),
       gameOver: this.createBeep(120, 0.5),
     };
   }

@@ -16,7 +16,8 @@ const getGridSize = () => {
   };
 }
 
-export const GameSnake = () => {  const canvasRef = useRef();
+export const GameSnake = () => {
+  const canvasRef = useRef();
   const engineRef = useRef(null);
   const audio = useAudio();
   const [canvasSize, setCanvasSize] = useState({

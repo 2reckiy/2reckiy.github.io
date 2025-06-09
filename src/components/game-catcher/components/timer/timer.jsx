@@ -1,4 +1,5 @@
 import { useGameStore } from "../../store";
+import "./timer.css";
 
 const formatTime = (miliseconds, withMilliseconds = false) => {
   const totalSeconds = Math.floor(miliseconds / 1000);
@@ -6,7 +7,7 @@ const formatTime = (miliseconds, withMilliseconds = false) => {
   const m = Math.floor((totalSeconds / 60) % 60);
   const h = Math.floor(totalSeconds / 3600);
 
-  const pad = (n, len = 2) => String(n).padStart(len, '0');
+  const pad = (n, len = 2) => String(n).padStart(len, "0");
 
   const ms = withMilliseconds ? `.${pad(Math.floor(miliseconds % 1000), 3)}` : "";
   if (h > 0) {
@@ -17,6 +18,13 @@ const formatTime = (miliseconds, withMilliseconds = false) => {
 };
 
 export const Timer = () => {
-  const elapsedTime = useGameStore(s => s.elapsedTime);
-  return <span>{formatTime(elapsedTime)}</span>
-}
+  const elapsedTime = useGameStore((s) => s.elapsedTime);
+  const score = useGameStore((s) => s.score);
+
+  return (
+    <div className="timer-container">
+      <span className="score">{score}</span>
+      <span className="time">{formatTime(elapsedTime)}</span>
+    </div>
+  );
+};
