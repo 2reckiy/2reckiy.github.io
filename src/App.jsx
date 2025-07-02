@@ -4,7 +4,7 @@ import { AudioProvider } from "./providers/audio-provider";
 import { GameDuelDue } from "./components/game-duel-due/game-duel-due";
 import { GameCatcher } from "./components/game-catcher/game-catcher";
 import { GameSnake } from "./components/game-snake/game-snake";
-import { Banner } from "./components/banner/banner";
+// import { Banner } from "./components/banner/banner";
 import classNames from "classnames";
 
 const GAMES = [
@@ -16,10 +16,10 @@ const GAMES = [
     id: "catcher",
     title: "Catcher",
   },
-  {
-    id: "duel-due",
-    title: "Duel Due",
-  },
+  // {
+  //   id: "duel-due",
+  //   title: "Duel Due",
+  // },
 ];
 
 export const App = () => {
@@ -40,9 +40,9 @@ export const App = () => {
     <div className="app-container">
       {!game && (
         <>
-          <div>
+          {/* <div>
             <Banner game={game} />
-          </div>
+          </div> */}
           <div className="games-container">
             {GAMES.map((g) => (
               <div className={classNames("game-container", g.id)} key={g.id} id={g.id} onClick={onPreviewGameSelect}>

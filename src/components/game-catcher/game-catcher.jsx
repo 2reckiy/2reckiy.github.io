@@ -10,7 +10,6 @@ import bg from "./assets/background_2.jpg";
 import baba1 from "./assets/egg_4.png";
 import baba2 from "./assets/egg_5.png";
 import baba3 from "./assets/egg_6.png";
-
 import charaBot from "./assets/chara_1.png";
 import charaTop from "./assets/chara_2.png";
 import charaEmpty from "./assets/chara_3.png";
@@ -54,7 +53,6 @@ export const GameCatcher = () => {
   useEffect(() => {
     let engine;
     const handleKeyDown = (e) => {
-      console.log(e)
       switch (e.code) {
         case "Escape":
           engine.toggleSettings();
@@ -129,6 +127,8 @@ export const GameCatcher = () => {
 
   const restartGame = useCallback(() => {
     engineRef.current.restart();
+
+    audio.playMusic("/music/backgrround_1.wav");
   }, []);
 
   return (

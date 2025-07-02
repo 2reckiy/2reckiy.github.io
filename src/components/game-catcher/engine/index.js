@@ -40,6 +40,8 @@ export class GameEngine {
     this.startTime = performance.now();
     this.lastUpdate = performance.now();
     this.#loop(performance.now());
+
+    this.audio.playMusic("/music/background_1.mp3");
   }
 
   stop() {
@@ -193,11 +195,11 @@ export class GameEngine {
     this.#tryToCatch();
 
     if (this.lifes === 0) {
-      this.audio.play("gameOver");
+      this.audio.playMusic("/music/loose_sound1.wav", false);
       this.store.setGameOver(true);
       this.stop();
       this.onGameOver?.();
-
+      
       return;
     }
 
