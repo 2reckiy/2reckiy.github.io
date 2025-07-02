@@ -1,47 +1,35 @@
-.container {
+.game-catcher-container {
   position: relative;
   width: 100%;
   height: 100%;
 
   display: flex;
-  justify-content: flex-start;
-  align-items: flex-end;
-
-  background-color: #30363a;
-}
-
-.canvas-container {
-  position: relative;
-  margin: 0 0 3px 3px;
-  border-radius: 6px;
-
-  display: flex;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: center;
 
   background-color: #30363a;
-  border: 2px dashed;
 }
 
-.canvas-container canvas {
-  padding: 2px;            
+.game-catcher-canvas-container {
+  position: relative;
+  border-radius: 6px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background-color: #30363a;
 }
 
-.time-container {
+.game-catcher-time-container {
   position: absolute;
   top: 0;
   left: 50%;
   transform: translate(-50%);
-
-  color: #ffffff;
-  font-size: 1rem;
 }
 
-.score-container {
-  display: flex;
-  width: 100%;
-  height: 100%;
-
-  color: #ffffff;
-  font-size: 1.5rem;
+.game-catcher-lifes-container {
+  position: absolute;
+  top: 0;
+  left: 0;
 }

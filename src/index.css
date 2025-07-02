@@ -1,4 +1,8 @@
-
+@font-face{
+  font-family: "Pixelify Sans";
+  src:local("PixelifySans-Regular.ttf"),
+  url('./assets/fonts/PressStart2P-Regular.ttf') 
+}
 
 :root {
   font-synthesis: none;
@@ -7,14 +11,14 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+* {
+  font-family: "Press Start 2P", "Pixelify Sans", "Doto", "Sixtyfour", monospace;
+  color: #ffffff;
+}
+
 html, body {
   margin: 0;
   padding: 0;
   display: flex;
   overflow: hidden;
-}
-
-body {
-  font-family: "Doto", "Sixtyfour", "Pixelify Sans", monospace;
-  color: #ffffff;
 }

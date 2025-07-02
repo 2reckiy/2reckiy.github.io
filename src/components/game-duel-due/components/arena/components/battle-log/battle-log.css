@@ -1,0 +1,31 @@
+.battle-log-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  background: #1f1f1f;
+  text-align: center;
+  overflow: hidden;
+}
+.battle-log-container.collapsed {
+  height: 56px;
+}
+
+.battle-log-title {
+  padding: 10px;
+
+  background: #1a1a1a;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.battle-log-logs-container {
+  height: 100%;
+  padding: 10px 0;
+
+  display: flex;
+  flex-direction: column;
+
+  overflow-y: auto;
+  text-align: center;
+}
