@@ -1,59 +1,81 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState, version } from "react";
 import classNames from "classnames";
 import { FaHome } from "react-icons/fa";
 import { MdArrowRight } from "react-icons/md";
+
+import snakeImage from "./assets/images/snake-logo.jpg";
+import catcherImage from "./assets/images/catcher-logo.png";
 
 import { AudioProvider } from "./providers/audio-provider";
 import { GameCatcher } from "./components/game-catcher/game-catcher";
 import { GameSnake } from "./components/game-snake/game-snake";
 import { GameFrame } from "./components/game-frame/game-frame";
-import snakeImage from "./assets/images/snake-logo.jpg";
-import catcherImage from "./assets/images/catcher-logo.png";
 import "./App.css";
 
-const GAMES = {
-  ["snake"]: {
-    id: "snake",
-    title: "Snake",
-    backgroundImage: `url(${snakeImage})`,
-    backgroundColor: "#04053f",
-    isFramed: false,
-    render: GameSnake,
-  },
-  ["catcher"]: {
-    id: "catcher",
-    title: "Catcher",
-    backgroundImage: `url(${catcherImage})`,
-    backgroundColor: "#049146",
-    isFramed: false,
-    render: GameCatcher,
-  },
-  ["formula"]: {
-    id: "formula",
-    title: "Formula",
-    backgroundColor: "#4e4e4e",
-    isFramed: true,
-    path: "/playground/formula/index.html",
-  },
-  // {
-  //   id: "duel-due",
-  //   title: "Duel Due",
-  // },
-};
+import catalogue from "playground/output/catalogue.json";
 
 export const App = () => {
+  const [games, setGames] = useState({});
   const [game, setGame] = useState(null);
+
+  useEffect(() => {
+    const GAMES = {
+      ["snake"]: {
+        id: "snake",
+        title: "Snake",
+        backgroundImage: `url(${snakeImage})`,
+        backgroundColor: "#04053f",
+        isFramed: false,
+        render: GameSnake,
+      },
+      ["catcher"]: {
+        id: "catcher",
+        title: "Catcher",
+        backgroundImage: `url(${catcherImage})`,
+        backgroundColor: "#049146",
+        isFramed: false,
+        render: GameCatcher,
+      },
+    };
+
+    catalogue?.games.forEach((g) => {
+      if (GAMES[g.id]) {
+        console.log(`Game with id "${g.id}" is already in GAMES. Skipping...`);
+        return;
+      }
+
+      GAMES[g.id] = {
+        id: g.id,
+        title: g.title,
+        backgroundColor: "#4e4e4e",
+        isFramed: true,
+        versions: g.versions,
+        path: `${catalogue.path}/${g.id}/index.html`,
+      };
+    });
+
+    // GAMES['formula'] = {
+    //   id: 'formula',
+    //   title: 'formula',
+    //   backgroundColor: "#4e4e4e",
+    //   isFramed: true,
+    //   versions: [],
+    //   path: `games/formula/index.html`,
+    // };
+
+    setGames(GAMES);
+  }, []);
 
   const handlePreviewGameSelect = useCallback(
     (e) => {
-      const selectedGame = GAMES[e.target.id];
+      const selectedGame = games[e.target.id];
       if (selectedGame.id === game?.id) {
         return;
       }
 
       setGame(selectedGame);
     },
-    [game],
+    [games, game],
   );
 
   const handleHomeClick = () => setGame(null);
@@ -75,7 +97,7 @@ export const App = () => {
             <Banner game={game} />
           </div> */}
           <div className="games-container">
-            {Object.values(GAMES).map((g) => (
+            {Object.values(games).map((g) => (
               <div
                 className={classNames("game-container", g.id)}
                 key={g.id}
@@ -98,10 +120,7 @@ export const App = () => {
       )}
 
       <AudioProvider>
-        {/* {game?.id === "snake" && <GameSnake />}
-        {game?.id === "catcher" && <GameCatcher />}
-        {game?.id === "duel-due" && <GameDuelDue />} */}
-        {game?.isFramed ? <GameFrame game={game.path} /> : game?.render && <game.render />}
+        {game?.isFramed ? <GameFrame gamePath={game.path} /> : game?.render && <game.render />}
       </AudioProvider>
 
       {/* <footer className="footer">
