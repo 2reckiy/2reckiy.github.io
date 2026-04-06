@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maze Solver Comparison</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #050508; font-family: 'Courier New', monospace; }
+        canvas { display: block; }
+        .label {
+            position: absolute; top: 10px; padding: 5px 15px;
+            background: rgba(0,0,0,0.8); border: 1px solid; border-radius: 4px;
+        }
+        #label-a { left: 10px; color: #00ffcc; border-color: #00ffcc; }
+        #label-b { right: 10px; color: #ff00ff; border-color: #ff00ff; }
+        #speed-ctrl {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="label-a" class="label">A* (Heuristic)</div>
+    <div id="label-b" class="label">BFS (Blind)</div>
+    <div id="speed-ctrl">
+        SPEED: <input type="range" id="speed" min="1" max="50" value="10">
+    </div>
+    <canvas id="c"></canvas>
+
+    <script>
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+        const speedSlider = document.getElementById('speed');
+
+        let cols, rows, cellSize = 18;
+        let mazes = []; // [mazeA, mazeB]
+        let solvers = []; 
+
+        function setup() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const halfWidth = canvas.width / 2;
+            cols = Math.floor((halfWidth - 40) / cellSize);
+            rows = Math.floor((canvas.height - 100) / cellSize);
+            
+            // Generate ONE set of walls for both
+            const wallsData = generateIdenticalMazeData();
+            
+            mazes = [
+                { x: 20, grid: createGrid(wallsData), type: 'astar' },
+                { x: halfWidth + 20, grid: createGrid(wallsData), type: 'bfs' }
+            ];
+
+            // Initialize Solvers
+            solvers = mazes.map(m => initSolver(m));
+        }
+
+        function createGrid(data) {
+            return data.map(d => ({...d, visited: false, closed: false, open: false, parent: null, f:0, g:0, h:0}));
+        }
+
+        function generateIdenticalMazeData() {
+            let tempGrid = [];
+            for(let r=0; r<rows; r++) for(let c=0; c<cols; c++) tempGrid.push({c, r, walls: [true,true,true,true], v: false});
+            
+            let stack = [];
+            let current = tempGrid[0];
+            current.v = true;
+            
+            while(true) {
+                let neighbors = [];
+                [[0,-1,0,2],[1,0,1,3],[0,1,2,0],[-1,0,3,1]].forEach(d => {
+                    let nc = current.c + d[0], nr = current.r + d[1];
+                    if(nc>=0 && nr>=0 && nc<cols && nr<rows) {
+                        let n = tempGrid[nc + nr * cols];
+                        if(!n.v) neighbors.push({cell: n, wA: d[2], wB: d[3]});
+                    }
+                });
+
+                if(neighbors.length > 0) {
+                    let next = neighbors[Math.floor(Math.random()*neighbors.length)];
+                    next.cell.v = true;
+                    current.walls[next.wA] = false;
+                    next.cell.walls[next.wB] = false;
+                    stack.push(current);
+                    current = next.cell;
+                } else if(stack.length > 0) {
+                    current = stack.pop();
+                } else break;
+            }
+            return tempGrid;
+        }
+
+        function initSolver(maze) {
+            const start = maze.grid[0];
+            const end = maze.grid[maze.grid.length-1];
+            if(maze.type === 'astar') {
+                start.open = true;
+                return { type: 'astar', openSet: [start], closedSet: new Set(), path: [], done: false };
+            } else {
+                start.open = true;
+                return { type: 'bfs', queue: [start], visited: new Set([start]), path: [], done: false };
+            }
+        }
+
+        function solveStep(m, s) {
+            if(s.done) return;
+            const end = m.grid[m.grid.length-1];
+
+            if(s.type === 'astar') {
+                if(s.openSet.length > 0) {
+                    let winner = 0;
+                    for(let i=0; i<s.openSet.length; i++) if(s.openSet[i].f < s.openSet[winner].f) winner = i;
+                    let curr = s.openSet[winner];
+                    if(curr === end) { buildPath(s, curr); return; }
+                    s.openSet.splice(winner, 1);
+                    s.closedSet.add(curr);
+                    getNeighbors(m, curr).forEach(n => {
+                        if(!s.closedSet.has(n)) {
+                            let tg = curr.g + 1;
+                            if(!n.open || tg < n.g) {
+                                n.g = tg; n.h = Math.abs(n.c-end.c) + Math.abs(n.r-end.r);
+                                n.f = n.g + n.h; n.parent = curr;
+                                if(!n.open) { n.open = true; s.openSet.push(n); }
+                            }
+                        }
+                    });
+                }
+            } else {
+                if(s.queue.length > 0) {
+                    let curr = s.queue.shift();
+                    if(curr === end) { buildPath(s, curr); return; }
+                    getNeighbors(m, curr).forEach(n => {
+                        if(!s.visited.has(n)) {
+                            s.visited.add(n); n.open = true; n.parent = curr; s.queue.push(n);
+                        }
+                    });
+                }
+            }
+        }
+
+        function getNeighbors(m, c) {
+            let res = [];
+            [[0,-1,0],[1,0,1],[0,1,2],[-1,0,3]].forEach(d => {
+                if(!c.walls[d[2]]) res.push(m.grid[(c.c+d[0]) + (c.r+d[1]) * cols]);
+            });
+            return res;
+        }
+
+        function buildPath(s, last) {
+            let t = last; while(t) { s.path.push(t); t = t.parent; }
+            s.done = true;
+            if(solvers.every(v => v.done)) setTimeout(setup, 4000);
+        }
+
+        function render() {
+            ctx.fillStyle = "#050508";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+            let speed = speedSlider.value;
+
+            for(let i=0; i<speed; i++) {
+                mazes.forEach((m, idx) => solveStep(m, solvers[idx]));
+            }
+
+            mazes.forEach((m, idx) => {
+                const s = solvers[idx];
+                ctx.save();
+                ctx.translate(m.x, 60);
+                
+                m.grid.forEach(cell => {
+                    let x = cell.c*cellSize, y = cell.r*cellSize;
+                    if(cell.open) {
+                        ctx.fillStyle = (idx === 0) ? "rgba(0,255,204,0.15)" : "rgba(255,0,255,0.1)";
+                        ctx.fillRect(x,y,cellSize,cellSize);
+                    }
+                    ctx.strokeStyle = "#222";
+                    ctx.beginPath();
+                    if(cell.walls[0]) {ctx.moveTo(x,y); ctx.lineTo(x+cellSize,y);}
+                    if(cell.walls[1]) {ctx.moveTo(x+cellSize,y); ctx.lineTo(x+cellSize,y+cellSize);}
+                    if(cell.walls[2]) {ctx.moveTo(x+cellSize,y+cellSize); ctx.lineTo(x,y+cellSize);}
+                    if(cell.walls[3]) {ctx.moveTo(x,y+cellSize); ctx.lineTo(x,y);}
+                    ctx.stroke();
+                });
+
+                if(s.path.length) {
+                    ctx.strokeStyle = (idx === 0) ? "#00ffcc" : "#ff00ff";
+                    ctx.lineWidth = 3; ctx.beginPath();
+                    s.path.forEach((c, i) => {
+                        let px = c.c*cellSize+cellSize/2, py = c.r*cellSize+cellSize/2;
+                        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+                    });
+                    ctx.stroke();
+                }
+                ctx.restore();
+            });
+            requestAnimationFrame(render);
+        }
+
+        window.addEventListener('resize', setup);
+        setup(); render();
+    </script>
+</body>
+</html>

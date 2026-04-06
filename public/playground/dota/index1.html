@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geometry of War - Wave System</title>
+    <style>
+        :root {
+            --bg: #0d0d12;
+            --primary: #00f2ff;
+            --secondary: #ff0055;
+            --panel: #1a1a24;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #ui-top {
+            padding: 15px;
+            background: var(--panel);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-bottom: 2px solid #333;
+        }
+
+        .stat {
+            font-size: 1.1rem;
+        }
+
+        .timer {
+            color: #ffcc00;
+            font-size: 1.5rem;
+            border: 1px solid #ffcc00;
+            padding: 5px 15px;
+            border-radius: 4px;
+        }
+
+        .player-hp {
+            color: var(--primary);
+        }
+
+        .enemy-hp {
+            color: var(--secondary);
+        }
+
+        #game-container {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            font-size: 0.8rem;
+            border-left: 3px solid var(--primary);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="ui-top">
+        <div class="stat player-hp">СВЯТИНЯ ПОРЯДКУ: <span id="p-hp">1000</span></div>
+        <div class="timer">НАСТУПНА ХВИЛЯ: <span id="timer-val">10</span>с</div>
+        <div class="stat enemy-hp">СВЯТИНЯ ЕНТРОПІЇ: <span id="e-hp">1000</span></div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="instructions">
+
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let state = {
+            playerHP: 1000,
+            enemyHP: 1000,
+            units: [],
+            waveTimer: 10,
+            lastTime: 0
+        };
+
+        const CONFIG = {
+            waveInterval: 10000, // 10 секунд
+            baseSpeed: 0.6,      // Зменшена швидкість
+            unitSize: 6,
+            meleeHP: 60,
+            rangeHP: 30,
+            meleeAtk: 0.5,
+            rangeAtk: 0.3,
+            rangeDistance: 60    // Відстань атаки для дальніх
+        };
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const getPoints = () => ({
+            pBase: { x: 60, y: canvas.height - 60 },
+            eBase: { x: canvas.width - 60, y: 60 },
+            topCorner: { x: 60, y: 60 },
+            botCorner: { x: canvas.width - 60, y: canvas.height - 60 }
+        });
+
+        class Unit {
+            constructor(owner, lane, type, offset = 0) {
+                this.owner = owner;
+                this.lane = lane;
+                this.type = type; // 'melee' або 'range'
+                this.hp = type === 'melee' ? CONFIG.meleeHP : CONFIG.rangeHP;
+                this.maxHp = this.hp;
+                this.atk = type === 'melee' ? CONFIG.meleeAtk : CONFIG.rangeAtk;
+                this.progress = -offset; // Зміщення, щоб юніти не йшли в одній точці
+                this.isDead = false;
+                this.color = owner === 'player' ? '#00f2ff' : '#ff0055';
+            }
+
+            getPosition() {
+                const p = getPoints();
+                const start = this.owner === 'player' ? p.pBase : p.eBase;
+                const end = this.owner === 'player' ? p.eBase : p.pBase;
+                let t = Math.max(0, this.progress);
+
+                if (this.lane === 'mid') {
+                    return { x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t };
+                } else {
+                    const corner = (this.lane === 'top') ? p.topCorner : p.botCorner;
+                    if (t < 0.5) {
+                        let subT = t * 2;
+                        return { x: start.x + (corner.x - start.x) * subT, y: start.y + (corner.y - start.y) * subT };
+                    } else {
+                        let subT = (t - 0.5) * 2;
+                        return { x: corner.x + (end.x - corner.x) * subT, y: corner.y + (end.y - corner.y) * subT };
+                    }
+                }
+            }
+
+            update() {
+                if (this.progress < 0) { // Вихід з бази з затримкою
+                    this.progress += 0.0005 * CONFIG.baseSpeed;
+                    return;
+                }
+
+                let blocked = false;
+                const myPos = this.getPosition();
+
+                // Пошук цілі
+                for (let other of state.units) {
+                    if (other.owner !== this.owner && other.lane === this.lane && !other.isDead) {
+                        const otherPos = other.getPosition();
+                        const dist = Math.hypot(myPos.x - otherPos.x, myPos.y - otherPos.y);
+
+                        const stopDist = this.type === 'range' ? CONFIG.rangeDistance : 15;
+
+                        if (dist < stopDist) {
+                            blocked = true;
+                            other.hp -= this.atk;
+                            if (other.hp <= 0) other.isDead = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!blocked) {
+                    this.progress += 0.001 * CONFIG.baseSpeed;
+                }
+
+                if (this.progress >= 1) {
+                    if (this.owner === 'player') state.enemyHP -= 5;
+                    else state.playerHP -= 5;
+                    this.isDead = true;
+                }
+            }
+
+            draw() {
+                if (this.progress < 0) return;
+                const pos = this.getPosition();
+
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                if (this.type === 'melee') {
+                    ctx.arc(pos.x, pos.y, CONFIG.unitSize + 2, 0, Math.PI * 2);
+                } else {
+                    // Трикутник для дальніх
+                    ctx.moveTo(pos.x, pos.y - 7);
+                    ctx.lineTo(pos.x - 6, pos.y + 6);
+                    ctx.lineTo(pos.x + 6, pos.y + 6);
+                    ctx.closePath();
+                }
+                ctx.fill();
+
+                // HP Bar
+                ctx.fillStyle = "rgba(255,0,0,0.5)";
+                ctx.fillRect(pos.x - 8, pos.y - 12, 16, 2);
+                ctx.fillStyle = "#00ff00";
+                ctx.fillRect(pos.x - 8, pos.y - 12, (this.hp / this.maxHp) * 16, 2);
+            }
+        }
+
+        function spawnWave() {
+            const lanes = ['top', 'mid', 'bot'];
+            const owners = ['player', 'enemy'];
+
+            owners.forEach(owner => {
+                lanes.forEach(lane => {
+                    // 3 Melee (з невеликим відступом один за одним)
+                    for (let i = 0; i < 3; i++) {
+                        state.units.push(new Unit(owner, lane, 'melee', i * 0.01));
+                    }
+                    // 1 Range
+                    state.units.push(new Unit(owner, lane, 'range', 3 * 0.01));
+                });
+            });
+        }
+
+        function drawWorld() {
+            const p = getPoints();
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 1;
+            // Lanes
+            const drawPath = (start, corner, end) => {
+                ctx.beginPath();
+                ctx.moveTo(start.x, start.y);
+                if (corner) ctx.lineTo(corner.x, corner.y);
+                ctx.lineTo(end.x, end.y);
+                ctx.stroke();
+            };
+            drawPath(p.pBase, null, p.eBase);
+            drawPath(p.pBase, p.topCorner, p.eBase);
+            drawPath(p.pBase, p.botCorner, p.eBase);
+
+            // Bases
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00f2ff';
+            ctx.fillStyle = '#00f2ff';
+            ctx.beginPath(); ctx.arc(p.pBase.x, p.pBase.y, 25, 0, Math.PI * 2); ctx.fill();
+
+            ctx.shadowColor = '#ff0055';
+            ctx.fillStyle = '#ff0055';
+            ctx.beginPath(); ctx.rect(p.eBase.x - 20, p.eBase.y - 20, 40, 40); ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        function loop(time) {
+            if (!state.lastTime) state.lastTime = time;
+            const delta = time - state.lastTime;
+
+            ctx.fillStyle = '#0d0d12';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Timer logic
+            state.waveTimer -= delta / 1000;
+            if (state.waveTimer <= 0) {
+                spawnWave();
+                state.waveTimer = 10;
+            }
+            document.getElementById('timer-val').innerText = Math.ceil(state.waveTimer);
+            document.getElementById('p-hp').innerText = Math.max(0, state.playerHP);
+            document.getElementById('e-hp').innerText = Math.max(0, state.enemyHP);
+
+            drawWorld();
+
+            state.units = state.units.filter(u => !u.isDead);
+            state.units.forEach(u => {
+                u.update();
+                u.draw();
+            });
+
+            state.lastTime = time;
+            if (state.playerHP > 0 && state.enemyHP > 0) {
+                requestAnimationFrame(loop);
+            } else {
+                ctx.fillStyle = "white";
+                ctx.font = "40px Courier New";
+                ctx.textAlign = "center";
+                ctx.fillText(state.playerHP <= 0 ? "ENTROPY WINS" : "ORDER WINS", canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        spawnWave(); // Перша хвиля одразу
+        requestAnimationFrame(loop);
+    </script>
+
+</body>
+
+</html>

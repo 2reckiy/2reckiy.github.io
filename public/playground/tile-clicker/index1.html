@@ -1,0 +1,2940 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TileScout</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --bg: #080c12;
+        --panel-bg: rgba(8, 14, 22, 0.92);
+        --panel-border: rgba(255, 255, 255, 0.07);
+        --text-primary: #c8d8e8;
+        --text-muted: #566878;
+        --accent: #c8a84a;
+        --accent-dim: rgba(200, 168, 74, 0.18);
+        --error: #e05050;
+        --error-dim: rgba(224, 80, 80, 0.18);
+        --bonus: #50c878;
+        --bonus-dim: rgba(80, 200, 120, 0.15);
+        --font: "Share Tech Mono", "Courier New", monospace;
+      }
+      body {
+        background: var(--bg);
+        overflow: hidden;
+        font-family: var(--font);
+        color: var(--text-primary);
+        user-select: none;
+      }
+      #gameCanvas {
+        display: block;
+        cursor: grab;
+        position: fixed;
+        inset: 0;
+      }
+      #gameCanvas.dragging {
+        cursor: grabbing;
+      }
+
+      /* Breadcrumb */
+      #breadcrumb {
+        position: fixed;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        backdrop-filter: blur(8px);
+        padding: 6px 14px;
+        z-index: 10;
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        white-space: nowrap;
+      }
+      .bc-item {
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: color 0.2s;
+        padding: 0 2px;
+      }
+      .bc-item:hover {
+        color: var(--accent);
+      }
+      .bc-item.active {
+        color: var(--text-primary);
+      }
+      .bc-sep {
+        color: var(--panel-border);
+      }
+
+      /* Right HUD */
+      #hud {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        width: 240px;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        backdrop-filter: blur(8px);
+        padding: 12px 14px;
+        z-index: 10;
+      }
+      #hud-title {
+        font-size: 11px;
+        letter-spacing: 0.22em;
+        color: var(--accent);
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--panel-border);
+      }
+      #tick-indicator {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--text-muted);
+        transition: background 0.1s;
+      }
+      #tick-indicator.pulse {
+        background: var(--accent);
+        box-shadow: 0 0 8px var(--accent);
+      }
+      #res-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .res-row {
+        display: grid;
+        grid-template-columns: 14px 60px 1fr 58px;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+      }
+      .res-icon {
+        text-align: center;
+        font-size: 12px;
+      }
+      .res-name {
+        color: var(--text-muted);
+        letter-spacing: 0.04em;
+      }
+      .res-bar-wrap {
+        height: 4px;
+        background: rgba(255, 255, 255, 0.05);
+        position: relative;
+        overflow: hidden;
+      }
+      .res-bar-fill {
+        height: 100%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        transition: width 0.4s ease;
+        opacity: 0.75;
+      }
+      .res-val {
+        text-align: right;
+        font-size: 10px;
+      }
+      .res-max {
+        color: var(--text-muted);
+      }
+      #hud-divider {
+        height: 1px;
+        background: var(--panel-border);
+        margin: 10px 0;
+      }
+      #stats {
+        font-size: 10px;
+        color: var(--text-muted);
+        letter-spacing: 0.04em;
+      }
+      #stats b {
+        color: var(--text-primary);
+      }
+
+      /* Left Plot HUD */
+      #plot-hud {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        width: 190px;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        backdrop-filter: blur(8px);
+        padding: 12px 14px;
+        z-index: 10;
+        display: none;
+      }
+      #plot-hud.visible {
+        display: block;
+      }
+      #plot-hud-title {
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        color: #90b060;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--panel-border);
+      }
+      .ph-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        margin-bottom: 6px;
+      }
+      .ph-label {
+        color: var(--text-muted);
+      }
+      .ph-val {
+        font-size: 11px;
+      }
+      .ph-val.warn {
+        color: #e09050;
+      }
+      .ph-val.good {
+        color: var(--bonus);
+      }
+      .ph-val.neutral {
+        color: var(--text-primary);
+      }
+      #eval-btn {
+        width: 100%;
+        margin-top: 10px;
+        padding: 7px 0;
+        font-family: var(--font);
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        background: rgba(144, 176, 96, 0.15);
+        border: 1px solid #90b060;
+        color: #90b060;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      #eval-btn:hover {
+        background: rgba(144, 176, 96, 0.3);
+      }
+      #eval-btn:disabled {
+        opacity: 0.3;
+        cursor: default;
+      }
+
+      /* Card Tray */
+      #card-tray {
+        position: fixed;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: none;
+        gap: 8px;
+        z-index: 10;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        backdrop-filter: blur(8px);
+        padding: 10px 14px;
+        align-items: center;
+      }
+      #tray-label {
+        font-size: 9px;
+        color: var(--text-muted);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        writing-mode: vertical-rl;
+        margin-right: 2px;
+      }
+      .plot-card {
+        width: 70px;
+        height: 88px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--panel-border);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        cursor: pointer;
+        position: relative;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+        padding: 4px;
+      }
+      .plot-card:hover {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+      }
+      .plot-card.selected {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+        box-shadow: 0 0 10px rgba(200, 168, 74, 0.3);
+      }
+      .plot-card.empty-slot {
+        cursor: default;
+        border-style: dashed;
+        opacity: 0.4;
+      }
+      .plot-card.empty-slot:hover {
+        border-color: var(--panel-border);
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .pc-grade {
+        position: absolute;
+        top: 3px;
+        right: 5px;
+        font-size: 9px;
+      }
+      .pc-icon {
+        font-size: 20px;
+        margin-bottom: 2px;
+      }
+      .pc-name {
+        font-size: 8px;
+        color: var(--text-muted);
+        text-align: center;
+        line-height: 1.3;
+        margin-bottom: 2px;
+      }
+      .pc-pop {
+        font-size: 9px;
+        color: #a0c0e0;
+      }
+      .pc-rare {
+        font-size: 8px;
+        color: var(--accent);
+        text-align: center;
+        line-height: 1.2;
+        margin-top: 2px;
+      }
+
+      /* Evaluation Modal */
+      #eval-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(4px);
+        z-index: 50;
+      }
+      #eval-modal.visible {
+        display: flex;
+      }
+      #eval-box {
+        width: 380px;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        padding: 22px 26px;
+      }
+      #eval-title {
+        font-size: 12px;
+        letter-spacing: 0.2em;
+        color: #90b060;
+        text-transform: uppercase;
+        margin-bottom: 18px;
+      }
+      .eval-section-title {
+        font-size: 10px;
+        color: var(--text-muted);
+        letter-spacing: 0.1em;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+      }
+      #eval-bars {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        margin-bottom: 16px;
+      }
+      .eval-res-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+      }
+      .eval-res-label {
+        width: 90px;
+        color: var(--text-muted);
+        font-size: 10px;
+      }
+      .eval-res-bar {
+        flex: 1;
+        height: 5px;
+        background: rgba(255, 255, 255, 0.05);
+        position: relative;
+        overflow: hidden;
+      }
+      .eval-res-fill {
+        height: 100%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        transition: width 0.8s ease;
+      }
+      .eval-res-val {
+        width: 50px;
+        text-align: right;
+        font-size: 10px;
+      }
+      #eval-timeline {
+        margin-bottom: 16px;
+      }
+      #eval-tick-row {
+        display: flex;
+        gap: 3px;
+        margin-top: 6px;
+      }
+      .eval-tick {
+        flex: 1;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        transition: background 0.05s;
+      }
+      .eval-tick.alive {
+        background: #50c878;
+      }
+      .eval-tick.dead {
+        background: #e05050;
+      }
+      #eval-result {
+        font-size: 12px;
+        margin-bottom: 16px;
+        padding: 10px;
+        border: 1px solid var(--panel-border);
+        line-height: 1.6;
+      }
+      #eval-result.success {
+        border-color: var(--bonus);
+        color: var(--bonus);
+        background: var(--bonus-dim);
+      }
+      #eval-result.fail {
+        border-color: var(--error);
+        color: var(--error);
+        background: var(--error-dim);
+      }
+      #eval-close {
+        width: 100%;
+        padding: 9px;
+        font-family: var(--font);
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        background: var(--accent-dim);
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        cursor: pointer;
+      }
+      #eval-close:hover {
+        background: rgba(200, 168, 74, 0.3);
+      }
+
+      /* Tooltip */
+      #tooltip {
+        position: fixed;
+        display: none;
+        width: 204px;
+        background: rgba(6, 10, 18, 0.97);
+        border: 1px solid var(--panel-border);
+        backdrop-filter: blur(6px);
+        padding: 10px 12px;
+        z-index: 20;
+        pointer-events: none;
+      }
+      .tt-title {
+        font-size: 12px;
+        color: var(--accent);
+        letter-spacing: 0.08em;
+        margin-bottom: 2px;
+      }
+      .tt-coords {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-bottom: 5px;
+      }
+      .tt-desc {
+        font-size: 10px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        margin-bottom: 5px;
+      }
+      .tt-row {
+        font-size: 11px;
+        margin-bottom: 3px;
+      }
+      .tt-affordable {
+        color: var(--bonus);
+      }
+      .tt-expensive {
+        color: var(--error);
+      }
+      .tt-hint {
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .tt-bonus {
+        font-size: 10px;
+        color: var(--bonus);
+      }
+      .tt-slot {
+        font-size: 10px;
+        color: #a0c0e0;
+      }
+
+      /* Notification */
+      #notification {
+        position: fixed;
+        bottom: 120px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 8px 18px;
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+        z-index: 30;
+        border: 1px solid transparent;
+      }
+      #notification.error {
+        color: var(--error);
+        background: var(--error-dim);
+        border-color: var(--error);
+      }
+      #notification.bonus {
+        color: var(--bonus);
+        background: var(--bonus-dim);
+        border-color: var(--bonus);
+      }
+      #notification.info {
+        color: var(--accent);
+        background: var(--accent-dim);
+        border-color: var(--accent);
+      }
+
+      /* Scale placeholder overlay */
+      #scale-overlay {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 14px;
+        z-index: 40;
+        background: rgba(8, 12, 18, 0.94);
+        backdrop-filter: blur(6px);
+      }
+      #scale-overlay.visible {
+        display: flex;
+      }
+      #scale-icon {
+        font-size: 48px;
+        opacity: 0.3;
+        margin-bottom: 8px;
+      }
+      #scale-label {
+        font-size: 28px;
+        letter-spacing: 0.3em;
+        color: var(--text-muted);
+        text-transform: uppercase;
+      }
+      #scale-sub {
+        font-size: 11px;
+        color: var(--text-muted);
+        letter-spacing: 0.15em;
+      }
+      #scale-note {
+        font-size: 10px;
+        color: var(--text-muted);
+        opacity: 0.5;
+        margin-top: 4px;
+      }
+      #scale-back {
+        margin-top: 12px;
+        padding: 8px 24px;
+        font-family: var(--font);
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        background: var(--accent-dim);
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        cursor: pointer;
+      }
+      #scale-back:hover {
+        background: rgba(200, 168, 74, 0.3);
+      }
+
+      /* Controls hint */
+      #controls-hint {
+        position: fixed;
+        bottom: 12px;
+        right: 12px;
+        font-size: 9px;
+        color: var(--text-muted);
+        letter-spacing: 0.06em;
+        line-height: 1.7;
+        text-align: right;
+      }
+
+      /* Zoom flash */
+      #zoom-flash {
+        position: fixed;
+        inset: 0;
+        background: rgba(200, 168, 74, 0.06);
+        pointer-events: none;
+        opacity: 0;
+        z-index: 45;
+        transition: opacity 0.25s;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="breadcrumb">
+      <span class="bc-item" data-scale="MULTIVERSE">Multiverse</span
+      ><span class="bc-sep">›</span>
+      <span class="bc-item" data-scale="UNIVERSE">Universe</span
+      ><span class="bc-sep">›</span>
+      <span class="bc-item" data-scale="SYSTEM">System</span
+      ><span class="bc-sep">›</span>
+      <span class="bc-item" data-scale="WORLD">World</span
+      ><span class="bc-sep">›</span>
+      <span class="bc-item" data-scale="REGION">Region</span
+      ><span class="bc-sep">›</span>
+      <span class="bc-item active" data-scale="DISTRICT">District</span
+      ><span class="bc-sep">›</span>
+      <span class="bc-item" data-scale="PLOT" id="bc-plot">—</span>
+    </div>
+
+    <div id="plot-hud">
+      <div id="plot-hud-title">Settlement</div>
+      <div class="ph-row">
+        <span class="ph-label">Turns left</span
+        ><span class="ph-val neutral" id="ph-turns">—</span>
+      </div>
+      <div class="ph-row">
+        <span class="ph-label">Population</span
+        ><span class="ph-val neutral" id="ph-pop">—</span>
+      </div>
+      <div class="ph-row">
+        <span class="ph-label">Food bal/tick</span
+        ><span class="ph-val" id="ph-food">—</span>
+      </div>
+      <div class="ph-row">
+        <span class="ph-label">Brush bal/tick</span
+        ><span class="ph-val" id="ph-brush">—</span>
+      </div>
+      <div class="ph-row">
+        <span class="ph-label">Est. grade</span
+        ><span class="ph-val neutral" id="ph-grade">—</span>
+      </div>
+      <button id="eval-btn">Evaluate Settlement</button>
+    </div>
+
+    <div id="hud">
+      <div id="hud-title">
+        <span id="hud-scale-name">District</span>
+        <div id="tick-indicator"></div>
+      </div>
+      <div id="res-list"></div>
+      <div id="hud-divider"></div>
+      <div id="stats"></div>
+    </div>
+
+    <div id="card-tray">
+      <div id="tray-label">Cards</div>
+    </div>
+
+    <div id="eval-modal">
+      <div id="eval-box">
+        <div id="eval-title">Settlement Evaluation</div>
+        <div class="eval-section-title">Production Balance</div>
+        <div id="eval-bars"></div>
+        <div id="eval-timeline">
+          <div class="eval-section-title">Simulation (20 ticks)</div>
+          <div id="eval-tick-row"></div>
+        </div>
+        <div id="eval-result"></div>
+        <button id="eval-close">Accept &amp; Convert to Card</button>
+      </div>
+    </div>
+
+    <div id="scale-overlay">
+      <div id="scale-icon">◎</div>
+      <div id="scale-label"></div>
+      <div id="scale-sub"></div>
+      <div id="scale-note">— Placeholder · Coming in future update —</div>
+      <button id="scale-back">← Return to District</button>
+    </div>
+
+    <div id="tooltip"></div>
+    <div id="notification"></div>
+    <div id="zoom-flash"></div>
+    <div id="controls-hint">Drag · Scroll zoom · Click to interact</div>
+
+    <script>
+      "use strict";
+
+      // ═══════════════════════════════════════════════════════
+      //  SCALE LAYER DEFINITIONS
+      // ═══════════════════════════════════════════════════════
+      const ScaleLayer = Object.freeze({
+        PLOT: "PLOT",
+        DISTRICT: "DISTRICT",
+        REGION: "REGION",
+        WORLD: "WORLD",
+        SYSTEM: "SYSTEM",
+        UNIVERSE: "UNIVERSE",
+        MULTIVERSE: "MULTIVERSE",
+      });
+
+      const SCALE_META = Object.freeze({
+        PLOT: {
+          name: "Settlement",
+          subtitle: "Survival · Tactical Puzzle",
+          icon: "🔥",
+          color: "#90b060",
+          placeholder: false,
+        },
+        DISTRICT: {
+          name: "District",
+          subtitle: "Organization · Town Building",
+          icon: "⌂",
+          color: "#c8a84a",
+          placeholder: false,
+        },
+        REGION: {
+          name: "Region",
+          subtitle: "Territory · Kingdom Expansion",
+          icon: "⚑",
+          color: "#6080c0",
+          placeholder: true,
+        },
+        WORLD: {
+          name: "World",
+          subtitle: "Civilization · Planetary Scale",
+          icon: "◎",
+          color: "#50a0d0",
+          placeholder: true,
+        },
+        SYSTEM: {
+          name: "Planetary System",
+          subtitle: "Expansion · Star Empire",
+          icon: "✦",
+          color: "#c050a0",
+          placeholder: true,
+        },
+        UNIVERSE: {
+          name: "Universe",
+          subtitle: "Cosmology · Coming Soon",
+          icon: "∞",
+          color: "#8060e0",
+          placeholder: true,
+        },
+        MULTIVERSE: {
+          name: "Multiverse",
+          subtitle: "Prestige · Meta Layer",
+          icon: "⧫",
+          color: "#e06080",
+          placeholder: true,
+        },
+      });
+
+      // ═══════════════════════════════════════════════════════
+      //  CONSTANTS
+      // ═══════════════════════════════════════════════════════
+      const CONST = Object.freeze({
+        MAP_SEED: 0xdeadbeef,
+        CHUNK_SIZE: 8,
+        TILE_SIZE: 72,
+
+        // District economy
+        DISTRICT_BASE_COST: 12,
+        OPEN_COUNT_SCALE: 0.07,
+        DISTANCE_SCALE: 0.38,
+        GOVERNANCE_TRICKLE: 2, // governance gained per tick passively
+
+        // Plot session params
+        PLOT_TURNS_MIN: 8,
+        PLOT_TURNS_MAX: 14,
+        PLOT_GRID_MIN: 5,
+        PLOT_GRID_MAX: 9,
+        PLOT_EVAL_TICKS: 20,
+        PLOT_SUSTAIN_TICKS: 10,
+        PLOT_POP_BASE: 10,
+        PLOT_POP_SURPLUS_MUL: 0.5,
+        BONFIRE_BRUSH_COST: 1,
+        POP_FOOD_COST: 1,
+
+        // District slots
+        DISTRICT_PLOT_SLOTS: 3,
+
+        ZOOM_MIN: 0.3,
+        ZOOM_MAX: 3.5,
+        ZOOM_SPEED: 0.0012,
+        TICK_INTERVAL_MS: 1000,
+        TILE_PAD: 1,
+        GRID_ALPHA: 0.04,
+        FOG_ALPHA: 0.62,
+        DRAG_THRESHOLD_PX: 4,
+        NOTIFICATION_MS: 2600,
+
+        DISTRICT_TILE_WEIGHTS: Object.freeze({
+          TOWN_CENTER: 0.02,
+          MARKET: 0.16,
+          WORKSHOP: 0.15,
+          FARM_QUARTER: 0.13,
+          RESIDENTIAL: 0.12,
+          WAREHOUSE: 0.07,
+          TAVERN: 0.07,
+          ROAD: 0.1,
+          RUINS: 0.06,
+          PLOT_SLOT: 0.12,
+        }),
+        PLOT_TILE_WEIGHTS: Object.freeze({
+          FOREST: 0.27,
+          FARMLAND: 0.26,
+          HUNTING_GROUND: 0.14,
+          FRESH_WATER: 0.1,
+          CLAY_PIT: 0.1,
+          FLINT_OUTCROP: 0.08,
+          ANCIENT_CAMP: 0.05,
+        }),
+      });
+
+      // ═══════════════════════════════════════════════════════
+      //  TILE TYPE REGISTRIES
+      // ═══════════════════════════════════════════════════════
+      const DISTRICT_TILE_TYPES = Object.freeze({
+        TOWN_CENTER: {
+          id: "TOWN_CENTER",
+          name: "Town Center",
+          color: "#c8a84a",
+          darkColor: "#4a3a18",
+          symbol: "⌂",
+          resource: "governance",
+          amountPerTick: 2,
+          popCost: 0,
+          isSlot: false,
+          description: "Administrative core. Generates Governance passively.",
+        },
+        MARKET: {
+          id: "MARKET",
+          name: "Market",
+          color: "#4a9868",
+          darkColor: "#182f22",
+          symbol: "₪",
+          resource: "commerce",
+          amountPerTick: 3,
+          popCost: 5,
+          isSlot: false,
+          description: "Trade hub producing Commerce each tick.",
+        },
+        WORKSHOP: {
+          id: "WORKSHOP",
+          name: "Workshop",
+          color: "#9a5c2c",
+          darkColor: "#381e0c",
+          symbol: "⚒",
+          resource: "craft",
+          amountPerTick: 3,
+          popCost: 6,
+          isSlot: false,
+          description: "Craft goods production.",
+        },
+        FARM_QUARTER: {
+          id: "FARM_QUARTER",
+          name: "Farm Quarter",
+          color: "#6a9838",
+          darkColor: "#263418",
+          symbol: "⌾",
+          resource: "food",
+          amountPerTick: 4,
+          popCost: 3,
+          isSlot: false,
+          description: "Feeds population. Reduces upkeep cost.",
+        },
+        RESIDENTIAL: {
+          id: "RESIDENTIAL",
+          name: "Residential",
+          color: "#5a6880",
+          darkColor: "#1e2430",
+          symbol: "▦",
+          resource: "",
+          amountPerTick: 0,
+          popCost: 0,
+          isSlot: false,
+          description: "Housing. +10 population capacity.",
+        },
+        WAREHOUSE: {
+          id: "WAREHOUSE",
+          name: "Warehouse",
+          color: "#786040",
+          darkColor: "#2c2418",
+          symbol: "▣",
+          resource: "",
+          amountPerTick: 0,
+          popCost: 2,
+          isSlot: false,
+          description: "Raises storage caps for all resources.",
+        },
+        TAVERN: {
+          id: "TAVERN",
+          name: "Tavern",
+          color: "#885070",
+          darkColor: "#321828",
+          symbol: "♜",
+          resource: "culture",
+          amountPerTick: 2,
+          popCost: 4,
+          isSlot: false,
+          description: "Culture production — morale of the town.",
+        },
+        ROAD: {
+          id: "ROAD",
+          name: "Road",
+          color: "#545464",
+          darkColor: "#1e1e28",
+          symbol: "═",
+          resource: "",
+          amountPerTick: 0,
+          popCost: 0,
+          isSlot: false,
+          description: "Reduces adjacent tile opening costs.",
+        },
+        RUINS: {
+          id: "RUINS",
+          name: "Ruins",
+          color: "#6858a0",
+          darkColor: "#261e3c",
+          symbol: "✦",
+          resource: "commerce",
+          amountPerTick: 0,
+          popCost: 0,
+          isSlot: false,
+          description: "One-time Commerce windfall on discovery.",
+          oneTimeBonus: { resource: "commerce", amount: 40 },
+        },
+        PLOT_SLOT: {
+          id: "PLOT_SLOT",
+          name: "Settlement Slot",
+          color: "#2c4860",
+          darkColor: "#0e1820",
+          symbol: "◈",
+          resource: "",
+          amountPerTick: 0,
+          popCost: 0,
+          isSlot: true,
+          description:
+            "Place a completed Settlement card here to populate the district.",
+        },
+      });
+
+      const PLOT_TILE_TYPES = Object.freeze({
+        BONFIRE: {
+          id: "BONFIRE",
+          name: "Bonfire",
+          color: "#d86828",
+          darkColor: "#501808",
+          symbol: "🔥",
+          foodProd: 0,
+          brushProd: 0,
+          brushCost: 1,
+          resource: "",
+          amountPerTick: 0,
+          description:
+            "Settlement anchor. Consumes Brushwood/tick to keep the people warm.",
+        },
+        FOREST: {
+          id: "FOREST",
+          name: "Forest",
+          color: "#2a5c3c",
+          darkColor: "#101e16",
+          symbol: "♣",
+          foodProd: 0,
+          brushProd: 3,
+          brushCost: 0,
+          resource: "brushwood",
+          amountPerTick: 3,
+          description: "Source of Brushwood to feed the bonfire.",
+        },
+        FARMLAND: {
+          id: "FARMLAND",
+          name: "Farmland",
+          color: "#587838",
+          darkColor: "#222e14",
+          symbol: "≈",
+          foodProd: 3,
+          brushProd: 0,
+          brushCost: 0,
+          resource: "food",
+          amountPerTick: 3,
+          description: "Grows food. Adjacent Fresh Water tiles boost yield.",
+        },
+        HUNTING_GROUND: {
+          id: "HUNTING_GROUND",
+          name: "Hunting Ground",
+          color: "#786828",
+          darkColor: "#2a2408",
+          symbol: "✦",
+          foodProd: 5,
+          brushProd: 0,
+          brushCost: 0,
+          resource: "food",
+          amountPerTick: 5,
+          description:
+            "High food yield from wild game. Rarer but more productive.",
+        },
+        FRESH_WATER: {
+          id: "FRESH_WATER",
+          name: "Fresh Water",
+          color: "#285898",
+          darkColor: "#0c1e38",
+          symbol: "~",
+          foodProd: 0,
+          brushProd: 0,
+          brushCost: 0,
+          resource: "",
+          amountPerTick: 0,
+          description:
+            "Boosts food output of all adjacent Farmland tiles by +2.",
+          adjBonus: { targetType: "FARMLAND", resource: "food", amount: 2 },
+        },
+        CLAY_PIT: {
+          id: "CLAY_PIT",
+          name: "Clay Pit",
+          color: "#887060",
+          darkColor: "#342820",
+          symbol: "▪",
+          foodProd: 0,
+          brushProd: 0,
+          brushCost: 0,
+          resource: "clay",
+          amountPerTick: 2,
+          description:
+            "Clay for construction. Needed for better buildings later.",
+        },
+        FLINT_OUTCROP: {
+          id: "FLINT_OUTCROP",
+          name: "Flint Outcrop",
+          color: "#989080",
+          darkColor: "#383028",
+          symbol: "◆",
+          foodProd: 0,
+          brushProd: 0,
+          brushCost: 0,
+          resource: "flint",
+          amountPerTick: 1,
+          description:
+            "Rare stone. Enables tools — multiplies all production ×1.2.",
+          globalBonus: { multiplier: 1.2 },
+        },
+        ANCIENT_CAMP: {
+          id: "ANCIENT_CAMP",
+          name: "Ancient Camp",
+          color: "#786090",
+          darkColor: "#2c2038",
+          symbol: "✧",
+          foodProd: 0,
+          brushProd: 0,
+          brushCost: 0,
+          resource: "",
+          amountPerTick: 0,
+          description: "Rare ancient site. One-time +15 population bonus.",
+          oneTimeBonus: { type: "population", amount: 15 },
+        },
+      });
+
+      const PLOT_RESOURCE_REGISTRY = Object.freeze({
+        food: {
+          id: "food",
+          name: "Food",
+          color: "#90c850",
+          icon: "⌾",
+          max: 200,
+        },
+        brushwood: {
+          id: "brushwood",
+          name: "Brushwood",
+          color: "#a07848",
+          icon: "♣",
+          max: 200,
+        },
+        clay: {
+          id: "clay",
+          name: "Clay",
+          color: "#c09878",
+          icon: "▪",
+          max: 150,
+        },
+        flint: {
+          id: "flint",
+          name: "Flint",
+          color: "#d0c8b8",
+          icon: "◆",
+          max: 100,
+        },
+      });
+
+      const DISTRICT_RESOURCE_REGISTRY = Object.freeze({
+        governance: {
+          id: "governance",
+          name: "Governance",
+          color: "#c8a84a",
+          icon: "⌂",
+          max: 200,
+        },
+        population: {
+          id: "population",
+          name: "Population",
+          color: "#a0c0e0",
+          icon: "♟",
+          max: 300,
+        },
+        commerce: {
+          id: "commerce",
+          name: "Commerce",
+          color: "#50c890",
+          icon: "₪",
+          max: 300,
+        },
+        craft: {
+          id: "craft",
+          name: "Craft",
+          color: "#d08848",
+          icon: "⚒",
+          max: 300,
+        },
+        culture: {
+          id: "culture",
+          name: "Culture",
+          color: "#c068c8",
+          icon: "♜",
+          max: 200,
+        },
+        food: {
+          id: "food",
+          name: "Food",
+          color: "#90c850",
+          icon: "⌾",
+          max: 400,
+        },
+      });
+
+      const GRADE_TABLE = [
+        { min: 90, grade: "S", color: "#ffd700" },
+        { min: 75, grade: "A", color: "#c8a84a" },
+        { min: 55, grade: "B", color: "#70c080" },
+        { min: 35, grade: "C", color: "#7090c0" },
+        { min: 0, grade: "D", color: "#907878" },
+      ];
+
+      // ═══════════════════════════════════════════════════════
+      //  UTILITIES
+      // ═══════════════════════════════════════════════════════
+      class SeededRandom {
+        constructor(seed) {
+          this._s = seed >>> 0;
+        }
+        next() {
+          this._s = (this._s + 0x6d2b79f5) >>> 0;
+          let t = Math.imul(this._s ^ (this._s >>> 15), 1 | this._s);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        }
+        pickWeighted(w) {
+          const r = this.next();
+          let acc = 0;
+          for (const [k, v] of Object.entries(w)) {
+            acc += v;
+            if (r < acc) return k;
+          }
+          return Object.keys(w)[0];
+        }
+      }
+
+      class EventBus {
+        constructor() {
+          this._h = {};
+        }
+        on(ev, fn) {
+          (this._h[ev] ??= []).push(fn);
+          return () => {
+            this._h[ev] = (this._h[ev] || []).filter((f) => f !== fn);
+          };
+        }
+        emit(ev, d) {
+          (this._h[ev] || []).forEach((fn) => fn(d));
+        }
+      }
+
+      function calcGrade(score) {
+        for (const t of GRADE_TABLE) if (score >= t.min) return t;
+        return GRADE_TABLE[GRADE_TABLE.length - 1];
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  TILE
+      // ═══════════════════════════════════════════════════════
+      const TileState = Object.freeze({ HIDDEN: 0, VISIBLE: 1, OPEN: 2 });
+
+      class Tile {
+        constructor(x, y, typeId, registry) {
+          this.x = x;
+          this.y = y;
+          this.typeId = typeId;
+          this._reg = registry;
+          this.state = TileState.HIDDEN;
+          this.oneTimeClaimed = false;
+          this.placedCard = null;
+          this.popAssigned = 0;
+        }
+        get type() {
+          return this._reg[this.typeId];
+        }
+        get distanceFromCenter() {
+          return Math.sqrt(this.x * this.x + this.y * this.y);
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  PLOT CARD
+      // ═══════════════════════════════════════════════════════
+      class PlotCard {
+        constructor({
+          id,
+          grade,
+          dominantType,
+          population,
+          extraResources,
+          gridW,
+          gridH,
+          seed,
+          sustainTicks,
+          collapsed,
+        }) {
+          this.id = id;
+          this.grade = grade;
+          this.dominantType = dominantType;
+          this.population = population;
+          this.extraResources = extraResources;
+          this.gridW = gridW;
+          this.gridH = gridH;
+          this.seed = seed;
+          this.sustainTicks = sustainTicks;
+          this.collapsed = collapsed;
+          this._placed = false;
+          this.isRare = grade.grade === "S" || grade.grade === "A";
+          this.rareTag = this._computeRareTag();
+        }
+        _computeRareTag() {
+          if (!this.isRare) return null;
+          if (this.extraResources?.flint > 0) return "Craftsman Settlement";
+          if (this.population >= 30) return "Prosperous Settlement";
+          if (this.grade.grade === "S") return "Perfect Settlement";
+          return "Historic Settlement";
+        }
+        get symbol() {
+          return PLOT_TILE_TYPES[this.dominantType]?.symbol ?? "?";
+        }
+        get color() {
+          return PLOT_TILE_TYPES[this.dominantType]?.color ?? "#888";
+        }
+        get typeName() {
+          return PLOT_TILE_TYPES[this.dominantType]?.name ?? this.dominantType;
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  PLOT SESSION
+      // ═══════════════════════════════════════════════════════
+      class PlotSession {
+        constructor(gridW, gridH, maxTurns, seed, slotTile) {
+          this.gridW = gridW;
+          this.gridH = gridH;
+          this.maxTurns = maxTurns;
+          this.turnsLeft = maxTurns;
+          this.seed = seed;
+          this.slotTile = slotTile;
+          this.tiles = new Map();
+          this.openCount = 0;
+          this.evaluated = false;
+          this.card = null;
+          this._generate();
+        }
+
+        _generate() {
+          const rng = new SeededRandom(this.seed);
+          const cx = Math.floor(this.gridW / 2),
+            cy = Math.floor(this.gridH / 2);
+          for (let y = 0; y < this.gridH; y++) {
+            for (let x = 0; x < this.gridW; x++) {
+              const gx = x - cx,
+                gy = y - cy;
+              const typeId =
+                gx === 0 && gy === 0
+                  ? "BONFIRE"
+                  : rng.pickWeighted(CONST.PLOT_TILE_WEIGHTS);
+              const tile = new Tile(gx, gy, typeId, PLOT_TILE_TYPES);
+              tile.state = TileState.VISIBLE; // all tiles visible in plot
+              this.tiles.set(`${gx},${gy}`, tile);
+            }
+          }
+          // Auto-open bonfire
+          const bonfire = this.tiles.get("0,0");
+          bonfire.state = TileState.OPEN;
+          this.openCount = 1;
+        }
+
+        getTile(x, y) {
+          return this.tiles.get(`${x},${y}`) ?? null;
+        }
+
+        canOpen(x, y) {
+          const t = this.getTile(x, y);
+          return (
+            t &&
+            t.state === TileState.VISIBLE &&
+            this.turnsLeft > 0 &&
+            !this.evaluated
+          );
+        }
+
+        openTile(x, y) {
+          if (!this.canOpen(x, y)) return false;
+          this.getTile(x, y).state = TileState.OPEN;
+          this.turnsLeft--;
+          this.openCount++;
+          return true;
+        }
+
+        get bounds() {
+          const hx = Math.floor(this.gridW / 2),
+            hy = Math.floor(this.gridH / 2);
+          return {
+            x0: -hx,
+            y0: -hy,
+            x1: this.gridW - 1 - hx,
+            y1: this.gridH - 1 - hy,
+          };
+        }
+
+        getProductionSnapshot() {
+          // Flint multiplier
+          let flintMul = 1.0;
+          for (const t of this.tiles.values())
+            if (t.state === TileState.OPEN && t.typeId === "FLINT_OUTCROP") {
+              flintMul = PLOT_TILE_TYPES.FLINT_OUTCROP.globalBonus.multiplier;
+              break;
+            }
+
+          // Fresh water adjacency bonus
+          const waterBonus = new Map();
+          for (const t of this.tiles.values()) {
+            if (t.state === TileState.OPEN && t.typeId === "FRESH_WATER") {
+              for (const [dx, dy] of [
+                [1, 0],
+                [-1, 0],
+                [0, 1],
+                [0, -1],
+              ]) {
+                const n = this.getTile(t.x + dx, t.y + dy);
+                if (n && n.state === TileState.OPEN && n.typeId === "FARMLAND")
+                  waterBonus.set(
+                    `${n.x},${n.y}`,
+                    (waterBonus.get(`${n.x},${n.y}`) ?? 0) +
+                      PLOT_TILE_TYPES.FRESH_WATER.adjBonus.amount,
+                  );
+              }
+            }
+          }
+
+          let foodProd = 0,
+            brushProd = 0,
+            brushCost = 0;
+          let popCount = CONST.PLOT_POP_BASE;
+          const resProd = {};
+
+          for (const t of this.tiles.values()) {
+            if (t.state !== TileState.OPEN) continue;
+            const tt = t.type;
+            if (tt.brushCost) brushCost += tt.brushCost;
+
+            let fp =
+              (tt.foodProd ?? 0) + (waterBonus.get(`${t.x},${t.y}`) ?? 0);
+            let bp = tt.brushProd ?? 0;
+
+            if (
+              flintMul > 1 &&
+              tt.id !== "BONFIRE" &&
+              tt.id !== "FLINT_OUTCROP"
+            ) {
+              fp = Math.floor(fp * flintMul);
+              bp = Math.floor(bp * flintMul);
+            }
+            foodProd += fp;
+            brushProd += bp;
+
+            if (tt.resource && tt.amountPerTick > 0)
+              resProd[tt.resource] =
+                (resProd[tt.resource] ?? 0) + tt.amountPerTick;
+            if (tt.oneTimeBonus?.type === "population" && !t.oneTimeClaimed)
+              popCount += tt.oneTimeBonus.amount;
+          }
+
+          const foodCost = popCount * CONST.POP_FOOD_COST;
+          return {
+            foodProd,
+            foodCost,
+            foodBal: foodProd - foodCost,
+            brushProd,
+            brushCost,
+            brushBal: brushProd - brushCost,
+            popCount,
+            resProd,
+            flintMul,
+          };
+        }
+
+        evaluate() {
+          if (this.evaluated) return this.card;
+          this.evaluated = true;
+          const snap = this.getProductionSnapshot();
+          const { foodBal, brushBal, popCount, resProd } = snap;
+
+          // Forward simulation
+          let food = 0,
+            brush = 0,
+            sustainTicks = 0,
+            collapsedAt = -1;
+          const tickResults = [];
+          for (let i = 0; i < CONST.PLOT_EVAL_TICKS; i++) {
+            food = Math.max(0, food + foodBal);
+            brush = Math.max(0, brush + brushBal);
+            const alive =
+              (foodBal >= 0 || food > 0) && (brushBal >= 0 || brush > 0);
+            tickResults.push(alive);
+            if (alive) sustainTicks++;
+            else if (collapsedAt < 0) collapsedAt = i;
+          }
+
+          const viable =
+            collapsedAt < 0 && sustainTicks >= CONST.PLOT_SUSTAIN_TICKS;
+          let score = 0;
+          if (viable) {
+            score += 40;
+            score += Math.min(25, sustainTicks * 1.25);
+            score += Math.min(
+              20,
+              (this.openCount / (this.gridW * this.gridH)) * 40,
+            );
+            score += Math.min(
+              15,
+              this.maxTurns - this.turnsLeft < this.maxTurns ? 15 : 0,
+            );
+            if (snap.flintMul > 1) score += 5;
+          } else {
+            score = Math.max(0, (sustainTicks / CONST.PLOT_EVAL_TICKS) * 28);
+          }
+
+          const grade = calcGrade(Math.round(score));
+
+          // Dominant type
+          const counts = {};
+          for (const t of this.tiles.values())
+            if (t.state === TileState.OPEN && t.typeId !== "BONFIRE")
+              counts[t.typeId] = (counts[t.typeId] ?? 0) + 1;
+          const dominant =
+            Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ??
+            "FOREST";
+
+          const popExport = viable
+            ? Math.round(
+                popCount +
+                  Math.max(0, foodBal * CONST.PLOT_POP_SURPLUS_MUL * 0.5),
+              )
+            : Math.round(popCount * 0.25);
+
+          this.card = new PlotCard({
+            id: `plot_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            grade,
+            dominantType: dominant,
+            population: popExport,
+            extraResources: resProd,
+            gridW: this.gridW,
+            gridH: this.gridH,
+            seed: this.seed,
+            sustainTicks,
+            collapsed: collapsedAt >= 0,
+            tickResults,
+          });
+          this.card.tickResults = tickResults; // attach for modal
+          return this.card;
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  DISTRICT CHUNK + MAP MANAGER
+      // ═══════════════════════════════════════════════════════
+      class DistrictChunk {
+        constructor(cx, cy) {
+          this.cx = cx;
+          this.cy = cy;
+          this.tiles = new Map();
+          this._done = false;
+        }
+        generate() {
+          if (this._done) return;
+          this._done = true;
+          const rng = new SeededRandom(
+            (CONST.MAP_SEED ^ (this.cx * 73856093) ^ (this.cy * 19349663)) >>>
+              0,
+          );
+          const S = CONST.CHUNK_SIZE;
+          for (let ly = 0; ly < S; ly++)
+            for (let lx = 0; lx < S; lx++) {
+              const gx = this.cx * S + lx,
+                gy = this.cy * S + ly;
+              const typeId =
+                gx === 0 && gy === 0
+                  ? "TOWN_CENTER"
+                  : rng.pickWeighted(CONST.DISTRICT_TILE_WEIGHTS);
+              this.tiles.set(
+                `${lx},${ly}`,
+                new Tile(gx, gy, typeId, DISTRICT_TILE_TYPES),
+              );
+            }
+        }
+      }
+
+      class DistrictMapManager {
+        constructor(bus) {
+          this._bus = bus;
+          this._chunks = new Map();
+          this._open = [];
+          this._count = 0;
+          this._slots = [];
+        }
+
+        _toChunk(gx, gy) {
+          const S = CONST.CHUNK_SIZE,
+            cx = Math.floor(gx / S),
+            cy = Math.floor(gy / S);
+          return { cx, cy, lx: ((gx % S) + S) % S, ly: ((gy % S) + S) % S };
+        }
+        _chunk(cx, cy) {
+          const key = `${cx},${cy}`;
+          let c = this._chunks.get(key);
+          if (!c) {
+            c = new DistrictChunk(cx, cy);
+            c.generate();
+            this._chunks.set(key, c);
+          }
+          return c;
+        }
+        getTile(gx, gy) {
+          const { cx, cy, lx, ly } = this._toChunk(gx, gy);
+          return this._chunk(cx, cy).tiles.get(`${lx},${ly}`);
+        }
+
+        _revealNeighbors(gx, gy) {
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const n = this.getTile(gx + dx, gy + dy);
+            if (n && n.state === TileState.HIDDEN) {
+              n.state = TileState.VISIBLE;
+              this._bus.emit("map:revealed", { tile: n });
+            }
+          }
+        }
+
+        openTile(gx, gy) {
+          const t = this.getTile(gx, gy);
+          if (!t || t.state === TileState.OPEN) return false;
+          t.state = TileState.OPEN;
+          this._open.push(t);
+          this._count++;
+          this._revealNeighbors(gx, gy);
+          if (t.type.isSlot) this._slots.push(t);
+          this._bus.emit("map:opened", { tile: t });
+          return true;
+        }
+
+        initCenter() {
+          const c = this.getTile(0, 0);
+          c.state = TileState.OPEN;
+          this._open.push(c);
+          this._count++;
+          this._revealNeighbors(0, 0);
+        }
+
+        calcOpenCost(gx, gy) {
+          const dist = this.getTile(gx, gy).distanceFromCenter;
+          return Math.ceil(
+            CONST.DISTRICT_BASE_COST *
+              (1 + this._count * CONST.OPEN_COUNT_SCALE) *
+              (1 + dist * CONST.DISTANCE_SCALE),
+          );
+        }
+
+        collectTickDeltas() {
+          const d = {};
+          for (const t of this._open) {
+            const { resource, amountPerTick, isSlot, popCost } = t.type;
+            if (isSlot && t.placedCard) {
+              d.population = (d.population ?? 0) + 1;
+              continue;
+            }
+            if (resource && amountPerTick > 0 && t.popAssigned >= popCost)
+              d[resource] = (d[resource] ?? 0) + amountPerTick;
+          }
+          return d;
+        }
+
+        getCount() {
+          return this._count;
+        }
+        getSlots() {
+          return this._slots;
+        }
+        getFilledSlots() {
+          return this._slots.filter((s) => s.placedCard);
+        }
+
+        placeCard(tile, card) {
+          tile.placedCard = card;
+          this._bus.emit("district:placed", { tile, card });
+        }
+        iterRect(x0, y0, x1, y1, cb) {
+          for (let y = y0; y <= y1; y++)
+            for (let x = x0; x <= x1; x++) cb(this.getTile(x, y), x, y);
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  RESOURCE MANAGER
+      // ═══════════════════════════════════════════════════════
+      class ResourceManager {
+        constructor(bus, registry, start = {}) {
+          this._bus = bus;
+          this._reg = registry;
+          this._r = new Map();
+          for (const [id, def] of Object.entries(registry))
+            this._r.set(id, { amount: start[id] ?? 0, max: def.max });
+        }
+        get(id) {
+          return this._r.get(id)?.amount ?? 0;
+        }
+        getMax(id) {
+          return this._r.get(id)?.max ?? 0;
+        }
+        canAfford(costs) {
+          for (const [id, a] of Object.entries(costs))
+            if (this.get(id) < a) return false;
+          return true;
+        }
+        spend(costs) {
+          if (!this.canAfford(costs)) return false;
+          for (const [id, a] of Object.entries(costs))
+            this._r.get(id).amount -= a;
+          this._bus.emit("resources:changed", this.snap());
+          return true;
+        }
+        add(id, amount) {
+          const r = this._r.get(id);
+          if (r) {
+            r.amount = Math.min(r.amount + amount, r.max);
+            this._bus.emit("resources:changed", this.snap());
+          }
+        }
+        batchAdd(deltas) {
+          for (const [id, a] of Object.entries(deltas)) {
+            const r = this._r.get(id);
+            if (r) r.amount = Math.min(r.amount + a, r.max);
+          }
+          this._bus.emit("resources:changed", this.snap());
+        }
+        snap() {
+          const o = {};
+          for (const [id, r] of this._r)
+            o[id] = { amount: r.amount, max: r.max };
+          return o;
+        }
+        getSnapshot() {
+          return this.snap();
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  COLLECTION
+      // ═══════════════════════════════════════════════════════
+      class Collection {
+        constructor(bus) {
+          this._bus = bus;
+          this._cards = [];
+        }
+        add(card) {
+          this._cards.push(card);
+          this._bus.emit("collection:changed", { cards: this._cards });
+        }
+        getAll() {
+          return [...this._cards];
+        }
+        getUnplaced() {
+          return this._cards.filter((c) => !c._placed);
+        }
+        markPlaced(id) {
+          const c = this._cards.find((c) => c.id === id);
+          if (c) {
+            c._placed = true;
+            this._bus.emit("collection:changed", { cards: this._cards });
+          }
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  CAMERA
+      // ═══════════════════════════════════════════════════════
+      class Camera {
+        constructor(x = 0, y = 0) {
+          this.x = x;
+          this.y = y;
+          this.zoom = 1;
+        }
+        worldToScreen(wx, wy, cw, ch) {
+          return {
+            sx: (wx - this.x) * this.zoom + cw / 2,
+            sy: (wy - this.y) * this.zoom + ch / 2,
+          };
+        }
+        screenToWorld(sx, sy, cw, ch) {
+          return {
+            wx: (sx - cw / 2) / this.zoom + this.x,
+            wy: (sy - ch / 2) / this.zoom + this.y,
+          };
+        }
+        pan(dx, dy) {
+          this.x -= dx / this.zoom;
+          this.y -= dy / this.zoom;
+        }
+        zoomAt(sx, sy, delta, cw, ch) {
+          const { wx, wy } = this.screenToWorld(sx, sy, cw, ch);
+          this.zoom = Math.max(
+            CONST.ZOOM_MIN,
+            Math.min(
+              CONST.ZOOM_MAX,
+              this.zoom * (1 - delta * CONST.ZOOM_SPEED),
+            ),
+          );
+          const a = this.worldToScreen(wx, wy, cw, ch);
+          this.x += (a.sx - sx) / this.zoom;
+          this.y += (a.sy - sy) / this.zoom;
+        }
+        visibleRect(cw, ch) {
+          const ts = CONST.TILE_SIZE,
+            tl = this.screenToWorld(0, 0, cw, ch),
+            br = this.screenToWorld(cw, ch, cw, ch);
+          return {
+            x0: Math.floor(tl.wx / ts) - 1,
+            y0: Math.floor(tl.wy / ts) - 1,
+            x1: Math.ceil(br.wx / ts) + 1,
+            y1: Math.ceil(br.wy / ts) + 1,
+          };
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  EFFECT MANAGER
+      // ═══════════════════════════════════════════════════════
+      class EffectManager {
+        constructor() {
+          this._fx = [];
+        }
+        spawn(gx, gy, color = "#fff") {
+          this._fx.push({ gx, gy, color, elapsed: 0, dur: 600, done: false });
+        }
+        update(dt) {
+          this._fx.forEach((e) => {
+            e.elapsed += dt;
+            if (e.elapsed >= e.dur) e.done = true;
+          });
+          this._fx = this._fx.filter((e) => !e.done);
+        }
+        render(ctx, cam, cw, ch) {
+          const ts = CONST.TILE_SIZE;
+          for (const e of this._fx) {
+            const p = Math.min(1, e.elapsed / e.dur),
+              { sx, sy } = cam.worldToScreen(e.gx * ts, e.gy * ts, cw, ch);
+            const sz = ts * cam.zoom,
+              grow = 1 + p * 0.4,
+              alpha = Math.max(0, 1 - p * p);
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.55;
+            ctx.strokeStyle = e.color;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(
+              sx + (sz * (1 - grow)) / 2,
+              sy + (sz * (1 - grow)) / 2,
+              sz * grow,
+              sz * grow,
+            );
+            ctx.restore();
+          }
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  RENDERER
+      // ═══════════════════════════════════════════════════════
+      class Renderer {
+        constructor(canvas) {
+          this._c = canvas;
+          this._ctx = canvas.getContext("2d");
+          this._resize();
+          window.addEventListener("resize", () => this._resize());
+        }
+        get width() {
+          return this._c.width;
+        }
+        get height() {
+          return this._c.height;
+        }
+        _resize() {
+          this._c.width = window.innerWidth;
+          this._c.height = window.innerHeight;
+        }
+        clear() {
+          this._ctx.fillStyle = "#080c12";
+          this._ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        renderDistrict(mm, cam, hovered, fx, selectedCard) {
+          const ctx = this._ctx,
+            ts = CONST.TILE_SIZE,
+            cw = this.width,
+            ch = this.height;
+          const r = cam.visibleRect(cw, ch);
+          ctx.strokeStyle = `rgba(255,255,255,${CONST.GRID_ALPHA})`;
+          ctx.lineWidth = 0.5;
+          for (let y = r.y0; y <= r.y1; y++)
+            for (let x = r.x0; x <= r.x1; x++) {
+              const { sx, sy } = cam.worldToScreen(x * ts, y * ts, cw, ch);
+              const sz = ts * cam.zoom;
+              ctx.strokeRect(sx + 0.5, sy + 0.5, sz - 1, sz - 1);
+            }
+          for (let y = r.y0; y <= r.y1; y++)
+            for (let x = r.x0; x <= r.x1; x++) {
+              const t = mm.getTile(x, y);
+              if (!t || t.state === TileState.HIDDEN) continue;
+              const { sx, sy } = cam.worldToScreen(x * ts, y * ts, cw, ch);
+              this._drawDistrictTile(
+                ctx,
+                t,
+                sx,
+                sy,
+                ts * cam.zoom,
+                hovered && hovered.gx === x && hovered.gy === y,
+                selectedCard,
+              );
+            }
+          fx.render(ctx, cam, cw, ch);
+          // Center glow
+          const ct = mm.getTile(0, 0);
+          if (ct && ct.state === TileState.OPEN) {
+            const { sx, sy } = cam.worldToScreen(0, 0, cw, ch);
+            const sz = ts * cam.zoom;
+            ctx.strokeStyle = "rgba(200,168,74,.4)";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(sx + 1, sy + 1, sz - 2, sz - 2);
+          }
+        }
+
+        _drawDistrictTile(ctx, tile, sx, sy, sz, isHov, selectedCard) {
+          const type = tile.type,
+            isOpen = tile.state === TileState.OPEN;
+          const pad = CONST.TILE_PAD,
+            px = sx + pad,
+            py = sy + pad,
+            pw = sz - pad * 2,
+            ph = sz - pad * 2;
+          ctx.fillStyle = isOpen ? type.color : type.darkColor;
+          ctx.fillRect(px, py, pw, ph);
+          if (!isOpen) {
+            ctx.fillStyle = `rgba(8,12,18,${CONST.FOG_ALPHA})`;
+            ctx.fillRect(px, py, pw, ph);
+          }
+          if (isOpen && type.isSlot && !tile.placedCard && selectedCard) {
+            ctx.fillStyle = "rgba(80,200,120,.12)";
+            ctx.fillRect(px, py, pw, ph);
+            ctx.strokeStyle = "rgba(80,200,120,.8)";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+          }
+          if (isHov) {
+            if (!isOpen) {
+              ctx.fillStyle = "rgba(255,255,255,.06)";
+              ctx.fillRect(px, py, pw, ph);
+              ctx.strokeStyle = "rgba(200,168,74,.75)";
+              ctx.lineWidth = 1.5;
+              ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+            } else {
+              ctx.strokeStyle = "rgba(200,168,74,.35)";
+              ctx.lineWidth = 1;
+              ctx.strokeRect(px, py, pw, ph);
+            }
+          }
+          if (sz < 14) return;
+          const cx = px + pw / 2,
+            cy = py + ph / 2;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          if (isOpen) {
+            if (type.isSlot && tile.placedCard) {
+              const card = tile.placedCard,
+                ssz = Math.min(sz * 0.36, 22);
+              ctx.font = `${ssz}px 'Share Tech Mono',monospace`;
+              ctx.fillStyle = card.color;
+              ctx.fillText(card.symbol, cx, cy - (sz > 36 ? ssz * 0.3 : 0));
+              if (sz > 36) {
+                ctx.font = `${Math.max(7, sz * 0.12)}px 'Share Tech Mono',monospace`;
+                ctx.fillStyle = card.grade.color;
+                ctx.fillText(card.grade.grade, cx, cy + ssz * 0.6);
+              }
+            } else {
+              const ssz = Math.min(sz * 0.38, 24);
+              ctx.font = `${ssz}px 'Share Tech Mono',monospace`;
+              ctx.fillStyle = "rgba(255,255,255,.68)";
+              ctx.fillText(type.symbol, cx, cy - (sz > 36 ? ssz * 0.35 : 0));
+              if (sz > 36) {
+                if (type.resource && type.amountPerTick > 0) {
+                  const col =
+                    DISTRICT_RESOURCE_REGISTRY[type.resource]?.color ?? "#fff";
+                  ctx.font = `${Math.max(7, sz * 0.13)}px 'Share Tech Mono',monospace`;
+                  ctx.fillStyle = col;
+                  ctx.fillText(`+${type.amountPerTick}`, cx, cy + ssz * 0.58);
+                }
+                if (type.isSlot && !tile.placedCard) {
+                  ctx.font = `${Math.max(7, sz * 0.12)}px 'Share Tech Mono',monospace`;
+                  ctx.fillStyle = "rgba(80,200,120,.55)";
+                  ctx.fillText("SLOT", cx, cy + ssz * 0.58);
+                }
+              }
+            }
+          } else {
+            ctx.font = `${Math.min(sz * 0.28, 16)}px 'Share Tech Mono',monospace`;
+            ctx.fillStyle = "rgba(255,255,255,.14)";
+            ctx.fillText("?", cx, cy);
+          }
+        }
+
+        renderPlot(session, cam, hovered, fx) {
+          const ctx = this._ctx,
+            ts = CONST.TILE_SIZE,
+            cw = this.width,
+            ch = this.height;
+          const { x0, y0, x1, y1 } = session.bounds;
+          // Outer tint
+          ctx.fillStyle = "rgba(8,18,8,.35)";
+          const tl = cam.worldToScreen(x0 * ts, y0 * ts, cw, ch),
+            br = cam.worldToScreen((x1 + 1) * ts, (y1 + 1) * ts, cw, ch);
+          ctx.fillRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+          ctx.strokeStyle = "rgba(144,176,96,.25)";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(
+            tl.sx + 1,
+            tl.sy + 1,
+            br.sx - tl.sx - 2,
+            br.sy - tl.sy - 2,
+          );
+          // Tiles
+          for (let y = y0; y <= y1; y++)
+            for (let x = x0; x <= x1; x++) {
+              const t = session.getTile(x, y);
+              if (!t) continue;
+              const { sx, sy } = cam.worldToScreen(x * ts, y * ts, cw, ch);
+              this._drawPlotTile(
+                ctx,
+                t,
+                sx,
+                sy,
+                ts * cam.zoom,
+                hovered && hovered.gx === x && hovered.gy === y,
+              );
+            }
+          fx.render(ctx, cam, cw, ch);
+        }
+
+        _drawPlotTile(ctx, tile, sx, sy, sz, isHov) {
+          const type = tile.type,
+            isOpen = tile.state === TileState.OPEN;
+          const pad = CONST.TILE_PAD,
+            px = sx + pad,
+            py = sy + pad,
+            pw = sz - pad * 2,
+            ph = sz - pad * 2;
+          ctx.fillStyle = isOpen ? type.color : type.darkColor;
+          ctx.fillRect(px, py, pw, ph);
+          // Dim overlay for un-opened (lighter than district fog since all tiles visible)
+          if (!isOpen) {
+            ctx.fillStyle = "rgba(6,12,6,.45)";
+            ctx.fillRect(px, py, pw, ph);
+          }
+          if (isHov) {
+            if (!isOpen) {
+              ctx.fillStyle = "rgba(255,255,255,.08)";
+              ctx.fillRect(px, py, pw, ph);
+              ctx.strokeStyle = "rgba(144,176,96,.8)";
+              ctx.lineWidth = 1.5;
+              ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+            } else {
+              ctx.strokeStyle = "rgba(144,176,96,.4)";
+              ctx.lineWidth = 1;
+              ctx.strokeRect(px, py, pw, ph);
+            }
+          }
+          if (tile.typeId === "BONFIRE" && isOpen) {
+            ctx.strokeStyle = "rgba(216,104,40,.6)";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(px, py, pw, ph);
+          }
+          if (sz < 14) return;
+          const cx = px + pw / 2,
+            cy = py + ph / 2;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          const ssz = Math.min(sz * 0.4, 26);
+          ctx.font = `${ssz}px 'Share Tech Mono',monospace`;
+          ctx.fillStyle = isOpen
+            ? tile.typeId === "BONFIRE"
+              ? "#ffd070"
+              : "rgba(255,255,255,.72)"
+            : "rgba(255,255,255,.3)";
+          ctx.fillText(
+            type.symbol,
+            cx,
+            cy - (sz > 36 && (type.resource || type.foodProd) ? ssz * 0.28 : 0),
+          );
+          if (sz > 36 && isOpen) {
+            const lsz = Math.max(7, sz * 0.12);
+            ctx.font = `${lsz}px 'Share Tech Mono',monospace`;
+            if (type.foodProd > 0) {
+              ctx.fillStyle = "#90c850";
+              ctx.fillText(`+${type.foodProd} food`, cx, cy + ssz * 0.52);
+            } else if (type.brushProd > 0) {
+              ctx.fillStyle = "#a07848";
+              ctx.fillText(`+${type.brushProd} brush`, cx, cy + ssz * 0.52);
+            } else if (type.resource && type.amountPerTick > 0) {
+              const col =
+                PLOT_RESOURCE_REGISTRY[type.resource]?.color ?? "#fff";
+              ctx.fillStyle = col;
+              ctx.fillText(`+${type.amountPerTick}`, cx, cy + ssz * 0.52);
+            }
+            if (type.brushCost > 0) {
+              ctx.fillStyle = "#e09050";
+              ctx.fillText(
+                `-${type.brushCost} brush`,
+                cx,
+                cy + ssz * 0.52 + (sz > 50 ? lsz + 1 : 0),
+              );
+            }
+          } else if (sz > 36 && !isOpen) {
+            const lsz = Math.max(7, sz * 0.11);
+            ctx.font = `${lsz}px 'Share Tech Mono',monospace`;
+            if (type.foodProd > 0) {
+              ctx.fillStyle = "rgba(144,200,80,.4)";
+              ctx.fillText(`${type.foodProd}f`, cx, cy + ssz * 0.48);
+            } else if (type.brushProd > 0) {
+              ctx.fillStyle = "rgba(160,120,72,.4)";
+              ctx.fillText(`${type.brushProd}b`, cx, cy + ssz * 0.48);
+            }
+          }
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  INPUT MANAGER
+      // ═══════════════════════════════════════════════════════
+      class InputManager {
+        constructor(canvas, cam, bus) {
+          this._c = canvas;
+          this._cam = cam;
+          this._bus = bus;
+          this._drag = false;
+          this._mx = 0;
+          this._my = 0;
+          this._dsx = 0;
+          this._dsy = 0;
+          this._bind();
+        }
+        _coords(ex, ey) {
+          const r = this._c.getBoundingClientRect(),
+            sx = ex - r.left,
+            sy = ey - r.top;
+          const { wx, wy } = this._cam.screenToWorld(
+            sx,
+            sy,
+            this._c.width,
+            this._c.height,
+          );
+          const ts = CONST.TILE_SIZE;
+          return {
+            gx: Math.floor(wx / ts),
+            gy: Math.floor(wy / ts),
+            sx: ex,
+            sy: ey,
+          };
+        }
+        _bind() {
+          const c = this._c;
+          c.addEventListener("mousedown", (e) => {
+            this._drag = false;
+            this._dsx = e.clientX;
+            this._dsy = e.clientY;
+            this._mx = e.clientX;
+            this._my = e.clientY;
+            c.classList.add("dragging");
+          });
+          c.addEventListener("mousemove", (e) => {
+            if (e.buttons === 1) {
+              if (
+                Math.hypot(e.clientX - this._dsx, e.clientY - this._dsy) >
+                CONST.DRAG_THRESHOLD_PX
+              )
+                this._drag = true;
+              this._cam.pan(e.clientX - this._mx, e.clientY - this._my);
+            }
+            this._mx = e.clientX;
+            this._my = e.clientY;
+            this._bus.emit("input:hover", this._coords(e.clientX, e.clientY));
+          });
+          c.addEventListener("mouseup", () => c.classList.remove("dragging"));
+          c.addEventListener("mouseleave", () => {
+            c.classList.remove("dragging");
+            this._bus.emit("input:hoverEnd", {});
+          });
+          c.addEventListener("click", (e) => {
+            if (!this._drag)
+              this._bus.emit("input:click", this._coords(e.clientX, e.clientY));
+          });
+          c.addEventListener(
+            "wheel",
+            (e) => {
+              e.preventDefault();
+              const r = c.getBoundingClientRect();
+              this._cam.zoomAt(
+                e.clientX - r.left,
+                e.clientY - r.top,
+                e.deltaY,
+                c.width,
+                c.height,
+              );
+            },
+            { passive: false },
+          );
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  UI MANAGER
+      // ═══════════════════════════════════════════════════════
+      class UIManager {
+        constructor(bus, engine) {
+          this._bus = bus;
+          this._eng = engine;
+          this._resList = document.getElementById("res-list");
+          this._stats = document.getElementById("stats");
+          this._tick = document.getElementById("tick-indicator");
+          this._tooltip = document.getElementById("tooltip");
+          this._notif = document.getElementById("notification");
+          this._notifTmr = null;
+          this._hovered = null;
+          this._plotHud = document.getElementById("plot-hud");
+          this._phTurns = document.getElementById("ph-turns");
+          this._phPop = document.getElementById("ph-pop");
+          this._phFood = document.getElementById("ph-food");
+          this._phBrush = document.getElementById("ph-brush");
+          this._phGrade = document.getElementById("ph-grade");
+          this._evalBtn = document.getElementById("eval-btn");
+          this._tray = document.getElementById("card-tray");
+          this._evalModal = document.getElementById("eval-modal");
+          this._evalBars = document.getElementById("eval-bars");
+          this._evalTicks = document.getElementById("eval-tick-row");
+          this._evalResult = document.getElementById("eval-result");
+          this._evalClose = document.getElementById("eval-close");
+          this._scaleOverlay = document.getElementById("scale-overlay");
+          this._scaleLabel = document.getElementById("scale-label");
+          this._scaleSub = document.getElementById("scale-sub");
+          this._scaleIcon = document.getElementById("scale-icon");
+          this._bind();
+          this._refreshBreadcrumb(ScaleLayer.DISTRICT);
+        }
+
+        _bind() {
+          this._bus.on("resources:changed", () => this._renderHUD());
+          this._bus.on("tick", () => this._pulseTick());
+          this._bus.on("notification", (d) => this._showNotif(d.text, d.type));
+          this._bus.on("input:hover", (d) => {
+            this._hovered = d;
+            this._renderTooltip();
+          });
+          this._bus.on("input:hoverEnd", () => {
+            this._hovered = null;
+            this._tooltip.style.display = "none";
+          });
+          this._bus.on("scale:changed", (d) => this._onScaleChanged(d.scale));
+          this._bus.on("plot:updated", () => this._renderPlotHUD());
+          this._bus.on("collection:changed", (d) => this._renderTray(d.cards));
+          this._bus.on("district:placed", () =>
+            this._renderTray(this._eng.collection.getAll()),
+          );
+          this._evalBtn.addEventListener("click", () =>
+            this._eng.evaluatePlot(),
+          );
+          this._evalClose.addEventListener("click", () => this._closeEval());
+          document
+            .getElementById("scale-back")
+            .addEventListener("click", () =>
+              this._eng.switchScale(ScaleLayer.DISTRICT),
+            );
+          document
+            .querySelectorAll(".bc-item")
+            .forEach((el) =>
+              el.addEventListener(
+                "click",
+                () =>
+                  el.dataset.scale && this._eng.switchScale(el.dataset.scale),
+              ),
+            );
+        }
+
+        _renderHUD() {
+          const layer = this._eng.currentScale;
+          const rm =
+            layer === ScaleLayer.PLOT
+              ? this._eng.plotRes
+              : this._eng.districtRes;
+          const reg =
+            layer === ScaleLayer.PLOT
+              ? PLOT_RESOURCE_REGISTRY
+              : DISTRICT_RESOURCE_REGISTRY;
+          if (!rm) return;
+          const snap = rm.snap();
+          this._resList.innerHTML = Object.entries(snap)
+            .map(([id, r]) => {
+              const def = reg[id];
+              if (!def) return "";
+              const pct = ((r.amount / r.max) * 100).toFixed(1);
+              return `<div class="res-row">
+        <span class="res-icon" style="color:${def.color}">${def.icon}</span>
+        <span class="res-name">${def.name}</span>
+        <div class="res-bar-wrap"><div class="res-bar-fill" style="width:${pct}%;background:${def.color}"></div></div>
+        <span class="res-val" style="color:${def.color}">${Math.floor(r.amount)}<span class="res-max">/${r.max}</span></span>
+      </div>`;
+            })
+            .join("");
+          if (layer === ScaleLayer.DISTRICT) {
+            const mm = this._eng.districtMap;
+            this._stats.innerHTML = `⬡ Tiles: <b>${mm.getCount()}</b> &nbsp; ◈ Slots: <b>${mm.getFilledSlots().length}/${mm.getSlots().length}</b>`;
+          }
+        }
+
+        _renderPlotHUD() {
+          const s = this._eng.activePlot;
+          if (!s) return;
+          const sn = s.getProductionSnapshot();
+          this._phTurns.textContent = s.turnsLeft;
+          this._phTurns.className =
+            "ph-val " + (s.turnsLeft <= 2 ? "warn" : "neutral");
+          this._phPop.textContent = sn.popCount;
+          this._phFood.textContent = (sn.foodBal >= 0 ? "+" : "") + sn.foodBal;
+          this._phFood.className =
+            "ph-val " + (sn.foodBal >= 0 ? "good" : "warn");
+          this._phBrush.textContent =
+            (sn.brushBal >= 0 ? "+" : "") + sn.brushBal;
+          this._phBrush.className =
+            "ph-val " + (sn.brushBal >= 0 ? "good" : "warn");
+          const viable = sn.foodBal >= 0 && sn.brushBal >= 0;
+          const g = calcGrade(viable ? 62 : 18);
+          this._phGrade.textContent = g.grade;
+          this._phGrade.style.color = g.color;
+          this._evalBtn.disabled = s.evaluated;
+        }
+
+        _onScaleChanged(scale) {
+          this._refreshBreadcrumb(scale);
+          document.getElementById("hud-scale-name").textContent =
+            SCALE_META[scale].name;
+          this._plotHud.classList.toggle("visible", scale === ScaleLayer.PLOT);
+          this._tray.style.display =
+            scale === ScaleLayer.DISTRICT ? "flex" : "none";
+          const meta = SCALE_META[scale];
+          if (meta.placeholder) {
+            this._scaleIcon.textContent = meta.icon;
+            this._scaleLabel.textContent = meta.name.toUpperCase();
+            this._scaleSub.textContent = meta.subtitle;
+            this._scaleOverlay.classList.add("visible");
+          } else {
+            this._scaleOverlay.classList.remove("visible");
+          }
+          this._renderHUD();
+          if (scale === ScaleLayer.DISTRICT)
+            this._renderTray(this._eng.collection.getAll());
+        }
+
+        _renderTray(cards) {
+          const unplaced = cards.filter((c) => !c._placed);
+          const count = Math.max(CONST.DISTRICT_PLOT_SLOTS, unplaced.length);
+          // Keep label, rebuild rest
+          const label = this._tray.querySelector("#tray-label");
+          this._tray.innerHTML = "";
+          if (label) this._tray.appendChild(label);
+          for (let i = 0; i < count; i++) {
+            const card = unplaced[i];
+            const el = document.createElement("div");
+            if (card) {
+              el.className =
+                "plot-card" +
+                (this._eng.selectedCard?.id === card.id ? " selected" : "");
+              el.style.borderColor = card.grade.color + "55";
+              el.innerHTML = `<span class="pc-grade" style="color:${card.grade.color}">${card.grade.grade}</span>
+          <span class="pc-icon" style="color:${card.color}">${card.symbol}</span>
+          <span class="pc-name">${card.typeName}</span>
+          <span class="pc-pop">👥 ${card.population}</span>
+          ${card.isRare ? `<span class="pc-rare">★ ${card.rareTag}</span>` : ""}`;
+              el.addEventListener("click", () => this._eng.selectCard(card));
+            } else {
+              el.className = "plot-card empty-slot";
+              el.innerHTML = `<span class="pc-icon" style="opacity:.3">◈</span><span class="pc-name" style="color:var(--text-muted)">—</span>`;
+            }
+            this._tray.appendChild(el);
+          }
+        }
+
+        showEvalModal(session, card) {
+          const sn = session.getProductionSnapshot();
+          const rows = [
+            {
+              label: "Food/tick balance",
+              val: sn.foodBal,
+              max: 15,
+              color: "#90c850",
+            },
+            {
+              label: "Brush/tick balance",
+              val: sn.brushBal,
+              max: 8,
+              color: "#a07848",
+            },
+            {
+              label: "Population export",
+              val: card.population,
+              max: 50,
+              color: "#a0c0e0",
+            },
+          ];
+          this._evalBars.innerHTML = rows
+            .map((r) => {
+              const pct = Math.max(0, Math.min(100, (r.val / r.max) * 100));
+              const vs =
+                typeof r.val === "number" && r.label.includes("balance")
+                  ? (r.val >= 0 ? "+" : "") + r.val
+                  : r.val;
+              return `<div class="eval-res-row">
+        <span class="eval-res-label">${r.label}</span>
+        <div class="eval-res-bar"><div class="eval-res-fill" style="width:${pct}%;background:${r.color}"></div></div>
+        <span class="eval-res-val" style="color:${r.color}">${vs}</span>
+      </div>`;
+            })
+            .join("");
+          // Tick timeline
+          const ticks = card.tickResults ?? [];
+          this._evalTicks.innerHTML = ticks
+            .map(
+              (alive) =>
+                `<div class="eval-tick ${alive ? "alive" : "dead"}"></div>`,
+            )
+            .join("");
+          const viable =
+            card.sustainTicks >= CONST.PLOT_SUSTAIN_TICKS && !card.collapsed;
+          this._evalResult.className =
+            "eval-result " + (viable ? "success" : "fail");
+          this._evalResult.innerHTML = viable
+            ? `✓ Settlement viable · Sustained <b>${card.sustainTicks}/${CONST.PLOT_EVAL_TICKS}</b> ticks<br>Grade <b style="color:${card.grade.color}">${card.grade.grade}</b> · <b>${card.population}</b> population exported${card.isRare ? `<br>★ <i>${card.rareTag}</i>` : ""}`
+            : `✗ Settlement collapsed at tick ${card.collapsed ? CONST.PLOT_EVAL_TICKS - card.sustainTicks : CONST.PLOT_EVAL_TICKS}<br>Grade <b style="color:${card.grade.color}">${card.grade.grade}</b> · <b>${card.population}</b> population exported`;
+          this._evalModal.classList.add("visible");
+        }
+
+        _closeEval() {
+          this._evalModal.classList.remove("visible");
+          this._eng.finalizePlot();
+        }
+
+        _refreshBreadcrumb(active) {
+          document
+            .querySelectorAll(".bc-item")
+            .forEach((el) =>
+              el.classList.toggle("active", el.dataset.scale === active),
+            );
+          const bp = document.getElementById("bc-plot");
+          const s = this._eng?.activePlot;
+          bp.textContent = s
+            ? `Plot [${s.slotTile?.x ?? "?"},${s.slotTile?.y ?? "?"}]`
+            : "—";
+          bp.classList.toggle("active", active === ScaleLayer.PLOT);
+        }
+
+        _pulseTick() {
+          this._tick.classList.remove("pulse");
+          void this._tick.offsetWidth;
+          this._tick.classList.add("pulse");
+        }
+
+        _renderTooltip() {
+          if (!this._hovered) return;
+          const { gx, gy, sx, sy } = this._hovered;
+          const layer = this._eng.currentScale;
+          let html = "";
+          if (layer === ScaleLayer.DISTRICT) {
+            const t = this._eng.districtMap.getTile(gx, gy);
+            if (!t || t.state === TileState.HIDDEN) {
+              this._tooltip.style.display = "none";
+              return;
+            }
+            const isOpen = t.state === TileState.OPEN;
+            const cost = isOpen
+              ? null
+              : this._eng.districtMap.calcOpenCost(gx, gy);
+            const canAff =
+              cost !== null &&
+              this._eng.districtRes.canAfford({ governance: cost });
+            html = `<div class="tt-title">${t.type.name}</div>
+            <div class="tt-coords">[${gx},${gy}] · dist ${t.distanceFromCenter.toFixed(1)}</div>
+            <div class="tt-desc">${t.type.description}</div>`;
+            if (isOpen) {
+              if (t.type.isSlot && t.placedCard)
+                html += `<div class="tt-slot">◈ ${t.placedCard.grade.grade}-grade ${t.placedCard.typeName} placed<br>Pop: ${t.placedCard.population}</div>`;
+              else if (
+                t.type.isSlot &&
+                !t.placedCard &&
+                !this._eng.selectedCard
+              )
+                html += `<div class="tt-slot">◈ Click a card below, then click here</div>`;
+              else if (t.type.isSlot && !t.placedCard && this._eng.selectedCard)
+                html += `<div class="tt-slot tt-affordable">◈ Click to place selected card</div>`;
+              else if (
+                !t.type.isSlot &&
+                t.type.resource &&
+                t.type.amountPerTick > 0
+              ) {
+                const col =
+                  DISTRICT_RESOURCE_REGISTRY[t.type.resource]?.color ?? "#fff";
+                html += `<div class="tt-row" style="color:${col}">+${t.type.amountPerTick} ${t.type.resource}/tick</div>`;
+              }
+              if (t.type.oneTimeBonus && !t.oneTimeClaimed)
+                html += `<div class="tt-bonus">✦ +${t.type.oneTimeBonus.amount} ${t.type.oneTimeBonus.resource} (unclaimed)</div>`;
+            } else {
+              html += `<div class="tt-row tt-cost ${canAff ? "tt-affordable" : "tt-expensive"}">Open: ${cost} governance ${canAff ? "✓" : "✗"}</div>
+               <div class="tt-hint">Click to open</div>`;
+            }
+          } else if (layer === ScaleLayer.PLOT) {
+            const s = this._eng.activePlot;
+            if (!s) return;
+            const t = s.getTile(gx, gy);
+            if (!t) {
+              this._tooltip.style.display = "none";
+              return;
+            }
+            const isOpen = t.state === TileState.OPEN;
+            const canOpen = s.canOpen(gx, gy);
+            html = `<div class="tt-title">${t.type.name}</div>
+            <div class="tt-coords">[${gx},${gy}]</div>
+            <div class="tt-desc">${t.type.description}</div>`;
+            if (isOpen) {
+              if (t.type.foodProd > 0)
+                html += `<div class="tt-row" style="color:#90c850">+${t.type.foodProd} food/tick</div>`;
+              if (t.type.brushProd > 0)
+                html += `<div class="tt-row" style="color:#a07848">+${t.type.brushProd} brushwood/tick</div>`;
+              if (t.type.brushCost > 0)
+                html += `<div class="tt-row" style="color:#e09050">−${t.type.brushCost} brushwood/tick</div>`;
+              if (t.type.resource && t.type.amountPerTick > 0) {
+                const col =
+                  PLOT_RESOURCE_REGISTRY[t.type.resource]?.color ?? "#fff";
+                html += `<div class="tt-row" style="color:${col}">+${t.type.amountPerTick} ${t.type.resource}/tick</div>`;
+              }
+              if (t.type.oneTimeBonus && !t.oneTimeClaimed)
+                html += `<div class="tt-bonus">✦ +${t.type.oneTimeBonus.amount} population bonus</div>`;
+              if (t.type.adjBonus)
+                html += `<div class="tt-bonus">⬡ Boosts adjacent ${t.type.adjBonus.targetType} +${t.type.adjBonus.amount} food</div>`;
+              if (t.type.globalBonus)
+                html += `<div class="tt-bonus">⬡ All production ×${t.type.globalBonus.multiplier}</div>`;
+            } else {
+              html += canOpen
+                ? `<div class="tt-row tt-affordable">Click to open · ${s.turnsLeft} turns left</div>`
+                : `<div class="tt-row tt-expensive">${s.turnsLeft === 0 ? "No turns remaining" : "Cannot open"}</div>`;
+            }
+          }
+          if (!html) {
+            this._tooltip.style.display = "none";
+            return;
+          }
+          this._tooltip.innerHTML = html;
+          this._tooltip.style.display = "block";
+          const TW = 204,
+            TH = 150,
+            M = 14;
+          let tx = sx + M,
+            ty = sy - TH / 2;
+          if (tx + TW > window.innerWidth) tx = sx - TW - M;
+          if (ty < M) ty = M;
+          if (ty + TH > window.innerHeight) ty = window.innerHeight - TH - M;
+          this._tooltip.style.left = tx + "px";
+          this._tooltip.style.top = ty + "px";
+        }
+
+        _showNotif(text, type = "info") {
+          this._notif.textContent = text;
+          this._notif.className = type;
+          this._notif.style.opacity = "1";
+          clearTimeout(this._notifTmr);
+          this._notifTmr = setTimeout(
+            () => (this._notif.style.opacity = "0"),
+            CONST.NOTIFICATION_MS,
+          );
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  UPPER SCALE PLACEHOLDERS
+      // ═══════════════════════════════════════════════════════
+      class ScaleLayerBase {
+        constructor(name) {
+          this.name = name;
+          this.cards = [];
+        }
+        addCard(card) {
+          this.cards.push(card);
+        }
+        getCards() {
+          return [...this.cards];
+        }
+        // Subclasses define: requiredCards, produces[], uniqueMechanic
+      }
+      class RegionLayer extends ScaleLayerBase {
+        constructor() {
+          super("Region");
+          this.requiredCards = 3;
+          this.produces = ["governance", "culture"];
+          this.uniqueMechanic = "Territory contiguity + Trade Routes";
+        }
+      }
+      class WorldLayer extends ScaleLayerBase {
+        constructor() {
+          super("World");
+          this.requiredCards = 3;
+          this.produces = ["legacy", "technology"];
+          this.uniqueMechanic = "Civilization score + Legacy accumulation";
+        }
+      }
+      class SystemLayer extends ScaleLayerBase {
+        constructor() {
+          super("System");
+          this.requiredCards = 3;
+          this.produces = ["stellar_energy", "expansion"];
+          this.uniqueMechanic = "Star map + inter-planet trade";
+        }
+      }
+      class UniverseLayer extends ScaleLayerBase {
+        constructor() {
+          super("Universe");
+          this.requiredCards = 3;
+          this.produces = ["cosmic_influence"];
+          this.uniqueMechanic = "Galaxy clusters + faction competition";
+        }
+      }
+      class MultiverseLayer extends ScaleLayerBase {
+        constructor() {
+          super("Multiverse");
+          this.requiredCards = 3;
+          this.produces = ["prestige"];
+          this.uniqueMechanic = "Prestige reset + schema inheritance";
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  GAME LOOP
+      // ═══════════════════════════════════════════════════════
+      class GameLoop {
+        constructor(onTick, onRender) {
+          this._onTick = onTick;
+          this._onRender = onRender;
+          this._running = false;
+          this._lastTick = 0;
+          this._lastFrame = 0;
+          this._raf = null;
+        }
+        start() {
+          this._running = true;
+          this._lastTick = performance.now();
+          this._raf = requestAnimationFrame((t) => this._loop(t));
+        }
+        stop() {
+          this._running = false;
+          if (this._raf) cancelAnimationFrame(this._raf);
+        }
+        _loop(now) {
+          if (!this._running) return;
+          const e = now - this._lastTick;
+          if (e >= CONST.TICK_INTERVAL_MS) {
+            this._onTick(now);
+            this._lastTick = now - (e % CONST.TICK_INTERVAL_MS);
+          }
+          const dt = now - this._lastFrame;
+          this._lastFrame = now;
+          this._onRender(now, dt);
+          this._raf = requestAnimationFrame((t) => this._loop(t));
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  GAME ENGINE
+      // ═══════════════════════════════════════════════════════
+      class GameEngine {
+        constructor() {
+          this.bus = new EventBus();
+          this.currentScale = ScaleLayer.DISTRICT;
+
+          // District
+          this.districtMap = new DistrictMapManager(this.bus);
+          this.districtRes = new ResourceManager(
+            this.bus,
+            DISTRICT_RESOURCE_REGISTRY,
+            {
+              governance: 25,
+              population: 0,
+              commerce: 0,
+              craft: 0,
+              culture: 0,
+              food: 0,
+            },
+          );
+
+          // Plot
+          this.activePlot = null;
+          this.plotRes = null;
+          this._plotSeq = 0;
+
+          // Collection + selection
+          this.collection = new Collection(this.bus);
+          this.selectedCard = null;
+
+          // Upper scale placeholders
+          this.layers = {
+            [ScaleLayer.REGION]: new RegionLayer(),
+            [ScaleLayer.WORLD]: new WorldLayer(),
+            [ScaleLayer.SYSTEM]: new SystemLayer(),
+            [ScaleLayer.UNIVERSE]: new UniverseLayer(),
+            [ScaleLayer.MULTIVERSE]: new MultiverseLayer(),
+          };
+
+          // Visual
+          this._canvas = document.getElementById("gameCanvas");
+          this.renderer = new Renderer(this._canvas);
+          this.camera = new Camera(CONST.TILE_SIZE / 2, CONST.TILE_SIZE / 2);
+          this.effects = new EffectManager();
+          this.input = new InputManager(this._canvas, this.camera, this.bus);
+          this.ui = new UIManager(this.bus, this);
+          this.loop = new GameLoop(
+            (n) => this._tick(n),
+            (n, dt) => this._render(n, dt),
+          );
+          this._hovered = null;
+          this._camStates = {};
+          this._zoomFlash = document.getElementById("zoom-flash");
+          this._bindEvents();
+        }
+
+        init() {
+          this.districtMap.initCenter();
+          this.loop.start();
+          this.bus.emit("scale:changed", { scale: ScaleLayer.DISTRICT });
+          this.bus.emit("notification", {
+            text: "Open tiles with Governance · Find ◈ Settlement Slots",
+            type: "info",
+          });
+        }
+
+        // ── Scale switch ─────────────────────────────────────
+        switchScale(target) {
+          if (target === this.currentScale) return;
+          if (!SCALE_META[target]) return;
+          this._zoomFlash.style.opacity = "1";
+          setTimeout(() => (this._zoomFlash.style.opacity = "0"), 280);
+          // Save current cam
+          this._camStates[this.currentScale] = {
+            x: this.camera.x,
+            y: this.camera.y,
+            zoom: this.camera.zoom,
+          };
+          this.currentScale = target;
+          // Restore or default cam
+          if (this._camStates[target]) {
+            const s = this._camStates[target];
+            this.camera.x = s.x;
+            this.camera.y = s.y;
+            this.camera.zoom = s.zoom;
+          } else {
+            this.camera.x = CONST.TILE_SIZE / 2;
+            this.camera.y = CONST.TILE_SIZE / 2;
+            this.camera.zoom = target === ScaleLayer.PLOT ? 1.2 : 1;
+          }
+          this.bus.emit("scale:changed", { scale: target });
+        }
+
+        // ── Plot session ─────────────────────────────────────
+        startPlotSession(slotTile) {
+          const rng = new SeededRandom(
+            (CONST.MAP_SEED ^ (this._plotSeq++ * 0x9e3779b9)) >>> 0,
+          );
+          const gw =
+            CONST.PLOT_GRID_MIN +
+            Math.floor(
+              rng.next() * (CONST.PLOT_GRID_MAX - CONST.PLOT_GRID_MIN + 1),
+            );
+          const gh =
+            CONST.PLOT_GRID_MIN +
+            Math.floor(
+              rng.next() * (CONST.PLOT_GRID_MAX - CONST.PLOT_GRID_MIN + 1),
+            );
+          const turns =
+            CONST.PLOT_TURNS_MIN +
+            Math.floor(
+              rng.next() * (CONST.PLOT_TURNS_MAX - CONST.PLOT_TURNS_MIN + 1),
+            );
+          const seed = (CONST.MAP_SEED ^ (this._plotSeq * 0x6c62272e)) >>> 0;
+          this.activePlot = new PlotSession(gw, gh, turns, seed, slotTile);
+          this.plotRes = new ResourceManager(this.bus, PLOT_RESOURCE_REGISTRY);
+          this.switchScale(ScaleLayer.PLOT);
+          this.bus.emit("plot:updated", {});
+          this.bus.emit("notification", {
+            text: `Settlement started · ${gw}×${gh} grid · ${turns} turns`,
+            type: "info",
+          });
+        }
+
+        evaluatePlot() {
+          if (!this.activePlot || this.activePlot.evaluated) return;
+          const card = this.activePlot.evaluate();
+          this.ui.showEvalModal(this.activePlot, card);
+        }
+
+        finalizePlot() {
+          if (!this.activePlot?.card) return;
+          const card = this.activePlot.card;
+          this.collection.add(card);
+          this.activePlot = null;
+          this.plotRes = null;
+          this.switchScale(ScaleLayer.DISTRICT);
+          this.bus.emit("notification", {
+            text: `✓ Settlement card added · Grade ${card.grade.grade} · ${card.population} pop`,
+            type: "bonus",
+          });
+        }
+
+        // ── Card selection & placement ────────────────────────
+        selectCard(card) {
+          this.selectedCard = this.selectedCard?.id === card.id ? null : card;
+          this.bus.emit("collection:changed", {
+            cards: this.collection.getAll(),
+          });
+          if (this.selectedCard)
+            this.bus.emit("notification", {
+              text: `Selected: ${card.typeName} Settlement · Click a ◈ Slot`,
+              type: "info",
+            });
+        }
+
+        placeCardInSlot(slotTile) {
+          if (!this.selectedCard || slotTile.placedCard) return;
+          this.districtMap.placeCard(slotTile, this.selectedCard);
+          this.districtRes.add("population", this.selectedCard.population);
+          if (this.selectedCard.isRare)
+            this.bus.emit("notification", {
+              text: `★ ${this.selectedCard.rareTag}! +${this.selectedCard.population} population`,
+              type: "bonus",
+            });
+          else
+            this.bus.emit("notification", {
+              text: `◈ Settlement placed · +${this.selectedCard.population} population`,
+              type: "info",
+            });
+          this.collection.markPlaced(this.selectedCard.id);
+          this.selectedCard = null;
+          this.bus.emit("resources:changed", {});
+          this.bus.emit("collection:changed", {
+            cards: this.collection.getAll(),
+          });
+        }
+
+        // ── Click handling ────────────────────────────────────
+        _handleClick(gx, gy) {
+          if (this.currentScale === ScaleLayer.DISTRICT) {
+            const tile = this.districtMap.getTile(gx, gy);
+            if (!tile) return;
+            if (tile.state === TileState.OPEN && tile.type.isSlot) {
+              if (this.selectedCard && !tile.placedCard) {
+                this.placeCardInSlot(tile);
+                this.effects.spawn(gx, gy, "#50c878");
+                return;
+              }
+              if (!tile.placedCard && !this.selectedCard) {
+                this.startPlotSession(tile);
+                return;
+              }
+              return;
+            }
+            if (tile.state !== TileState.VISIBLE) return;
+            const cost = this.districtMap.calcOpenCost(gx, gy);
+            if (!this.districtRes.spend({ governance: cost })) {
+              this.bus.emit("notification", {
+                text: `Need ${cost} Governance to open`,
+                type: "error",
+              });
+              this.effects.spawn(gx, gy, "#e05050");
+              return;
+            }
+            this.districtMap.openTile(gx, gy);
+            const t = this.districtMap.getTile(gx, gy);
+            this.effects.spawn(gx, gy, t.type.color);
+            if (t.type.oneTimeBonus && !t.oneTimeClaimed) {
+              t.oneTimeClaimed = true;
+              this.districtRes.add(
+                t.type.oneTimeBonus.resource,
+                t.type.oneTimeBonus.amount,
+              );
+              this.bus.emit("notification", {
+                text: `✦ +${t.type.oneTimeBonus.amount} ${t.type.oneTimeBonus.resource} found!`,
+                type: "bonus",
+              });
+            }
+            if (t.type.isSlot)
+              this.bus.emit("notification", {
+                text: "◈ Settlement Slot revealed! Click it to start a Plot session",
+                type: "info",
+              });
+          } else if (this.currentScale === ScaleLayer.PLOT) {
+            const s = this.activePlot;
+            if (!s) return;
+            if (!s.canOpen(gx, gy)) return;
+            if (s.openTile(gx, gy)) {
+              const t = s.getTile(gx, gy);
+              this.effects.spawn(gx, gy, t.type.color);
+              if (
+                t.type.oneTimeBonus &&
+                !t.oneTimeClaimed &&
+                t.type.oneTimeBonus.type === "population"
+              ) {
+                t.oneTimeClaimed = true;
+                this.bus.emit("notification", {
+                  text: `✧ Ancient Camp! +${t.type.oneTimeBonus.amount} population bonus`,
+                  type: "bonus",
+                });
+              }
+              if (s.turnsLeft === 0) {
+                this.bus.emit("notification", {
+                  text: "Turns exhausted — evaluating settlement…",
+                  type: "info",
+                });
+                setTimeout(() => this.evaluatePlot(), 700);
+              }
+              this.bus.emit("plot:updated", {});
+            }
+          }
+        }
+
+        // ── Tick ─────────────────────────────────────────────
+        _tick() {
+          if (this.currentScale === ScaleLayer.DISTRICT) {
+            const d = this.districtMap.collectTickDeltas();
+            if (Object.keys(d).length) this.districtRes.batchAdd(d);
+            this.districtRes.add("governance", CONST.GOVERNANCE_TRICKLE);
+          } else if (
+            this.currentScale === ScaleLayer.PLOT &&
+            this.activePlot &&
+            this.plotRes
+          ) {
+            const sn = this.activePlot.getProductionSnapshot();
+            const add = {};
+            if (sn.foodBal > 0) add.food = sn.foodBal;
+            if (sn.brushBal > 0) add.brushwood = sn.brushBal;
+            if (Object.keys(add).length) this.plotRes.batchAdd(add);
+            this.bus.emit("plot:updated", {});
+          }
+          this.bus.emit("tick", {});
+        }
+
+        // ── Render ────────────────────────────────────────────
+        _render(now, dt) {
+          this.effects.update(dt);
+          this.renderer.clear();
+          if (this.currentScale === ScaleLayer.DISTRICT)
+            this.renderer.renderDistrict(
+              this.districtMap,
+              this.camera,
+              this._hovered,
+              this.effects,
+              this.selectedCard,
+            );
+          else if (this.currentScale === ScaleLayer.PLOT && this.activePlot)
+            this.renderer.renderPlot(
+              this.activePlot,
+              this.camera,
+              this._hovered,
+              this.effects,
+            );
+        }
+
+        _bindEvents() {
+          this.bus.on("input:click", ({ gx, gy }) => this._handleClick(gx, gy));
+          this.bus.on("input:hover", (d) => {
+            this._hovered = d;
+          });
+          this.bus.on("input:hoverEnd", () => {
+            this._hovered = null;
+          });
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  BOOTSTRAP
+      // ═══════════════════════════════════════════════════════
+      const game = new GameEngine();
+      game.init();
+    </script>
+  </body>
+</html>

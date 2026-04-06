@@ -1,0 +1,2603 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dynasty — Bloodlines of Eternity</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #08060f;
+        color: #c9a84c;
+        font-family: "Crimson Text", serif;
+        overflow: hidden;
+        width: 100vw;
+        height: 100vh;
+      }
+      #worldCanvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+      }
+      #worldCanvas:active {
+        cursor: grabbing;
+      }
+      /* TOP BAR */
+      #topBar {
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        background: rgba(8, 6, 15, 0.88);
+        border: 1px solid rgba(201, 168, 76, 0.3);
+        border-radius: 4px;
+        padding: 8px 22px;
+        pointer-events: all;
+        white-space: nowrap;
+      }
+      #dynName {
+        font-family: "Cinzel", serif;
+        font-size: 17px;
+        color: #e8c86a;
+        font-weight: 700;
+        letter-spacing: 2px;
+      }
+      #yearDisplay {
+        font-family: "Cinzel", serif;
+        font-size: 13px;
+        color: #9a7830;
+        letter-spacing: 1px;
+      }
+      #memberCount {
+        font-size: 12px;
+        color: #6a5020;
+      }
+      /* LEGACY */
+      #legacyBox {
+        position: absolute;
+        top: 14px;
+        left: 18px;
+        background: rgba(8, 6, 15, 0.88);
+        border: 1px solid rgba(201, 168, 76, 0.22);
+        border-radius: 4px;
+        padding: 7px 13px;
+        pointer-events: none;
+      }
+      .scoreLbl {
+        font-family: "Cinzel", serif;
+        font-size: 9px;
+        color: #5a4020;
+        letter-spacing: 1px;
+      }
+      .scoreVal {
+        font-family: "Cinzel", serif;
+        font-size: 17px;
+        color: #c9a84c;
+        margin-top: 1px;
+      }
+      /* SPEED BAR */
+      #speedBar {
+        position: absolute;
+        bottom: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(8, 6, 15, 0.9);
+        border: 1px solid rgba(201, 168, 76, 0.22);
+        border-radius: 4px;
+        padding: 7px 14px;
+        pointer-events: all;
+      }
+      .spBtn {
+        background: none;
+        border: 1px solid rgba(201, 168, 76, 0.28);
+        color: #c9a84c;
+        font-family: "Cinzel", serif;
+        font-size: 11px;
+        padding: 4px 11px;
+        cursor: pointer;
+        border-radius: 2px;
+        transition: all 0.18s;
+      }
+      .spBtn:hover {
+        background: rgba(201, 168, 76, 0.1);
+      }
+      .spBtn.active {
+        background: rgba(201, 168, 76, 0.18);
+        border-color: #c9a84c;
+        color: #e8c86a;
+      }
+      /* EVENT LOG */
+      #evLog {
+        position: absolute;
+        bottom: 66px;
+        right: 18px;
+        width: 270px;
+        max-height: 190px;
+        overflow-y: auto;
+        background: rgba(8, 6, 15, 0.88);
+        border: 1px solid rgba(201, 168, 76, 0.18);
+        border-radius: 4px;
+        padding: 7px;
+        pointer-events: all;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(201, 168, 76, 0.25) transparent;
+      }
+      .evItem {
+        font-size: 11.5px;
+        color: #8a7040;
+        padding: 2px 0;
+        border-bottom: 1px solid rgba(201, 168, 76, 0.07);
+        line-height: 1.4;
+      }
+      .evItem.good {
+        color: #5cb87a;
+      }
+      .evItem.crit {
+        color: #c06060;
+      }
+      .evItem.imp {
+        color: #c9a84c;
+      }
+      .evYr {
+        color: #4a3818;
+        margin-right: 4px;
+      }
+      /* PROPOSALS BELL */
+      #propBell {
+        position: absolute;
+        top: 14px;
+        right: 18px;
+        background: rgba(8, 6, 15, 0.88);
+        border: 1px solid rgba(201, 168, 76, 0.28);
+        border-radius: 4px;
+        padding: 7px 13px;
+        cursor: pointer;
+        pointer-events: all;
+        font-family: "Cinzel", serif;
+        font-size: 11px;
+        color: #c9a84c;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #propBell:hover {
+        background: rgba(201, 168, 76, 0.1);
+      }
+      #propCount {
+        background: #702020;
+        color: #e08080;
+        border-radius: 10px;
+        padding: 1px 5px;
+        font-size: 9px;
+        display: none;
+      }
+      #propCount.show {
+        display: inline-block;
+      }
+      /* PROPOSALS PANEL */
+      #propPanel {
+        position: absolute;
+        top: 50px;
+        right: 18px;
+        width: 275px;
+        max-height: 310px;
+        overflow-y: auto;
+        background: rgba(8, 6, 15, 0.93);
+        border: 1px solid rgba(201, 168, 76, 0.28);
+        border-radius: 4px;
+        display: none;
+        pointer-events: all;
+        z-index: 50;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(201, 168, 76, 0.2) transparent;
+      }
+      #propPanel.show {
+        display: block;
+      }
+      .propHead {
+        font-family: "Cinzel", serif;
+        font-size: 11px;
+        color: #c9a84c;
+        padding: 8px 11px;
+        border-bottom: 1px solid rgba(201, 168, 76, 0.13);
+        letter-spacing: 1px;
+      }
+      .propItem {
+        padding: 8px 11px;
+        border-bottom: 1px solid rgba(201, 168, 76, 0.07);
+      }
+      .propTxt {
+        font-size: 11.5px;
+        color: #8a7040;
+        margin-bottom: 5px;
+        line-height: 1.4;
+      }
+      .propBtns {
+        display: flex;
+        gap: 5px;
+      }
+      .propBtn {
+        font-size: 10px;
+        padding: 3px 9px;
+        border-radius: 2px;
+        cursor: pointer;
+        font-family: "Cinzel", serif;
+        letter-spacing: 0.4px;
+      }
+      .propBtn.acc {
+        background: rgba(40, 90, 60, 0.2);
+        border: 1px solid rgba(60, 160, 90, 0.35);
+        color: #55b070;
+      }
+      .propBtn.dec {
+        background: rgba(90, 30, 30, 0.2);
+        border: 1px solid rgba(160, 60, 60, 0.35);
+        color: #b05555;
+      }
+      /* MILESTONE BANNER */
+      #msBanner {
+        position: absolute;
+        top: 66px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(8, 6, 15, 0.97);
+        border: 1px solid rgba(201, 168, 76, 0.45);
+        border-radius: 4px;
+        padding: 11px 30px;
+        text-align: center;
+        display: none;
+        pointer-events: none;
+        z-index: 200;
+      }
+      #msBanner.show {
+        display: block;
+        animation: fadeSlide 3.8s forwards;
+      }
+      @keyframes fadeSlide {
+        0% {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-8px);
+        }
+        15% {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+        80% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-8px);
+        }
+      }
+      .msTitle {
+        font-family: "Cinzel", serif;
+        font-size: 15px;
+        color: #e8c86a;
+        letter-spacing: 2px;
+      }
+      .msTxt {
+        font-size: 12px;
+        color: #8a7040;
+        margin-top: 3px;
+      }
+      /* OVERLAY */
+      #overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.52);
+        display: none;
+        z-index: 99;
+        pointer-events: all;
+      }
+      #overlay.show {
+        display: block;
+      }
+      /* PERSON MODAL */
+      #personModal {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 410px;
+        background: #0c0a18;
+        border: 1px solid rgba(201, 168, 76, 0.4);
+        border-radius: 6px;
+        padding: 22px;
+        display: none;
+        z-index: 100;
+        pointer-events: all;
+        box-shadow:
+          0 0 50px rgba(0, 0, 0, 0.85),
+          0 0 18px rgba(201, 168, 76, 0.08);
+      }
+      #personModal.show {
+        display: block;
+      }
+      .mTitle {
+        font-family: "Cinzel", serif;
+        font-size: 19px;
+        color: #e8c86a;
+        margin-bottom: 3px;
+      }
+      .mSub {
+        font-size: 12px;
+        color: #6a5020;
+        margin-bottom: 13px;
+      }
+      .tRow {
+        display: flex;
+        align-items: center;
+        margin-bottom: 7px;
+        gap: 7px;
+      }
+      .tLbl {
+        font-size: 11px;
+        color: #8a7040;
+        width: 96px;
+        font-family: "Cinzel", serif;
+        letter-spacing: 0.4px;
+      }
+      .tBar {
+        flex: 1;
+        height: 3px;
+        background: rgba(201, 168, 76, 0.1);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .tFill {
+        height: 100%;
+        background: linear-gradient(90deg, #7a5818, #c9a84c);
+        border-radius: 2px;
+      }
+      .tVal {
+        font-size: 10px;
+        color: #5a4020;
+        width: 28px;
+        text-align: right;
+      }
+      .mActions {
+        margin-top: 13px;
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+      .actBtn {
+        background: rgba(201, 168, 76, 0.07);
+        border: 1px solid rgba(201, 168, 76, 0.28);
+        color: #c9a84c;
+        font-family: "Cinzel", serif;
+        font-size: 10.5px;
+        padding: 5px 12px;
+        cursor: pointer;
+        border-radius: 2px;
+        transition: all 0.18s;
+        letter-spacing: 0.4px;
+      }
+      .actBtn:hover {
+        background: rgba(201, 168, 76, 0.14);
+      }
+      .closeBtn {
+        position: absolute;
+        top: 11px;
+        right: 14px;
+        background: none;
+        border: none;
+        color: #4a3818;
+        font-size: 19px;
+        cursor: pointer;
+        font-family: "Crimson Text", serif;
+        line-height: 1;
+      }
+      .closeBtn:hover {
+        color: #c9a84c;
+      }
+      /* MARRIAGE MODAL */
+      #marriageModal {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 490px;
+        max-height: 580px;
+        background: #0c0a18;
+        border: 1px solid rgba(201, 168, 76, 0.4);
+        border-radius: 6px;
+        padding: 22px;
+        display: none;
+        z-index: 101;
+        pointer-events: all;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(201, 168, 76, 0.2) transparent;
+      }
+      #marriageModal.show {
+        display: block;
+      }
+      .candCard {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 9px;
+        border: 1px solid rgba(201, 168, 76, 0.1);
+        border-radius: 4px;
+        margin-bottom: 7px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .candCard:hover {
+        background: rgba(201, 168, 76, 0.05);
+        border-color: rgba(201, 168, 76, 0.3);
+      }
+      .cName {
+        font-family: "Cinzel", serif;
+        font-size: 12.5px;
+        color: #c9a84c;
+      }
+      .cHouse {
+        font-size: 11px;
+        color: #5a4020;
+        margin-top: 1px;
+      }
+      .cStats {
+        font-size: 10.5px;
+        color: #7a6030;
+        margin-top: 2px;
+      }
+      /* SETUP */
+      #setup {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 470px;
+        background: #0c0a18;
+        border: 1px solid rgba(201, 168, 76, 0.4);
+        border-radius: 6px;
+        padding: 30px;
+        z-index: 200;
+        pointer-events: all;
+      }
+      .sTitle {
+        font-family: "Cinzel", serif;
+        font-size: 26px;
+        color: #e8c86a;
+        margin-bottom: 4px;
+        letter-spacing: 3px;
+        text-align: center;
+      }
+      .sSub {
+        font-size: 13px;
+        color: #5a4020;
+        margin-bottom: 22px;
+        text-align: center;
+        font-style: italic;
+      }
+      .sField {
+        margin-bottom: 14px;
+      }
+      .sLbl {
+        font-family: "Cinzel", serif;
+        font-size: 10px;
+        color: #8a7040;
+        letter-spacing: 1px;
+        margin-bottom: 5px;
+        display: block;
+      }
+      .sInput,
+      .sSel {
+        width: 100%;
+        background: rgba(201, 168, 76, 0.05);
+        border: 1px solid rgba(201, 168, 76, 0.22);
+        color: #c9a84c;
+        padding: 7px 11px;
+        border-radius: 3px;
+        font-family: "Crimson Text", serif;
+        font-size: 14px;
+      }
+      .sInput:focus,
+      .sSel:focus {
+        outline: none;
+        border-color: rgba(201, 168, 76, 0.45);
+      }
+      .sSel option {
+        background: #0c0a18;
+      }
+      .sGrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 11px;
+      }
+      .startBtn {
+        width: 100%;
+        margin-top: 20px;
+        background: rgba(201, 168, 76, 0.09);
+        border: 1px solid rgba(201, 168, 76, 0.45);
+        color: #e8c86a;
+        font-family: "Cinzel", serif;
+        font-size: 13px;
+        letter-spacing: 2px;
+        padding: 11px;
+        cursor: pointer;
+        border-radius: 3px;
+        transition: all 0.2s;
+      }
+      .startBtn:hover {
+        background: rgba(201, 168, 76, 0.17);
+      }
+      .startBtn:active {
+        background: rgba(201, 168, 76, 0.25);
+      }
+      ::-webkit-scrollbar {
+        width: 3px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(201, 168, 76, 0.25);
+        border-radius: 2px;
+      }
+      /* GENE LEGEND */
+      #geneLegend {
+        position: absolute;
+        bottom: 66px;
+        left: 18px;
+        background: rgba(8, 6, 15, 0.88);
+        border: 1px solid rgba(201, 168, 76, 0.18);
+        border-radius: 4px;
+        padding: 7px 11px;
+        pointer-events: none;
+        font-size: 10px;
+        color: #6a5020;
+        line-height: 1.7;
+      }
+      .lgRow {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .lgDot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      /* HOVER TOOLTIP */
+      #tooltip {
+        position: absolute;
+        background: rgba(8, 6, 15, 0.95);
+        border: 1px solid rgba(201, 168, 76, 0.3);
+        border-radius: 3px;
+        padding: 5px 9px;
+        font-size: 11px;
+        color: #c9a84c;
+        pointer-events: none;
+        display: none;
+        z-index: 80;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="worldCanvas"></canvas>
+
+    <!-- HUD -->
+    <div id="topBar">
+      <span id="dynName">HOUSE —</span>
+      <span id="yearDisplay">Year 900</span>
+      <span id="memberCount">1 member</span>
+    </div>
+
+    <div id="legacyBox">
+      <div class="scoreLbl">LEGACY</div>
+      <div class="scoreVal" id="legacyVal">0</div>
+    </div>
+
+    <button id="propBell" onclick="UIManager.toggleProposals()">
+      ⚭ PROPOSALS <span id="propCount"></span>
+    </button>
+
+    <div id="speedBar">
+      <button class="spBtn" id="bPause" onclick="GE.setSpeed(0)">⏸</button>
+      <button class="spBtn active" id="bX1" onclick="GE.setSpeed(1)">×1</button>
+      <button class="spBtn" id="bX5" onclick="GE.setSpeed(5)">×5</button>
+      <button class="spBtn" id="bX10" onclick="GE.setSpeed(10)">×10</button>
+      <span
+        style="
+          color: #4a3818;
+          font-size: 10px;
+          margin-left: 6px;
+          font-family: &quot;Cinzel&quot;, serif;
+        "
+        >H=home</span
+      >
+    </div>
+
+    <div id="evLog"></div>
+
+    <div id="geneLegend">
+      <div class="lgRow">
+        <div class="lgDot" style="background: #5cb87a"></div>
+        Birth
+      </div>
+      <div class="lgRow">
+        <div class="lgDot" style="background: #c06060"></div>
+        Death
+      </div>
+      <div class="lgRow">
+        <div class="lgDot" style="background: #c9a84c"></div>
+        Marriage
+      </div>
+    </div>
+
+    <div id="msBanner">
+      <div class="msTitle" id="msTitle">MILESTONE</div>
+      <div class="msTxt" id="msTxt"></div>
+    </div>
+
+    <div id="propPanel">
+      <div class="propHead">⚭ MARRIAGE PROPOSALS</div>
+      <div id="propList"></div>
+    </div>
+
+    <div id="tooltip"></div>
+
+    <!-- OVERLAYS -->
+    <div id="overlay"></div>
+
+    <div id="personModal">
+      <button class="closeBtn" onclick="UIManager.closePersonModal()">×</button>
+      <div class="mTitle" id="pName"></div>
+      <div class="mSub" id="pSub"></div>
+      <canvas
+        id="pAvatar"
+        width="78"
+        height="78"
+        style="
+          float: right;
+          margin-left: 11px;
+          border: 1px solid rgba(201, 168, 76, 0.2);
+          border-radius: 3px;
+          background: #0a0816;
+        "
+      ></canvas>
+      <div id="pTraits"></div>
+      <div style="clear: both"></div>
+      <div class="mActions" id="pActions"></div>
+    </div>
+
+    <div id="marriageModal">
+      <button class="closeBtn" onclick="UIManager.closeMarriageModal()">
+        ×
+      </button>
+      <div class="mTitle" id="mTitle2" style="margin-bottom: 14px">
+        Choose a Spouse
+      </div>
+      <div id="candList"></div>
+    </div>
+
+    <div id="setup">
+      <div class="sTitle">DYNASTY</div>
+      <div class="sSub">Forge your bloodline. Outlast the centuries.</div>
+      <div class="sGrid">
+        <div class="sField">
+          <label class="sLbl">DYNASTY NAME</label
+          ><input class="sInput" id="dynNameIn" value="Aldric" maxlength="18" />
+        </div>
+        <div class="sField">
+          <label class="sLbl">FOUNDER'S NAME</label
+          ><input class="sInput" id="foundIn" value="Edmund" maxlength="16" />
+        </div>
+        <div class="sField">
+          <label class="sLbl">NPC HOUSES (2–30)</label
+          ><input
+            class="sInput"
+            id="npcIn"
+            type="number"
+            value="8"
+            min="2"
+            max="30"
+          />
+        </div>
+        <div class="sField">
+          <label class="sLbl">STARTING YEAR</label
+          ><input
+            class="sInput"
+            id="yearIn"
+            type="number"
+            value="900"
+            min="0"
+            max="2000"
+          />
+        </div>
+        <div class="sField">
+          <label class="sLbl">WIN: GENE SPREAD %</label
+          ><input
+            class="sInput"
+            id="winIn"
+            type="number"
+            value="60"
+            min="10"
+            max="95"
+          />
+        </div>
+        <div class="sField">
+          <label class="sLbl">DIFFICULTY</label>
+          <select class="sSel" id="diffIn">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+            <option value="sandbox">Sandbox (no death)</option>
+          </select>
+        </div>
+      </div>
+      <button class="startBtn" onclick="startGame()">
+        ✦ BEGIN THE DYNASTY ✦
+      </button>
+    </div>
+
+    <script>
+      "use strict";
+
+      // ════════════════════════════════════════════
+      // CONFIG
+      // ════════════════════════════════════════════
+      const CFG = {
+        NPC_HOUSES: 8,
+        START_YEAR: 900,
+        WIN_DOMINANCE: 60,
+        DIFFICULTY: "normal",
+        MILESTONES: [100, 200, 500, 1000],
+        CARD_W: 112,
+        CARD_H: 92,
+        H_GAP: 44,
+        V_GAP: 82,
+        MARRY_MIN: 16,
+        MARRY_MAX: 46,
+        FERTILITY_BASE: 0.28,
+        CHILD_GAP: 3,
+        LIFESPAN_BASE: 52,
+        LIFESPAN_HEALTH: 0.38,
+        LIFESPAN_VAR: 12,
+        ZOOM_MIN: 0.04,
+        ZOOM_MAX: 2.2,
+        ZOOM_SPD: 0.0012,
+        TICK_MS: { 1: 1000, 5: 200, 10: 75 },
+      };
+
+      const DIFF = {
+        easy: { ls: 1.25, fert: 1.35, npc: 0.5 },
+        normal: { ls: 1.0, fert: 1.0, npc: 1.0 },
+        hard: { ls: 0.75, fert: 0.75, npc: 1.5 },
+        sandbox: { ls: 99, fert: 1.5, npc: 0.4 },
+      };
+
+      // ════════════════════════════════════════════
+      // RNG — seeded LCG
+      // ════════════════════════════════════════════
+      class RNG {
+        static seed = 9173;
+        static setSeed(s) {
+          RNG.seed = s >>> 0;
+        }
+        static next() {
+          RNG.seed = (Math.imul(1664525, RNG.seed) + 1013904223) >>> 0;
+          return RNG.seed / 0xffffffff;
+        }
+        static f(lo = 0, hi = 1) {
+          return lo + RNG.next() * (hi - lo);
+        }
+        static i(lo, hi) {
+          return Math.floor(RNG.f(lo, hi + 1));
+        }
+        static b(p = 0.5) {
+          return RNG.next() < p;
+        }
+        static pick(a) {
+          return a[RNG.i(0, a.length - 1)];
+        }
+        static gauss(m = 0, s = 1) {
+          let u, v, r;
+          do {
+            u = RNG.f(-1, 1);
+            v = RNG.f(-1, 1);
+            r = u * u + v * v;
+          } while (r === 0 || r >= 1);
+          return m + s * u * Math.sqrt((-2 * Math.log(r)) / r);
+        }
+      }
+
+      // ════════════════════════════════════════════
+      // NAMES
+      // ════════════════════════════════════════════
+      const NM = {
+        m: [
+          "Edmund",
+          "Aldric",
+          "Godfrey",
+          "Rowan",
+          "Cedric",
+          "Leofric",
+          "Oswald",
+          "Baldwin",
+          "Conrad",
+          "Dietrich",
+          "Sigurd",
+          "Harald",
+          "Magnus",
+          "Erik",
+          "Ragnar",
+          "Sven",
+          "Wulfric",
+          "Athelstan",
+          "Godwin",
+          "Cnut",
+          "Thorvald",
+          "Gunnar",
+          "Bjorn",
+          "Ulf",
+          "Eadric",
+          "Aelred",
+          "Sweyn",
+          "Edgar",
+          "Ingvar",
+          "Leofwine",
+        ],
+        f: [
+          "Matilda",
+          "Eleanor",
+          "Isolde",
+          "Maud",
+          "Edith",
+          "Aelgifu",
+          "Wulfhild",
+          "Gunhild",
+          "Sigrid",
+          "Astrid",
+          "Ragnhild",
+          "Ingrid",
+          "Thyra",
+          "Gudrun",
+          "Helga",
+          "Alditha",
+          "Eadgyth",
+          "Emma",
+          "Beatrice",
+          "Agnes",
+          "Constance",
+          "Margery",
+          "Alice",
+          "Cecily",
+          "Sybil",
+          "Mabel",
+          "Freydis",
+          "Avice",
+          "Rosamunde",
+          "Brynhild",
+        ],
+        houses: [
+          "Morwen",
+          "Vael",
+          "Theron",
+          "Kessig",
+          "Donar",
+          "Ashford",
+          "Ironblood",
+          "Crowe",
+          "Vayne",
+          "Stormvale",
+          "Redmoor",
+          "Greyfen",
+          "Thornwall",
+          "Silverthorn",
+          "Blackwood",
+          "Dunmere",
+          "Coldfen",
+          "Ravenmoor",
+          "Ashstone",
+          "Wraithfell",
+          "Dunhollow",
+          "Grimwald",
+          "Eldenmere",
+        ],
+      };
+
+      // ════════════════════════════════════════════
+      // GENETICS
+      // ════════════════════════════════════════════
+      const HAIR_DOM = [0, 1, 2, 3, 4, 5]; // black>brown>auburn>red>blonde>white
+      const EYE_DOM = [0, 1, 2, 3, 4]; // brown>hazel>green>blue>grey
+      const HAIR_CSS = [
+        "#1a1008",
+        "#3d2008",
+        "#6b3010",
+        "#8b2510",
+        "#c49020",
+        "#c8c0a8",
+      ];
+      const EYE_CSS = ["#5c3010", "#7a5530", "#3a7030", "#3060a8", "#8090a0"];
+      const SKIN_CSS = ["#3d2010", "#6b3a20", "#a07040", "#c4946a", "#f0d4b0"];
+      const GENE_Q = ["HEIGHT", "HEALTH", "INTEL", "CHARM", "AGGR", "FERT"];
+
+      class Genome {
+        constructor(a) {
+          this.a = a || this._rnd();
+        }
+        _rnd() {
+          const a = {
+            HAIR: [RNG.i(0, 5), RNG.i(0, 5)],
+            EYE: [RNG.i(0, 4), RNG.i(0, 4)],
+            SKIN: [RNG.i(0, 4), RNG.i(0, 4)],
+          };
+          for (const g of GENE_Q) a[g] = [RNG.f(15, 85), RNG.f(15, 85)];
+          return a;
+        }
+        static cross(fg, mg) {
+          const a = {};
+          const all = { ...fg.a };
+          for (const g in all) {
+            const f = fg.a[g],
+              m = mg.a[g];
+            let c0 = f[RNG.i(0, 1)],
+              c1 = m[RNG.i(0, 1)];
+            if (GENE_Q.includes(g)) {
+              if (RNG.b(0.025))
+                c0 = Math.max(0, Math.min(100, c0 + RNG.gauss(0, 6)));
+              if (RNG.b(0.025))
+                c1 = Math.max(0, Math.min(100, c1 + RNG.gauss(0, 6)));
+            }
+            a[g] = [c0, c1];
+          }
+          return new Genome(a);
+        }
+        ph() {
+          const a = this.a;
+          const hi =
+            HAIR_DOM.indexOf(a.HAIR[0]) <= HAIR_DOM.indexOf(a.HAIR[1])
+              ? a.HAIR[0]
+              : a.HAIR[1];
+          const ei =
+            EYE_DOM.indexOf(a.EYE[0]) <= EYE_DOM.indexOf(a.EYE[1])
+              ? a.EYE[0]
+              : a.EYE[1];
+          return {
+            hair: hi,
+            eye: ei,
+            skin: Math.round((a.SKIN[0] + a.SKIN[1]) / 2),
+            height: (a.HEIGHT[0] + a.HEIGHT[1]) / 2,
+            health: (a.HEALTH[0] + a.HEALTH[1]) / 2,
+            intel: (a.INTEL[0] + a.INTEL[1]) / 2,
+            charm: (a.CHARM[0] + a.CHARM[1]) / 2,
+            aggr: (a.AGGR[0] + a.AGGR[1]) / 2,
+            fert: (a.FERT[0] + a.FERT[1]) / 2,
+          };
+        }
+      }
+
+      // ════════════════════════════════════════════
+      // PERSON
+      // ════════════════════════════════════════════
+      let _pid = 0;
+      class Person {
+        constructor({
+          name,
+          gender,
+          birthYear,
+          houseId,
+          genome,
+          fatherId = null,
+          motherId = null,
+        }) {
+          this.id = ++_pid;
+          this.name = name;
+          this.gender = gender;
+          this.birthYear = birthYear;
+          this.deathYear = null;
+          this.houseId = houseId;
+          this.birthHouseId = houseId;
+          this.spouseId = null;
+          this.fatherId = fatherId;
+          this.motherId = motherId;
+          this.childrenIds = [];
+          this.genome = genome;
+          this.p = genome.ph();
+          this.lastChildYr = birthYear;
+          this.traits = [];
+          const m = DIFF[CFG.DIFFICULTY];
+          const base =
+            CFG.LIFESPAN_BASE + this.p.health * CFG.LIFESPAN_HEALTH * m.ls;
+          this.lifespan = Math.max(16, base + RNG.gauss(0, CFG.LIFESPAN_VAR));
+        }
+        get age() {
+          return W.year - this.birthYear;
+        }
+        get alive() {
+          return this.deathYear === null;
+        }
+        get dead() {
+          return this.deathYear !== null;
+        }
+        get married() {
+          return this.spouseId !== null;
+        }
+      }
+
+      // ════════════════════════════════════════════
+      // HOUSE
+      // ════════════════════════════════════════════
+      let _hid = 0;
+      class House {
+        constructor({ name, color, isPlayer = false }) {
+          this.id = ++_hid;
+          this.name = name;
+          this.color = color;
+          this.isPlayer = isPlayer;
+          this.memberIds = [];
+          this.founderId = null;
+          this.coaPat = RNG.i(0, 5);
+          this.coaAlt = RNG.i(0, 5);
+          this.worldX = 0;
+          this.worldY = 0;
+        }
+        get members() {
+          return this.memberIds.map((id) => W.person(id)).filter(Boolean);
+        }
+        get alive() {
+          return this.members.filter((p) => p.alive);
+        }
+        get size() {
+          return this.alive.length;
+        }
+        get extinct() {
+          return this.alive.length === 0;
+        }
+      }
+
+      // ════════════════════════════════════════════
+      // WORLD STATE
+      // ════════════════════════════════════════════
+      const W = {
+        year: 0,
+        houses: [],
+        persons: new Map(),
+        playerHId: null,
+        proposals: [],
+        legacyScore: 0,
+        milestonesHit: [],
+        dirty: true,
+        person(id) {
+          return this.persons.get(id) || null;
+        },
+        house(id) {
+          return this.houses.find((h) => h.id === id) || null;
+        },
+        get ph() {
+          return this.house(this.playerHId);
+        },
+        allAlive() {
+          const o = [];
+          for (const p of this.persons.values()) if (p.alive) o.push(p);
+          return o;
+        },
+        add(p) {
+          this.persons.set(p.id, p);
+          const h = this.house(p.houseId);
+          if (h && !h.memberIds.includes(p.id)) h.memberIds.push(p.id);
+          this.dirty = true;
+        },
+        log(txt, type = "n", yr = null) {
+          const ev = { txt, type, yr: yr || this.year };
+          UIManager.pushEvent(ev);
+        },
+      };
+
+      // ════════════════════════════════════════════
+      // TREE LAYOUT
+      // ════════════════════════════════════════════
+      class TreeLayout {
+        static layout(house) {
+          const members = house.members;
+          if (!members.length) return {};
+          const gen = {};
+          const seen = new Set();
+          const inHouse = (id) => id && house.memberIds.includes(id);
+          // roots = no parent born in this house
+          const roots = members.filter((p) => {
+            const f = p.fatherId ? W.person(p.fatherId) : null;
+            const m = p.motherId ? W.person(p.motherId) : null;
+            return (
+              !(f && f.birthHouseId === house.id && inHouse(f.id)) &&
+              !(m && m.birthHouseId === house.id && inHouse(m.id))
+            );
+          });
+          const q = roots.map((r) => [r, 0]);
+          for (let i = 0; i < q.length; i++) {
+            const [p, g] = q[i];
+            if (seen.has(p.id)) continue;
+            seen.add(p.id);
+            gen[p.id] = g;
+            // spouse = same row
+            if (p.spouseId) {
+              const sp = W.person(p.spouseId);
+              if (sp && inHouse(sp.id) && !seen.has(sp.id)) q.push([sp, g]);
+            }
+            for (const cid of p.childrenIds) {
+              const c = W.person(cid);
+              if (c && inHouse(cid) && !seen.has(cid)) q.push([c, g + 1]);
+            }
+          }
+          for (const p of members) if (gen[p.id] === undefined) gen[p.id] = 0;
+          // group by gen
+          const byG = {};
+          for (const p of members) {
+            const g = gen[p.id] || 0;
+            (byG[g] = byG[g] || []).push(p);
+          }
+          const CW = CFG.CARD_W + CFG.H_GAP,
+            CH = CFG.CARD_H + CFG.V_GAP;
+          const pos = {};
+          for (const [g, ps] of Object.entries(byG)) {
+            const gn = parseInt(g);
+            const tot = ps.length * CW - CFG.H_GAP;
+            ps.forEach((p, i) => {
+              pos[p.id] = { x: i * CW - tot / 2, y: gn * CH };
+            });
+          }
+          return pos;
+        }
+      }
+
+      // ════════════════════════════════════════════
+      // WORLD LAYOUT (house positions)
+      // ════════════════════════════════════════════
+      function assignWorldPositions() {
+        const all = W.houses;
+        const n = all.length;
+        const player = all.find((h) => h.isPlayer);
+        player.worldX = 0;
+        player.worldY = 0;
+        const others = all.filter((h) => !h.isPlayer);
+        const ring = 3500;
+        others.forEach((h, i) => {
+          const a = (i / others.length) * Math.PI * 2 + RNG.f(-0.15, 0.15);
+          const r = ring * (1 + Math.floor(i / 8) * 0.65) + RNG.f(-200, 200);
+          h.worldX = Math.cos(a) * r;
+          h.worldY = Math.sin(a) * r;
+        });
+      }
+
+      // ════════════════════════════════════════════
+      // SIMULATION
+      // ════════════════════════════════════════════
+      const Sim = {
+        treePos: {},
+
+        updateLayout() {
+          for (const h of W.houses) this.treePos[h.id] = TreeLayout.layout(h);
+          W.dirty = false;
+        },
+
+        tick() {
+          W.year++;
+          const yr = W.year;
+          const m = DIFF[CFG.DIFFICULTY];
+
+          // Deaths
+          for (const p of W.allAlive()) {
+            if (CFG.DIFFICULTY === "sandbox" && p.birthHouseId === W.playerHId)
+              continue;
+            const ageRatio = p.age / p.lifespan;
+            if (
+              ageRatio >= 1 ||
+              (ageRatio > 0.7 && RNG.b(0.015 * (ageRatio - 0.7) * 4))
+            ) {
+              this.kill(p, "age");
+              continue;
+            }
+            // illness chance – scales with low health
+            const ill = ((1 - p.p.health / 100) * 0.007) / m.ls;
+            if (p.age > 2 && RNG.b(ill)) {
+              this.kill(p, "illness");
+            }
+          }
+
+          // Births
+          for (const p of W.allAlive()) {
+            if (p.gender === "F" && p.married) {
+              const sp = W.person(p.spouseId);
+              if (sp && sp.alive) this.tryBirth(p, sp);
+            }
+          }
+
+          // NPC house AI
+          for (const h of W.houses) {
+            if (h.isPlayer) continue;
+            this.npcMarry(h);
+            if (h.extinct && RNG.b(0.04)) this.npcSeed(h); // revive extinct houses occasionally
+          }
+
+          // Generate player proposals
+          if (RNG.b(0.12)) this.genProposal();
+
+          // Milestones
+          const age = yr - CFG.START_YEAR;
+          for (const ms of CFG.MILESTONES) {
+            if (age >= ms && !W.milestonesHit.includes(ms)) {
+              W.milestonesHit.push(ms);
+              const ph = W.ph;
+              UIManager.milestone(
+                `${ms} YEARS`,
+                `House ${ph ? ph.name : ""} endures · ${ph ? ph.size : 0} living members`,
+              );
+              W.log(`🏆 Dynasty milestone: ${ms} years!`, "imp");
+              W.legacyScore += ms * 12;
+            }
+          }
+
+          // Score
+          const ph = W.ph;
+          if (ph && !ph.extinct) W.legacyScore += ph.size * 0.5;
+
+          // Win / lose
+          this.checkWin();
+          if (ph && ph.extinct) GE.gameOver("extinction");
+
+          if (W.dirty) this.updateLayout();
+          UIManager.update();
+        },
+
+        kill(p, cause) {
+          p.deathYear = W.year;
+          if (p.spouseId) {
+            const sp = W.person(p.spouseId);
+            if (sp) sp.spouseId = null;
+            p.spouseId = null;
+          }
+          W.dirty = true;
+          const ph = W.ph;
+          const inPlayer = ph && ph.memberIds.includes(p.id);
+          if (inPlayer) {
+            const msg =
+              cause === "illness"
+                ? `${p.name} perished of illness, aged ${Math.floor(p.age)}`
+                : `${p.name} passed away, aged ${Math.floor(p.age)}`;
+            W.log(msg, "crit");
+          }
+        },
+
+        tryBirth(mother, father) {
+          if (mother.age < 14 || mother.age > 46) return;
+          if (W.year - mother.lastChildYr < CFG.CHILD_GAP) return;
+          const m = DIFF[CFG.DIFFICULTY];
+          const prob = (mother.p.fert / 100) * CFG.FERTILITY_BASE * m.fert;
+          if (!RNG.b(prob)) return;
+          const gen = RNG.b(0.5) ? "M" : "F";
+          const genome = Genome.cross(father.genome, mother.genome);
+          const houseId = father.houseId;
+          const child = new Person({
+            name: RNG.pick(gen === "M" ? NM.m : NM.f),
+            gender: gen,
+            birthYear: W.year,
+            houseId,
+            genome,
+            fatherId: father.id,
+            motherId: mother.id,
+          });
+          W.add(child);
+          mother.childrenIds.push(child.id);
+          father.childrenIds.push(child.id);
+          mother.lastChildYr = W.year;
+          W.dirty = true;
+          const ph = W.ph;
+          if (
+            (ph && ph.memberIds.includes(father.id)) ||
+            (ph && ph.memberIds.includes(mother.id))
+          ) {
+            W.log(
+              `👶 ${child.name} born to ${mother.name} & ${father.name}`,
+              "good",
+            );
+            W.legacyScore += 55;
+          }
+        },
+
+        marry(p1, p2) {
+          if (p1.married || p2.married) return;
+          p1.spouseId = p2.id;
+          p2.spouseId = p1.id;
+          const wife = p1.gender === "F" ? p1 : p2;
+          const husb = p1.gender === "M" ? p1 : p2;
+          if (wife.houseId !== husb.houseId) {
+            const oh = W.house(wife.houseId);
+            if (oh) oh.memberIds = oh.memberIds.filter((id) => id !== wife.id);
+            wife.houseId = husb.houseId;
+            const nh = W.house(husb.houseId);
+            if (nh && !nh.memberIds.includes(wife.id))
+              nh.memberIds.push(wife.id);
+          }
+          W.dirty = true;
+        },
+
+        npcMarry(house) {
+          const singles = house.alive.filter(
+            (p) =>
+              !p.married && p.age >= CFG.MARRY_MIN && p.age <= CFG.MARRY_MAX,
+          );
+          for (const s of singles) {
+            if (!RNG.b(0.08)) continue;
+            const others = W.houses.filter(
+              (h) => h.id !== house.id && !h.extinct,
+            );
+            if (!others.length) continue;
+            const th = RNG.pick(others);
+            const cands = th.alive.filter(
+              (p) =>
+                !p.married &&
+                p.gender !== s.gender &&
+                p.age >= CFG.MARRY_MIN &&
+                p.age <= CFG.MARRY_MAX,
+            );
+            if (cands.length) this.marry(s, RNG.pick(cands));
+          }
+        },
+
+        npcSeed(house) {
+          if (house.size > 0) return;
+          const gen = RNG.b(0.5) ? "M" : "F";
+          const p = new Person({
+            name: RNG.pick(gen === "M" ? NM.m : NM.f),
+            gender: gen,
+            birthYear: W.year - RNG.i(22, 38),
+            houseId: house.id,
+            genome: new Genome(),
+          });
+          W.add(p);
+        },
+
+        genProposal() {
+          const ph = W.ph;
+          if (!ph) return;
+          const singles = ph.alive.filter(
+            (p) =>
+              !p.married && p.age >= CFG.MARRY_MIN && p.age <= CFG.MARRY_MAX,
+          );
+          if (!singles.length) return;
+          const single = RNG.pick(singles);
+          for (const h of W.houses) {
+            if (h.isPlayer || h.extinct) continue;
+            const cands = h.alive.filter(
+              (p) =>
+                !p.married &&
+                p.gender !== single.gender &&
+                p.age >= CFG.MARRY_MIN &&
+                p.age <= CFG.MARRY_MAX,
+            );
+            if (cands.length && RNG.b(0.28)) {
+              const cand = RNG.pick(cands);
+              const dup = W.proposals.some(
+                (pr) =>
+                  (pr.a === single.id && pr.b === cand.id) ||
+                  (pr.a === cand.id && pr.b === single.id),
+              );
+              if (!dup) {
+                W.proposals.push({ a: single.id, b: cand.id });
+                UIManager.updateProposals();
+                break;
+              }
+            }
+          }
+        },
+
+        acceptProposal(aid, bid) {
+          const a = W.person(aid),
+            b = W.person(bid);
+          if (!a || !b || a.married || b.married) return;
+          this.marry(a, b);
+          const bh = W.house(b.birthHouseId);
+          W.log(
+            `💒 ${a.name} wed ${b.name} of House ${bh ? bh.name : "?"}`,
+            "good",
+          );
+          W.legacyScore += 35;
+          W.proposals = W.proposals.filter(
+            (pr) => !(pr.a === aid && pr.b === bid),
+          );
+          UIManager.updateProposals();
+        },
+
+        checkWin() {
+          const all = W.allAlive();
+          if (!all.length) return;
+          const ph = W.ph;
+          if (!ph) return;
+          const cache = new Map();
+          const hasPlayerBlood = (p, depth = 0) => {
+            if (!p || depth > 20) return false;
+            if (cache.has(p.id)) return cache.get(p.id);
+            if (p.birthHouseId === W.playerHId) {
+              cache.set(p.id, true);
+              return true;
+            }
+            const f = p.fatherId ? W.person(p.fatherId) : null;
+            const m = p.motherId ? W.person(p.motherId) : null;
+            const r =
+              hasPlayerBlood(f, depth + 1) || hasPlayerBlood(m, depth + 1);
+            cache.set(p.id, r);
+            return r;
+          };
+          const cnt = all.filter((p) => hasPlayerBlood(p)).length;
+          if ((cnt / all.length) * 100 >= CFG.WIN_DOMINANCE)
+            GE.gameOver("dominance");
+        },
+      };
+
+      // ════════════════════════════════════════════
+      // RENDERER
+      // ════════════════════════════════════════════
+      const R = {
+        cv: null,
+        ctx: null,
+        cam: { x: 0, y: 0, z: 0.32 },
+
+        init(cv) {
+          this.cv = cv;
+          this.ctx = cv.getContext("2d");
+          this.resize();
+          window.addEventListener("resize", () => this.resize());
+        },
+        resize() {
+          this.cv.width = window.innerWidth;
+          this.cv.height = window.innerHeight;
+        },
+
+        w2s(wx, wy) {
+          const cx = this.cv.width / 2,
+            cy = this.cv.height / 2;
+          return {
+            x: (wx - this.cam.x) * this.cam.z + cx,
+            y: (wy - this.cam.y) * this.cam.z + cy,
+          };
+        },
+        s2w(sx, sy) {
+          const cx = this.cv.width / 2,
+            cy = this.cv.height / 2;
+          return {
+            x: (sx - cx) / this.cam.z + this.cam.x,
+            y: (sy - cy) / this.cam.z + this.cam.y,
+          };
+        },
+
+        draw() {
+          const { ctx, cv, cam } = this;
+          ctx.clearRect(0, 0, cv.width, cv.height);
+          // BG gradient
+          const grad = ctx.createRadialGradient(
+            cv.width / 2,
+            cv.height / 2,
+            0,
+            cv.width / 2,
+            cv.height / 2,
+            Math.max(cv.width, cv.height),
+          );
+          grad.addColorStop(0, "#0e0b1c");
+          grad.addColorStop(1, "#06050e");
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, cv.width, cv.height);
+
+          this.drawGrid();
+
+          // Sort: player house last (drawn on top)
+          const sorted = [...W.houses].sort((a, b) =>
+            a.isPlayer ? 1 : b.isPlayer ? -1 : 0,
+          );
+          for (const h of sorted) this.drawHouse(h);
+        },
+
+        drawGrid() {
+          const { ctx, cv, cam } = this;
+          const gs = 500;
+          ctx.save();
+          ctx.strokeStyle = "rgba(201,168,76,0.032)";
+          ctx.lineWidth = 1;
+          const tl = this.s2w(0, 0),
+            br = this.s2w(cv.width, cv.height);
+          const sx = Math.floor(tl.x / gs) * gs,
+            sy = Math.floor(tl.y / gs) * gs;
+          for (let wx = sx; wx < br.x + gs; wx += gs) {
+            const s = this.w2s(wx, 0);
+            ctx.beginPath();
+            ctx.moveTo(s.x, 0);
+            ctx.lineTo(s.x, cv.height);
+            ctx.stroke();
+          }
+          for (let wy = sy; wy < br.y + gs; wy += gs) {
+            const s = this.w2s(0, wy);
+            ctx.beginPath();
+            ctx.moveTo(0, s.y);
+            ctx.lineTo(cv.width, s.y);
+            ctx.stroke();
+          }
+          ctx.restore();
+        },
+
+        drawHouse(house) {
+          const { ctx, cam } = this;
+          const pos = Sim.treePos[house.id] || {};
+          const members = house.members;
+          if (!members.length) return;
+
+          const hc = this.w2s(house.worldX, house.worldY);
+          // Viewport cull at house level (rough)
+          if (
+            hc.x < -2000 ||
+            hc.x > this.cv.width + 2000 ||
+            hc.y < -2000 ||
+            hc.y > this.cv.height + 2000
+          )
+            return;
+
+          // House label
+          const lsz = Math.max(10, Math.min(22, cam.z * 50));
+          ctx.save();
+          ctx.font = `600 ${lsz}px Cinzel, serif`;
+          ctx.textAlign = "center";
+          ctx.fillStyle = house.isPlayer
+            ? "rgba(232,200,106,.92)"
+            : "rgba(140,110,60,.65)";
+          ctx.fillText(
+            `HOUSE ${house.name.toUpperCase()}`,
+            hc.x,
+            hc.y - 52 * cam.z,
+          );
+          ctx.font = `${lsz * 0.62}px Crimson Text, serif`;
+          ctx.fillStyle = house.extinct
+            ? "rgba(180,60,60,.55)"
+            : "rgba(90,75,40,.7)";
+          ctx.fillText(
+            house.extinct ? "EXTINCT" : `${house.size} members`,
+            hc.x,
+            hc.y - 36 * cam.z,
+          );
+          ctx.restore();
+
+          // Connections
+          for (const p of members) {
+            const pp = pos[p.id];
+            if (!pp) continue;
+            const ps = this.w2s(house.worldX + pp.x, house.worldY + pp.y);
+            if (ps.x < -300 || ps.x > this.cv.width + 300) continue;
+
+            // Parent→child lines
+            for (const cid of p.childrenIds) {
+              const cp = pos[cid];
+              if (!cp) continue;
+              const cs = this.w2s(house.worldX + cp.x, house.worldY + cp.y);
+              const cw = (CFG.CARD_H / 2) * cam.z;
+              ctx.save();
+              ctx.strokeStyle = house.isPlayer
+                ? "rgba(201,168,76,.2)"
+                : "rgba(100,80,40,.15)";
+              ctx.lineWidth = Math.max(0.4, cam.z * 0.9);
+              ctx.beginPath();
+              const mY = (ps.y + cs.y) / 2;
+              ctx.moveTo(ps.x, ps.y + cw);
+              ctx.lineTo(ps.x, mY);
+              ctx.lineTo(cs.x, mY);
+              ctx.lineTo(cs.x, cs.y - cw);
+              ctx.stroke();
+              ctx.restore();
+            }
+            // Spouse line (M side)
+            if (p.spouseId && p.gender === "M") {
+              const sp = pos[p.spouseId];
+              if (sp) {
+                const ss = this.w2s(house.worldX + sp.x, house.worldY + sp.y);
+                const cw2 = (CFG.CARD_W / 2) * cam.z;
+                ctx.save();
+                ctx.strokeStyle = "rgba(180,90,90,.3)";
+                ctx.lineWidth = Math.max(0.4, cam.z);
+                ctx.setLineDash([3 * cam.z, 3 * cam.z]);
+                ctx.beginPath();
+                ctx.moveTo(ps.x + cw2, ps.y);
+                ctx.lineTo(ss.x - cw2, ss.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+              }
+            }
+          }
+          // Cards (drawn after lines)
+          for (const p of members) {
+            const pp = pos[p.id];
+            if (!pp) continue;
+            const ps = this.w2s(house.worldX + pp.x, house.worldY + pp.y);
+            if (
+              ps.x < -250 ||
+              ps.x > this.cv.width + 250 ||
+              ps.y < -250 ||
+              ps.y > this.cv.height + 250
+            )
+              continue;
+            this.drawCard(p, ps.x, ps.y, house);
+          }
+        },
+
+        drawCard(person, cx, cy, house) {
+          const { ctx, cam: z } = this;
+          const zv = z.z;
+          const w = CFG.CARD_W * zv,
+            h = CFG.CARD_H * zv;
+          const x = cx - w / 2,
+            y = cy - h / 2;
+          if (w < 3) return;
+          const dead = person.dead,
+            ip = house.isPlayer;
+
+          ctx.save();
+          if (zv > 0.25) {
+            ctx.shadowColor = "rgba(0,0,0,.7)";
+            ctx.shadowBlur = 10 * zv;
+          }
+
+          // Background
+          ctx.fillStyle = dead
+            ? "rgba(18,13,28,.8)"
+            : ip
+              ? "rgba(16,12,26,.95)"
+              : "rgba(13,10,22,.9)";
+          this.rrect(x, y, w, h, 4 * zv);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Border
+          const rgb = this.h2r(house.color);
+          ctx.strokeStyle = dead
+            ? `rgba(70,50,30,.35)`
+            : ip
+              ? `rgba(201,168,76,.6)`
+              : `rgba(${rgb},.38)`;
+          ctx.lineWidth = Math.max(0.4, zv * (ip ? 1.6 : 1));
+          this.rrect(x, y, w, h, 4 * zv);
+          ctx.stroke();
+
+          if (w < 14) {
+            ctx.fillStyle = dead ? "#281a0a" : house.color;
+            ctx.beginPath();
+            ctx.arc(cx, cy, Math.max(2, w / 3.5), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+          }
+
+          // CoA watermark
+          if (zv > 0.18) this.drawCoA(ctx, x, y, w, h, house, dead);
+
+          if (zv > 0.12) {
+            // Avatar
+            const av = h * 0.58,
+              ax = x + w * 0.08,
+              ay = y + h * 0.1;
+            this.drawFace(ctx, ax, ay, av, person, dead);
+
+            // Name
+            const nfs = Math.max(4.5, zv * 9.5);
+            ctx.font = `600 ${nfs}px Cinzel, serif`;
+            ctx.fillStyle = dead
+              ? "rgba(110,80,40,.65)"
+              : "rgba(225,188,100,.95)";
+            ctx.textAlign = "left";
+            const nx = x + w * 0.42,
+              ny = y + h * 0.32;
+            ctx.fillText(
+              person.name.length > 9
+                ? person.name.slice(0, 9) + "·"
+                : person.name,
+              nx,
+              ny,
+            );
+
+            // Age
+            const afs = Math.max(4, zv * 8.5);
+            ctx.font = `${afs}px Crimson Text, serif`;
+            ctx.fillStyle = dead ? "rgba(80,55,25,.65)" : "rgba(135,105,55,.9)";
+            const ageStr = dead
+              ? `✝${Math.floor(person.age)}`
+              : `${Math.floor(person.age)}y`;
+            ctx.fillText(ageStr, nx, y + h * 0.5);
+
+            // Gender
+            const gIcon = person.gender === "M" ? "♂" : "♀";
+            ctx.fillStyle =
+              person.gender === "M"
+                ? "rgba(70,110,200,.75)"
+                : "rgba(200,70,110,.75)";
+            ctx.font = `${afs * 1.3}px serif`;
+            ctx.fillText(gIcon, nx + w * 0.32, y + h * 0.5);
+
+            // Status icons
+            if (zv > 0.28) {
+              let ix = x + w * 0.05,
+                iy = y + h * 0.84;
+              const isz = zv * 7.5;
+              ctx.font = `${isz}px serif`;
+              if (person.married) {
+                ctx.fillStyle = "rgba(200,90,90,.85)";
+                ctx.fillText("♥", ix, iy);
+                ix += isz * 1.3;
+              }
+              if (person.p.health < 30) {
+                ctx.fillStyle = "rgba(200,60,60,.85)";
+                ctx.fillText("☠", ix, iy);
+                ix += isz * 1.3;
+              }
+              if (person.p.intel > 72) {
+                ctx.fillStyle = "rgba(100,180,255,.75)";
+                ctx.fillText("✦", ix, iy);
+                ix += isz * 1.3;
+              }
+              if (person.childrenIds.length > 2) {
+                ctx.fillStyle = "rgba(100,200,100,.7)";
+                ctx.font = `${isz * 0.9}px Cinzel,serif`;
+                ctx.fillText(`⚘${person.childrenIds.length}`, ix, iy);
+              }
+            }
+          }
+          ctx.restore();
+        },
+
+        drawCoA(ctx, x, y, w, h, house, dead) {
+          ctx.save();
+          ctx.globalAlpha = dead ? 0.04 : 0.09;
+          const rgb = this.h2r(house.color);
+          ctx.fillStyle = `rgba(${rgb},1)`;
+          ctx.strokeStyle = `rgba(${rgb},1)`;
+          const cx = x + w / 2,
+            cy = y + h / 2,
+            sz = Math.min(w, h) * 0.38;
+          switch (house.coaPat) {
+            case 0:
+              ctx.fillRect(cx - sz * 0.1, cy - sz * 0.5, sz * 0.2, sz);
+              ctx.fillRect(cx - sz * 0.5, cy - sz * 0.1, sz, sz * 0.2);
+              break;
+            case 1:
+              ctx.beginPath();
+              ctx.moveTo(cx, cy - sz * 0.5);
+              ctx.lineTo(cx + sz * 0.4, cy);
+              ctx.lineTo(cx, cy + sz * 0.5);
+              ctx.lineTo(cx - sz * 0.4, cy);
+              ctx.closePath();
+              ctx.fill();
+              break;
+            case 2:
+              ctx.lineWidth = sz * 0.15;
+              ctx.beginPath();
+              ctx.moveTo(cx - sz * 0.45, cy + sz * 0.2);
+              ctx.lineTo(cx, cy - sz * 0.3);
+              ctx.lineTo(cx + sz * 0.45, cy + sz * 0.2);
+              ctx.stroke();
+              break;
+            case 3:
+              for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.arc(
+                  cx + (i - 1) * sz * 0.35,
+                  cy,
+                  sz * 0.12,
+                  0,
+                  Math.PI * 2,
+                );
+                ctx.fill();
+              }
+              break;
+            case 4:
+              this.star(ctx, cx, cy, 5, sz * 0.44, sz * 0.2);
+              ctx.fill();
+              break;
+            case 5:
+              ctx.lineWidth = sz * 0.12;
+              ctx.beginPath();
+              ctx.moveTo(cx - sz * 0.4, cy - sz * 0.4);
+              ctx.lineTo(cx + sz * 0.4, cy + sz * 0.4);
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.moveTo(cx + sz * 0.4, cy - sz * 0.4);
+              ctx.lineTo(cx - sz * 0.4, cy + sz * 0.4);
+              ctx.stroke();
+              break;
+          }
+          ctx.restore();
+        },
+
+        drawFace(ctx, x, y, sz, person, dead) {
+          const p = person.p;
+          const sk = SKIN_CSS[Math.max(0, Math.min(4, Math.round(p.skin)))];
+          const hr = HAIR_CSS[p.hair];
+          const ey = EYE_CSS[p.eye];
+          ctx.save();
+          if (dead) ctx.globalAlpha = 0.4;
+          // Neck
+          ctx.fillStyle = sk;
+          ctx.fillRect(x + sz * 0.33, y + sz * 0.62, sz * 0.14, sz * 0.22);
+          // Head
+          ctx.fillStyle = sk;
+          ctx.beginPath();
+          ctx.ellipse(
+            x + sz * 0.4,
+            y + sz * 0.36,
+            sz * 0.26,
+            sz * 0.3,
+            0,
+            0,
+            Math.PI * 2,
+          );
+          ctx.fill();
+          // Hair
+          ctx.fillStyle = hr;
+          if (person.gender === "M") {
+            ctx.beginPath();
+            ctx.ellipse(
+              x + sz * 0.4,
+              y + sz * 0.19,
+              sz * 0.26,
+              sz * 0.14,
+              0,
+              Math.PI,
+              0,
+              true,
+            );
+            ctx.fill();
+          } else {
+            ctx.beginPath();
+            ctx.ellipse(
+              x + sz * 0.4,
+              y + sz * 0.17,
+              sz * 0.3,
+              sz * 0.17,
+              0,
+              Math.PI,
+              0,
+              true,
+            );
+            ctx.fill();
+            ctx.fillRect(x + sz * 0.11, y + sz * 0.15, sz * 0.09, sz * 0.34);
+            ctx.fillRect(x + sz * 0.54, y + sz * 0.15, sz * 0.09, sz * 0.34);
+          }
+          // Ears
+          ctx.fillStyle = sk;
+          ctx.beginPath();
+          ctx.ellipse(
+            x + sz * 0.14,
+            y + sz * 0.35,
+            sz * 0.05,
+            sz * 0.07,
+            0,
+            0,
+            Math.PI * 2,
+          );
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(
+            x + sz * 0.66,
+            y + sz * 0.35,
+            sz * 0.05,
+            sz * 0.07,
+            0,
+            0,
+            Math.PI * 2,
+          );
+          ctx.fill();
+          // Eyes
+          ctx.fillStyle = ey;
+          ctx.beginPath();
+          ctx.ellipse(
+            x + sz * 0.28,
+            y + sz * 0.34,
+            sz * 0.07,
+            sz * 0.05,
+            0,
+            0,
+            Math.PI * 2,
+          );
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(
+            x + sz * 0.52,
+            y + sz * 0.34,
+            sz * 0.07,
+            sz * 0.05,
+            0,
+            0,
+            Math.PI * 2,
+          );
+          ctx.fill();
+          // Pupils
+          ctx.fillStyle = "rgba(0,0,0,.85)";
+          ctx.beginPath();
+          ctx.arc(x + sz * 0.28, y + sz * 0.34, sz * 0.035, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(x + sz * 0.52, y + sz * 0.34, sz * 0.035, 0, Math.PI * 2);
+          ctx.fill();
+          // Eyebrows
+          ctx.strokeStyle = hr;
+          ctx.lineWidth = sz * 0.025;
+          ctx.beginPath();
+          ctx.moveTo(x + sz * 0.21, y + sz * 0.26);
+          ctx.lineTo(x + sz * 0.35, y + sz * 0.24);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x + sz * 0.45, y + sz * 0.24);
+          ctx.lineTo(x + sz * 0.59, y + sz * 0.26);
+          ctx.stroke();
+          // Nose
+          ctx.strokeStyle = `rgba(0,0,0,.25)`;
+          ctx.lineWidth = sz * 0.02;
+          ctx.beginPath();
+          ctx.arc(
+            x + sz * 0.4,
+            y + sz * 0.45,
+            sz * 0.06,
+            0.1 * Math.PI,
+            0.9 * Math.PI,
+          );
+          ctx.stroke();
+          // Mouth
+          ctx.strokeStyle = `rgba(0,0,0,.4)`;
+          ctx.lineWidth = sz * 0.025;
+          ctx.beginPath();
+          ctx.arc(
+            x + sz * 0.4,
+            y + sz * 0.52,
+            sz * 0.09,
+            0.15 * Math.PI,
+            0.85 * Math.PI,
+          );
+          ctx.stroke();
+          // Body
+          ctx.fillStyle = person.gender === "M" ? "#1e2852" : "#521e30";
+          ctx.beginPath();
+          ctx.moveTo(x + sz * 0.18, y + sz * 0.84);
+          ctx.lineTo(x + sz * 0.62, y + sz * 0.84);
+          ctx.lineTo(x + sz * 0.7, y + sz * 1.02);
+          ctx.lineTo(x + sz * 0.1, y + sz * 1.02);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        },
+
+        star(ctx, cx, cy, pts, ro, ri) {
+          ctx.beginPath();
+          for (let i = 0; i < pts * 2; i++) {
+            const r = i % 2 === 0 ? ro : ri,
+              a = (i / (pts * 2)) * Math.PI * 2 - Math.PI / 2;
+            i === 0
+              ? ctx.moveTo(cx + r * Math.cos(a), cy + r * Math.sin(a))
+              : ctx.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+          }
+          ctx.closePath();
+        },
+
+        rrect(x, y, w, h, r) {
+          const ctx = this.ctx;
+          ctx.beginPath();
+          ctx.moveTo(x + r, y);
+          ctx.lineTo(x + w - r, y);
+          ctx.arcTo(x + w, y, x + w, y + r, r);
+          ctx.lineTo(x + w, y + h - r);
+          ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+          ctx.lineTo(x + r, y + h);
+          ctx.arcTo(x, y + h, x, y + h - r, r);
+          ctx.lineTo(x, y + r);
+          ctx.arcTo(x, y, x + r, y, r);
+          ctx.closePath();
+        },
+
+        h2r(hex) {
+          if (!hex || hex.length < 7) return "201,168,76";
+          return `${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)}`;
+        },
+
+        hitTest(sx, sy) {
+          const wm = this.s2w(sx, sy);
+          const hw = CFG.CARD_W / 2,
+            hh = CFG.CARD_H / 2;
+          for (const house of W.houses) {
+            const pos = Sim.treePos[house.id] || {};
+            for (const [pid, pp] of Object.entries(pos)) {
+              const wx = house.worldX + pp.x,
+                wy = house.worldY + pp.y;
+              if (
+                wm.x >= wx - hw &&
+                wm.x <= wx + hw &&
+                wm.y >= wy - hh &&
+                wm.y <= wy + hh
+              )
+                return W.person(parseInt(pid));
+            }
+          }
+          return null;
+        },
+      };
+
+      // ════════════════════════════════════════════
+      // UIManager MANAGER
+      // ════════════════════════════════════════════
+      const UIManager = {
+        init() {
+          document.getElementById("overlay").onclick = () => {
+            this.closePersonModal();
+            this.closeMarriageModal();
+          };
+        },
+        update() {
+          const ph = W.ph;
+          if (!ph) return;
+          document.getElementById("dynName").textContent =
+            `HOUSE ${ph.name.toUpperCase()}`;
+          document.getElementById("yearDisplay").textContent = `Year ${W.year}`;
+          document.getElementById("memberCount").textContent =
+            `${ph.size} member${ph.size !== 1 ? "s" : ""}`;
+          document.getElementById("legacyVal").textContent = Math.floor(
+            W.legacyScore,
+          ).toLocaleString();
+        },
+        pushEvent(ev) {
+          const log = document.getElementById("evLog");
+          const d = document.createElement("div");
+          d.className = `evItem ${ev.type === "good" ? "good" : ev.type === "crit" ? "crit" : ev.type === "imp" ? "imp" : ""}`;
+          d.innerHTML = `<span class="evYr">${ev.yr}</span>${ev.txt}`;
+          log.prepend(d);
+          while (log.children.length > 35) log.lastChild.remove();
+        },
+        openPersonModal(person) {
+          const house = W.house(person.houseId);
+          document.getElementById("pName").textContent = person.name;
+          const st = person.dead
+            ? `Deceased, aged ${Math.floor(person.age)}`
+            : `${Math.floor(person.age)}y · ${person.gender === "M" ? "Male" : "Female"} · ${person.married ? "Married" : "Unmarried"}`;
+          document.getElementById("pSub").textContent =
+            `${house ? "House " + house.name : ""} · ${st}`;
+          // Avatar
+          const ac = document.getElementById("pAvatar");
+          const ax = ac.getContext("2d");
+          ax.clearRect(0, 0, 78, 78);
+          ax.fillStyle = "#0a0816";
+          ax.fillRect(0, 0, 78, 78);
+          R.drawFace(ax, 5, 3, 68, person, person.dead);
+          // Traits
+          const p = person.p;
+          const traits = [
+            { n: "Health", v: p.health },
+            { n: "Intelligence", v: p.intel },
+            { n: "Charisma", v: p.charm },
+            { n: "Aggression", v: p.aggr },
+            { n: "Fertility", v: p.fert },
+            { n: "Height", v: p.height },
+          ];
+          let html = traits
+            .map(
+              (t) =>
+                `<div class="tRow"><span class="tLbl">${t.n}</span><div class="tBar"><div class="tFill" style="width:${t.v}%"></div></div><span class="tVal">${Math.floor(t.v)}</span></div>`,
+            )
+            .join("");
+          const hairN = ["Black", "Brown", "Auburn", "Red", "Blonde", "White"][
+            p.hair
+          ];
+          const eyeN = ["Brown", "Hazel", "Green", "Blue", "Grey"][p.eye];
+          const skinN = ["Very Dark", "Dark", "Medium", "Light", "Fair"][
+            Math.round(p.skin)
+          ];
+          html += `<div style="margin-top:9px;font-size:11px;color:#5a4020;display:flex;gap:10px;flex-wrap:wrap">
+      <span>Hair: <span style="color:#8a7040">${hairN}</span></span>
+      <span>Eyes: <span style="color:#8a7040">${eyeN}</span></span>
+      <span>Skin: <span style="color:#8a7040">${skinN}</span></span>
+    </div>`;
+          if (person.alive) {
+            const lp = Math.min(100, (person.age / person.lifespan) * 100);
+            html += `<div class="tRow" style="margin-top:8px"><span class="tLbl">Lifespan</span><div class="tBar"><div class="tFill" style="width:${lp}%;background:linear-gradient(90deg,#2a6020,#e06060)"></div></div><span class="tVal">${Math.floor(person.age)}/${Math.floor(person.lifespan)}</span></div>`;
+          }
+          document.getElementById("pTraits").innerHTML = html;
+          // Actions
+          const ad = document.getElementById("pActions");
+          ad.innerHTML = "";
+          const ip = house && house.isPlayer;
+          if (ip && person.alive) {
+            if (!person.married && person.age >= CFG.MARRY_MIN) {
+              const b = document.createElement("button");
+              b.className = "actBtn";
+              b.textContent = "⚭ Arrange Marriage";
+              b.onclick = () => this.openMarriageModal(person);
+              ad.appendChild(b);
+            }
+            const rb = document.createElement("button");
+            rb.className = "actBtn";
+            rb.textContent = "✎ Rename";
+            rb.onclick = () => {
+              const n = prompt("Enter new name:", person.name);
+              if (n && n.trim()) {
+                person.name = n.trim();
+                this.openPersonModal(person);
+              }
+            };
+            ad.appendChild(rb);
+          }
+          if (person.childrenIds.length > 0) {
+            const cb = document.createElement("button");
+            cb.className = "actBtn";
+            cb.textContent = `👶 Children (${person.childrenIds.length})`;
+            cb.onclick = () => {
+              const ns = person.childrenIds.map((id) => {
+                const c = W.person(id);
+                return c
+                  ? `${c.name} (${c.alive ? Math.floor(c.age) + "y" : "✝"})`
+                  : "?";
+              });
+              alert("Children:\n" + ns.join("\n"));
+            };
+            ad.appendChild(cb);
+          }
+          if (person.spouseId) {
+            const sp = W.person(person.spouseId);
+            if (sp) {
+              const sb = document.createElement("button");
+              sb.className = "actBtn";
+              sb.textContent = `♥ ${sp.name}`;
+              sb.onclick = () => this.openPersonModal(sp);
+              ad.appendChild(sb);
+            }
+          }
+          if (person.fatherId || person.motherId) {
+            const vb = document.createElement("button");
+            vb.className = "actBtn";
+            vb.textContent = "👁 Parents";
+            vb.onclick = () => {
+              const f = person.fatherId ? W.person(person.fatherId) : null;
+              const m = person.motherId ? W.person(person.motherId) : null;
+              alert(
+                `Father: ${f ? f.name + " (" + W.house(f.houseId)?.name + ")" : "Unknown"}\nMother: ${m ? m.name + " (" + W.house(m.houseId)?.name + ")" : "Unknown"}`,
+              );
+            };
+            ad.appendChild(vb);
+          }
+          document.getElementById("personModal").classList.add("show");
+          document.getElementById("overlay").classList.add("show");
+        },
+        closePersonModal() {
+          document.getElementById("personModal").classList.remove("show");
+          if (
+            !document.getElementById("marriageModal").classList.contains("show")
+          )
+            document.getElementById("overlay").classList.remove("show");
+        },
+        openMarriageModal(person) {
+          document.getElementById("mTitle2").textContent =
+            `Spouse for ${person.name}`;
+          const list = document.getElementById("candList");
+          list.innerHTML = "";
+          const cands = [];
+          for (const h of W.houses) {
+            if (h.isPlayer) continue;
+            for (const c of h.alive) {
+              if (
+                c.gender !== person.gender &&
+                !c.married &&
+                c.age >= CFG.MARRY_MIN &&
+                c.age <= CFG.MARRY_MAX
+              )
+                cands.push({ p: c, h });
+            }
+          }
+          if (!cands.length) {
+            list.innerHTML =
+              '<div style="color:#5a4020;padding:11px;font-size:13px">No suitable candidates available.</div>';
+          } else {
+            cands.sort(
+              (a, b) =>
+                b.p.p.charm +
+                b.p.p.fert +
+                b.p.p.health -
+                (a.p.p.charm + a.p.p.fert + a.p.p.health),
+            );
+            cands.slice(0, 20).forEach(({ p: c, h }) => {
+              const d = document.createElement("div");
+              d.className = "candCard";
+              const mc = document.createElement("canvas");
+              mc.width = 40;
+              mc.height = 40;
+              mc.style.flexShrink = "0";
+              mc.style.border = "1px solid rgba(201,168,76,.18)";
+              mc.style.borderRadius = "3px";
+              const mx = mc.getContext("2d");
+              mx.fillStyle = "#0a0816";
+              mx.fillRect(0, 0, 40, 40);
+              R.drawFace(mx, 2, 1, 36, c, false);
+              const info = document.createElement("div");
+              info.innerHTML = `<div class="cName">${c.name}</div><div class="cHouse">House ${h.name}</div><div class="cStats">Age ${Math.floor(c.age)} · Health ${Math.floor(c.p.health)} · Charm ${Math.floor(c.p.charm)} · Fert ${Math.floor(c.p.fert)}</div>`;
+              d.appendChild(mc);
+              d.appendChild(info);
+              d.onclick = () => {
+                Sim.marry(person, c);
+                W.log(
+                  `💒 ${person.name} wed ${c.name} of House ${h.name}`,
+                  "good",
+                );
+                W.legacyScore += 35;
+                this.closeMarriageModal();
+                this.closePersonModal();
+                this.openPersonModal(person);
+              };
+              list.appendChild(d);
+            });
+          }
+          document.getElementById("marriageModal").classList.add("show");
+          document.getElementById("overlay").classList.add("show");
+        },
+        closeMarriageModal() {
+          document.getElementById("marriageModal").classList.remove("show");
+          document.getElementById("overlay").classList.remove("show");
+        },
+        toggleProposals() {
+          document.getElementById("propPanel").classList.toggle("show");
+        },
+        updateProposals() {
+          const cnt = W.proposals.length;
+          const ce = document.getElementById("propCount");
+          ce.textContent = cnt;
+          ce.classList.toggle("show", cnt > 0);
+          const list = document.getElementById("propList");
+          list.innerHTML = "";
+          W.proposals.forEach((pr) => {
+            const a = W.person(pr.a),
+              b = W.person(pr.b);
+            if (!a || !b) return;
+            const bh = W.house(b.birthHouseId);
+            const d = document.createElement("div");
+            d.className = "propItem";
+            d.innerHTML = `<div class="propTxt">House <b style="color:#c9a84c">${bh ? bh.name : "?"}</b> proposes <b style="color:#c9a84c">${b.name}</b> (${b.gender === "M" ? "♂" : "♀"} ${Math.floor(b.age)}) for <b style="color:#c9a84c">${a.name}</b></div>
+        <div class="propBtns"><button class="propBtn acc" onclick="Sim.acceptProposal(${a.id},${b.id});UIManager.closePersonModal()">Accept</button><button class="propBtn dec" onclick="W.proposals=W.proposals.filter(p=>!(p.a===${a.id}&&p.b===${b.id}));UIManager.updateProposals()">Decline</button></div>`;
+            list.appendChild(d);
+          });
+        },
+        milestone(title, text) {
+          document.getElementById("msTitle").textContent = title;
+          document.getElementById("msTxt").textContent = text;
+          const b = document.getElementById("msBanner");
+          b.classList.remove("show");
+          void b.offsetWidth;
+          b.classList.add("show");
+          setTimeout(() => b.classList.remove("show"), 4000);
+        },
+      };
+
+      // ════════════════════════════════════════════
+      // GAME ENGINE
+      // ════════════════════════════════════════════
+      const GE = {
+        speed: 1,
+        paused: false,
+        running: false,
+        lastTick: 0,
+
+        init() {
+          R.init(document.getElementById("worldCanvas"));
+          UIManager.init();
+          this.input(document.getElementById("worldCanvas"));
+        },
+
+        setSpeed(s) {
+          this.speed = s;
+          this.paused = s === 0;
+          document
+            .querySelectorAll(".spBtn")
+            .forEach((b) => b.classList.remove("active"));
+          const ids = { 0: "bPause", 1: "bX1", 5: "bX5", 10: "bX10" };
+          if (ids[s]) document.getElementById(ids[s]).classList.add("active");
+        },
+
+        start() {
+          this.running = true;
+          this.lastTick = performance.now();
+          const loop = (now) => {
+            requestAnimationFrame(loop);
+            if (!this.paused) {
+              const iv = CFG.TICK_MS[this.speed] || 1000;
+              if (now - this.lastTick >= iv) {
+                this.lastTick = now;
+                Sim.tick();
+              }
+            }
+            R.draw();
+          };
+          requestAnimationFrame(loop);
+        },
+
+        input(cv) {
+          let drag = false,
+            dragged = false,
+            last = { x: 0, y: 0 };
+          cv.addEventListener("mousedown", (e) => {
+            drag = true;
+            dragged = false;
+            last = { x: e.clientX, y: e.clientY };
+          });
+          cv.addEventListener("mousemove", (e) => {
+            if (!drag) return;
+            const dx = e.clientX - last.x,
+              dy = e.clientY - last.y;
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragged = true;
+            R.cam.x -= dx / R.cam.z;
+            R.cam.y -= dy / R.cam.z;
+            last = { x: e.clientX, y: e.clientY };
+            // Tooltip
+            const p = R.hitTest(e.clientX, e.clientY);
+            const tt = document.getElementById("tooltip");
+            if (p && !dragged) {
+              tt.style.display = "block";
+              tt.style.left = e.clientX + 14 + "px";
+              tt.style.top = e.clientY - 10 + "px";
+              const h = W.house(p.houseId);
+              tt.textContent = `${p.name} · ${h ? h.name : ""} · ${p.dead ? "✝" : ""}${Math.floor(p.age)}y`;
+            } else {
+              tt.style.display = "none";
+            }
+          });
+          cv.addEventListener("mouseup", (e) => {
+            drag = false;
+            document.getElementById("tooltip").style.display = "none";
+            if (!dragged) {
+              const p = R.hitTest(e.clientX, e.clientY);
+              if (p) UIManager.openPersonModal(p);
+            }
+          });
+          cv.addEventListener("mouseleave", () => {
+            drag = false;
+            document.getElementById("tooltip").style.display = "none";
+          });
+          cv.addEventListener(
+            "wheel",
+            (e) => {
+              e.preventDefault();
+              const dz = -e.deltaY * CFG.ZOOM_SPD;
+              const nz = Math.max(
+                CFG.ZOOM_MIN,
+                Math.min(CFG.ZOOM_MAX, R.cam.z * (1 + dz * 8)),
+              );
+              const bw = R.s2w(e.clientX, e.clientY);
+              R.cam.z = nz;
+              const aw = R.s2w(e.clientX, e.clientY);
+              R.cam.x += bw.x - aw.x;
+              R.cam.y += bw.y - aw.y;
+            },
+            { passive: false },
+          );
+          // Touch
+          let td = 0;
+          cv.addEventListener(
+            "touchstart",
+            (e) => {
+              if (e.touches.length === 1) {
+                drag = true;
+                dragged = false;
+                last = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+              } else if (e.touches.length === 2)
+                td = Math.hypot(
+                  e.touches[0].clientX - e.touches[1].clientX,
+                  e.touches[0].clientY - e.touches[1].clientY,
+                );
+            },
+            { passive: true },
+          );
+          cv.addEventListener(
+            "touchmove",
+            (e) => {
+              if (e.touches.length === 1 && drag) {
+                const dx = e.touches[0].clientX - last.x,
+                  dy = e.touches[0].clientY - last.y;
+                if (Math.abs(dx) > 3) dragged = true;
+                R.cam.x -= dx / R.cam.z;
+                R.cam.y -= dy / R.cam.z;
+                last = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+              } else if (e.touches.length === 2) {
+                const d = Math.hypot(
+                  e.touches[0].clientX - e.touches[1].clientX,
+                  e.touches[0].clientY - e.touches[1].clientY,
+                );
+                R.cam.z = Math.max(
+                  CFG.ZOOM_MIN,
+                  Math.min(CFG.ZOOM_MAX, R.cam.z * (d / td)),
+                );
+                td = d;
+              }
+            },
+            { passive: true },
+          );
+          cv.addEventListener(
+            "touchend",
+            (e) => {
+              if (e.touches.length === 0) {
+                drag = false;
+              }
+            },
+            { passive: true },
+          );
+          window.addEventListener("keydown", (e) => {
+            if (e.key === " ") {
+              e.preventDefault();
+              this.setSpeed(this.paused ? 1 : 0);
+            } else if (e.key === "1") this.setSpeed(1);
+            else if (e.key === "5") this.setSpeed(5);
+            else if (e.key === "0") this.setSpeed(10);
+            else if (e.key === "h" || e.key === "H") {
+              const ph = W.ph;
+              if (ph) {
+                R.cam.x = ph.worldX;
+                R.cam.y = ph.worldY;
+                R.cam.z = 0.55;
+              }
+            }
+          });
+        },
+
+        gameOver(reason) {
+          this.setSpeed(0);
+          const ph = W.ph;
+          const years = W.year - CFG.START_YEAR;
+          setTimeout(() => {
+            if (reason === "extinction")
+              alert(
+                `✝ DYNASTY EXTINCT\n\nHouse ${ph ? ph.name : ""} has died out after ${years} years.\nLegacy Score: ${Math.floor(W.legacyScore).toLocaleString()}`,
+              );
+            else
+              alert(
+                `✦ VICTORY — GENE DOMINANCE\n\nYour bloodline flows through ${CFG.WIN_DOMINANCE}%+ of all nobles!\nYears reigned: ${years}\nLegacy Score: ${Math.floor(W.legacyScore).toLocaleString()}`,
+              );
+          }, 200);
+        },
+      };
+
+      // ════════════════════════════════════════════
+      // HOUSE COLORS
+      // ════════════════════════════════════════════
+      const H_COLORS = [
+        "#c9a84c",
+        "#a03828",
+        "#2858a0",
+        "#288060",
+        "#7838a0",
+        "#c07028",
+        "#486075",
+        "#784048",
+        "#389080",
+        "#68a038",
+        "#a05828",
+        "#4868c0",
+        "#c05858",
+        "#289878",
+        "#7878c0",
+        "#b89828",
+        "#58a058",
+        "#a02878",
+        "#2878c0",
+        "#78a048",
+      ];
+
+      // ════════════════════════════════════════════
+      // START
+      // ════════════════════════════════════════════
+      function startGame() {
+        const dynN =
+          document.getElementById("dynNameIn").value.trim() || "Aldric";
+        const foundN =
+          document.getElementById("foundIn").value.trim() || "Edmund";
+        const npc = Math.max(
+          2,
+          Math.min(30, parseInt(document.getElementById("npcIn").value) || 8),
+        );
+        const yr = parseInt(document.getElementById("yearIn").value) || 900;
+        const win = parseInt(document.getElementById("winIn").value) || 60;
+        const diff = document.getElementById("diffIn").value;
+
+        Object.assign(CFG, {
+          NPC_HOUSES: npc,
+          START_YEAR: yr,
+          WIN_DOMINANCE: win,
+          DIFFICULTY: diff,
+        });
+        W.year = yr;
+        RNG.setSeed(Date.now() & 0xffffff);
+
+        // Player house
+        const ph = new House({
+          name: dynN,
+          color: H_COLORS[0],
+          isPlayer: true,
+        });
+        W.houses.push(ph);
+        W.playerHId = ph.id;
+
+        // Founder
+        const founder = new Person({
+          name: foundN,
+          gender: "M",
+          birthYear: yr - RNG.i(24, 38),
+          houseId: ph.id,
+          genome: new Genome(),
+        });
+        W.add(founder);
+        ph.founderId = founder.id;
+
+        // NPC houses
+        const usedNames = new Set([dynN]);
+        for (let i = 0; i < npc; i++) {
+          let hn;
+          do {
+            hn = RNG.pick(NM.houses);
+          } while (usedNames.has(hn));
+          usedNames.add(hn);
+          const h = new House({
+            name: hn,
+            color: H_COLORS[(i + 1) % H_COLORS.length],
+          });
+          W.houses.push(h);
+          const cnt = RNG.i(3, 9);
+          const males = [],
+            females = [];
+          for (let j = 0; j < cnt; j++) {
+            const g = j === 0 ? "M" : RNG.b(0.5) ? "M" : "F";
+            const age = j === 0 ? RNG.i(24, 48) : RNG.i(1, 44);
+            const p = new Person({
+              name: RNG.pick(g === "M" ? NM.m : NM.f),
+              gender: g,
+              birthYear: yr - age,
+              houseId: h.id,
+              genome: new Genome(),
+            });
+            W.add(p);
+            if (j === 0) h.founderId = p.id;
+            if (g === "M" && p.age >= 18) males.push(p);
+            else if (g === "F" && p.age >= 16) females.push(p);
+          }
+          // Initial marriages
+          const pairs = Math.min(males.length, females.length);
+          for (let k = 0; k < pairs; k++) {
+            if (RNG.b(0.65)) Sim.marry(males[k], females[k]);
+          }
+        }
+
+        assignWorldPositions();
+        Sim.updateLayout();
+
+        document.getElementById("setup").style.display = "none";
+        GE.init();
+        GE.setSpeed(1);
+        GE.start();
+        UIManager.update();
+        W.log(
+          `📜 House ${dynN} is founded by ${foundN}. The dynasty begins.`,
+          "imp",
+        );
+        W.log(`⚔ ${npc} rival houses stand across the realm.`, "n");
+      }
+    </script>
+  </body>
+</html>

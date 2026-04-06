@@ -1,19 +1,13 @@
 .app-container {
-  height: 100vh;
-  width: 100vw;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-
-  background-color: #ffffff;
-  color: #ffffff;
-  font-size: 16px;
-  line-height: 1.5;
+  height: 100%;
+  background-color: #101014;
 }
 
 .games-container {
   display: flex;
-  gap: 2rem;
+  gap: 1.2rem;
   padding: 1rem;
 }
 
@@ -26,12 +20,12 @@
   transform: translateZ(0);
   transition: 0.3s;
   cursor: pointer;
-  border: 2px solid #272727;
+  border-radius: 8px;
   box-shadow: 8px 8px 0px 0px rgb(0, 0, 0);
 }
 
 .game-container:hover {
-  box-shadow: 0 8px 16px 3px rgba(0, 0, 0, 0.6);
+  box-shadow: 0px 4px 8px 3px rgba(0, 0, 0, 0.6);
   transform: translateY(-3px) scale(1.05) rotateX(15deg);
 }
 
@@ -59,34 +53,16 @@
   height: 100%;
   width: 100%;
 
-  
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-size: 100%;
-  background-repeat:  no-repeat ;
+  background-repeat: no-repeat;
   pointer-events: none;
 }
 
-.game-container.snake {
-  background-color: #049146;
-}
-
-.game-container.snake .game-logo {
-  background-image: url("./assets/images/snake-logo.jpg");
-}
-
-.game-container.catcher {
-  background-color: #049146;
-}
-
-.game-container.catcher .game-logo {
-  background-image: url("./assets/images/catcher-logo.png");
-}
-
-.game-container.duel-due {
-  background-color: #ffffff;
-}
-
-.game-container.duel-due .game-logo {
-  background-image: url("./assets/images/duel-due.jpg");
+.game-container .game-logo .game-logo-placeholder {
+  color: #fff;
 }
 
 .game-container .game-title-container {
@@ -103,7 +79,6 @@
   transition: 0.3s;
   background: #0000008c;
   pointer-events: none;
-
 }
 
 .game-container:hover .game-title-container {
@@ -116,12 +91,35 @@
   color: #ffffff;
 }
 
-.footer {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  padding: 10px;
-  text-align: center;
+.appHeader {
+  height: 32px;
+  padding: 4px 8px;
+  background-color: #1b1b23;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 2px 1px -1px,
+    rgba(0, 0, 0, 0.14) 0px 1px 1px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 3px 0px;
+  z-index: var(--zHeader);
+}
+
+.appBreadcrumps {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.appBreadcrumpTitle {
+  font-size: 0.8rem;
+  line-height: 0.8rem;
+  text-transform: lowercase;
+}
+
+.appBreadcrumpHome {
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.appBreadcrumpHome:hover {
   color: #ffffff;
-  font-size: 14px;
 }

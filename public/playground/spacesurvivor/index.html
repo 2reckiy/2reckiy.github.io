@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Space Grid: Full Wall</title>
+    <style>
+      body {
+        margin: 0;
+        background: #020205;
+        color: white;
+        font-family: "Courier New", Courier, monospace;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        cursor: crosshair;
+      }
+      #ui {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        pointer-events: none;
+      }
+      #shop {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(5, 5, 15, 0.98);
+        padding: 30px;
+        border: 3px solid #f0f;
+        display: none;
+        text-align: center;
+        pointer-events: all;
+        box-shadow: 0 0 20px #f0f;
+      }
+      button {
+        padding: 12px;
+        margin: 8px;
+        cursor: pointer;
+        background: #111;
+        color: #f0f;
+        border: 1px solid #f0f;
+        width: 220px;
+        font-weight: bold;
+      }
+      button:hover {
+        background: #f0f;
+        color: #000;
+      }
+      .stat {
+        color: #0ff;
+        font-weight: bold;
+        font-size: 1.2em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ui">
+      <div>HULL: <span id="hullDisplay" class="stat">100</span></div>
+      <div>CREDITS: <span id="creditsDisplay" class="stat">0</span></div>
+      <div>DIST: <span id="distDisplay" class="stat">0</span></div>
+    </div>
+
+    <div id="shop">
+      <h2 style="color: #f0f">STATION DOCKING</h2>
+      <p>
+        Earned: <span id="earnedDisplay" class="stat">0</span> | Loot:
+        <span id="lootDisplay" class="stat">0</span>
+      </p>
+      <p>Balance: <span id="totalCreditsDisplay" class="stat">0</span></p>
+      <hr style="border: 1px solid #333" />
+      <button onclick="upgrade('hull')">
+        REINFORCE HULL (+50)<br />Cost: <span id="hullCost">50</span></button
+      ><br />
+      <button onclick="upgrade('speed')">
+        OVERCLOCK ENGINE (+Spd)<br />Cost:
+        <span id="speedCost">50</span></button
+      ><br />
+      <button
+        onclick="resetGame()"
+        style="background: #0ff; color: #000; border: none; margin-top: 15px">
+        BACK TO SECTOR
+      </button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+
+      let credits = 0;
+      let hullMax = 100;
+      let speedMult = 1;
+      let hullCost = 50;
+      let speedCost = 50;
+
+      let gameActive = true;
+      let hull,
+        distance,
+        shipY,
+        mouseY = 0,
+        lootGathered = 0;
+      let blocks = [];
+      let particles = [];
+      let screenShake = 0;
+      let spawnTimer = 0;
+      const BLOCK_SIZE = 50;
+
+      function init() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        hull = hullMax;
+        distance = 0;
+        lootGathered = 0;
+        shipY = canvas.height / 2;
+        blocks = [];
+        particles = [];
+        gameActive = true;
+        document.getElementById("shop").style.display = "none";
+      }
+
+      window.addEventListener("mousemove", (e) => (mouseY = e.clientY));
+
+      function spawnFullWall() {
+        const rows = Math.ceil(canvas.height / BLOCK_SIZE);
+        // Create a gap of 3 blocks somewhere in the wall
+        const gapStart = Math.floor(Math.random() * (rows - 3));
+
+        for (let i = 0; i < rows; i++) {
+          // Skip spawning blocks where the gap is
+          if (i >= gapStart && i < gapStart + 3) continue;
+
+          const isLoot = Math.random() < 0.05; // 5% chance for a gold block
+          blocks.push({
+            x: canvas.width,
+            y: i * BLOCK_SIZE,
+            w: BLOCK_SIZE,
+            h: BLOCK_SIZE,
+            destroyed: false,
+            type: isLoot ? "loot" : "rock",
+          });
+        }
+      }
+
+      function createExplosion(x, y, color) {
+        for (let i = 0; i < 8; i++) {
+          particles.push({
+            x: x,
+            y: y,
+            vx: (Math.random() - 0.5) * 10,
+            vy: (Math.random() - 0.5) * 10,
+            life: 1.0,
+            color: color,
+          });
+        }
+      }
+
+      function update() {
+        if (!gameActive) return;
+
+        shipY += (mouseY - shipY) * 0.15;
+        distance += 1 * speedMult;
+        if (screenShake > 0) screenShake *= 0.8;
+
+        // Control wall spacing
+        spawnTimer += 1 * speedMult;
+        if (spawnTimer > 40) {
+          spawnFullWall();
+          spawnTimer = 0;
+        }
+
+        particles.forEach((p, i) => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= 0.04;
+          if (p.life <= 0) particles.splice(i, 1);
+        });
+
+        blocks.forEach((b, index) => {
+          b.x -= 8 * speedMult;
+
+          if (
+            !b.destroyed &&
+            b.x < 80 &&
+            b.x + b.w > 20 &&
+            shipY + 10 > b.y &&
+            shipY - 10 < b.y + b.h
+          ) {
+            b.destroyed = true;
+            if (b.type === "loot") {
+              lootGathered += 50;
+              createExplosion(b.x + 25, b.y + 25, "#ff0");
+            } else {
+              hull -= 20;
+              screenShake = 15;
+              createExplosion(b.x + 25, b.y + 25, "#644");
+            }
+          }
+
+          if (b.x < -BLOCK_SIZE) blocks.splice(index, 1);
+        });
+
+        if (hull <= 0) endGame();
+
+        draw();
+        requestAnimationFrame(update);
+      }
+
+      function draw() {
+        ctx.save();
+        if (screenShake > 1)
+          ctx.translate(
+            (Math.random() - 0.5) * screenShake,
+            (Math.random() - 0.5) * screenShake,
+          );
+
+        ctx.fillStyle = "#020205";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Render Blocks
+        blocks.forEach((b) => {
+          if (!b.destroyed) {
+            ctx.fillStyle = b.type === "loot" ? "#ffd700" : "#222";
+            ctx.strokeStyle = b.type === "loot" ? "#fff" : "#444";
+            ctx.lineWidth = 2;
+            ctx.fillRect(b.x, b.y, b.w, b.h);
+            ctx.strokeRect(b.x + 4, b.y + 4, b.w - 8, b.h - 8);
+          }
+        });
+
+        // Particles
+        particles.forEach((p) => {
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.life;
+          ctx.fillRect(p.x, p.y, 4, 4);
+        });
+        ctx.globalAlpha = 1.0;
+
+        // Ship
+        ctx.fillStyle = "#f0f";
+        ctx.beginPath();
+        ctx.moveTo(70, shipY);
+        ctx.lineTo(30, shipY - 15);
+        ctx.lineTo(30, shipY + 15);
+        ctx.fill();
+
+        ctx.restore();
+
+        document.getElementById("hullDisplay").innerText = Math.max(
+          0,
+          Math.floor(hull),
+        );
+        document.getElementById("distDisplay").innerText = Math.floor(distance);
+        document.getElementById("creditsDisplay").innerText = credits;
+      }
+
+      function endGame() {
+        gameActive = false;
+        const distBonus = Math.floor(distance / 5);
+        credits += distBonus + lootGathered;
+        document.getElementById("shop").style.display = "block";
+        document.getElementById("earnedDisplay").innerText = distBonus;
+        document.getElementById("lootDisplay").innerText = lootGathered;
+        document.getElementById("totalCreditsDisplay").innerText = credits;
+      }
+
+      function upgrade(type) {
+        if (type === "hull" && credits >= hullCost) {
+          credits -= hullCost;
+          hullMax += 50;
+          hullCost = Math.floor(hullCost * 1.5);
+        } else if (type === "speed" && credits >= speedCost) {
+          credits -= speedCost;
+          speedMult += 0.2;
+          speedCost = Math.floor(speedCost * 1.5);
+        }
+        document.getElementById("totalCreditsDisplay").innerText = credits;
+        document.getElementById("hullCost").innerText = hullCost;
+        document.getElementById("speedCost").innerText = speedCost;
+      }
+
+      function resetGame() {
+        init();
+        update();
+      }
+
+      init();
+      update();
+    </script>
+  </body>
+</html>

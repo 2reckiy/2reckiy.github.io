@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Field of Vision Prototype</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #050505;
+            font-family: sans-serif;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            cursor: crosshair;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #aaa;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        b {
+            color: #00ffcc;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="ui">
+        <h2>Field of Vision</h2>
+        <p>The fog now <b>closes behind you</b> as you move.</p>
+    </div>
+
+    <div id="game-container">
+        <canvas id="worldCanvas"></canvas>
+        <canvas id="fogCanvas"></canvas>
+    </div>
+
+    <script>
+        const worldCanvas = document.getElementById('worldCanvas');
+        const fogCanvas = document.getElementById('fogCanvas');
+        const wCtx = worldCanvas.getContext('2d');
+        const fCtx = fogCanvas.getContext('2d');
+
+        const player = {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2,
+            targetX: window.innerWidth / 2,
+            targetY: window.innerHeight / 2,
+            speed: 5,
+            radius: 12,
+            visionRadius: 150
+        };
+
+        // Static "Secret" objects to find
+        const secrets = [
+            { x: 200, y: 200, color: 'gold', label: 'Treasure' },
+            { x: 800, y: 500, color: '#ff4444', label: 'Danger' }
+        ];
+
+        function resize() {
+            worldCanvas.width = fogCanvas.width = window.innerWidth;
+            worldCanvas.height = fogCanvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('mousedown', (e) => {
+            player.targetX = e.clientX;
+            player.targetY = e.clientY;
+        });
+
+        window.addEventListener('resize', resize);
+
+        function update() {
+            const dx = player.targetX - player.x;
+            const dy = player.targetY - player.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance > player.speed) {
+                player.x += (dx / distance) * player.speed;
+                player.y += (dy / distance) * player.speed;
+            } else {
+                player.x = player.targetX;
+                player.y = player.targetY;
+            }
+        }
+
+        function draw() {
+            // --- 1. DRAW WORLD ---
+            wCtx.fillStyle = '#111';
+            wCtx.fillRect(0, 0, worldCanvas.width, worldCanvas.height);
+
+            // Draw Grid Lines
+            wCtx.strokeStyle = '#222';
+            wCtx.lineWidth = 1;
+            for (let i = 0; i < worldCanvas.width; i += 60) {
+                wCtx.beginPath(); wCtx.moveTo(i, 0); wCtx.lineTo(i, worldCanvas.height); wCtx.stroke();
+            }
+            for (let j = 0; j < worldCanvas.height; j += 60) {
+                wCtx.beginPath(); wCtx.moveTo(0, j); wCtx.lineTo(worldCanvas.width, j); wCtx.stroke();
+            }
+
+            // Draw Secrets
+            secrets.forEach(s => {
+                wCtx.fillStyle = s.color;
+                wCtx.beginPath();
+                wCtx.arc(s.x, s.y, 10, 0, Math.PI * 2);
+                wCtx.fill();
+                wCtx.font = "12px Arial";
+                wCtx.fillText(s.label, s.x - 20, s.y + 25);
+            });
+
+            // Draw Player
+            wCtx.fillStyle = '#00ffcc';
+            wCtx.beginPath();
+            wCtx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            wCtx.fill();
+
+            // --- 2. DRAW FOG ---
+            // Clear the fog canvas completely every frame
+            fCtx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
+
+            // Fill the entire screen with darkness again
+            fCtx.fillStyle = 'rgba(0, 0, 0, 0.95)';
+            fCtx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
+
+            // Switch to "eraser" mode to cut the hole
+            fCtx.globalCompositeOperation = 'destination-out';
+
+            const gradient = fCtx.createRadialGradient(
+                player.x, player.y, player.visionRadius * 0.2,
+                player.x, player.y, player.visionRadius
+            );
+            gradient.addColorStop(0, 'rgba(0, 0, 0, 1)'); // Full transparency center
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)'); // Fades back to black
+
+            fCtx.fillStyle = gradient;
+            fCtx.beginPath();
+            fCtx.arc(player.x, player.y, player.visionRadius, 0, Math.PI * 2);
+            fCtx.fill();
+
+            // Reset back to normal for the next frame
+            fCtx.globalCompositeOperation = 'source-over';
+
+            requestAnimationFrame(() => {
+                update();
+                draw();
+            });
+        }
+
+        resize();
+        draw();
+    </script>
+</body>
+
+</html>

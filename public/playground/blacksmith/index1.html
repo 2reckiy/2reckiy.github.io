@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blacksmith Tycoon v2</title>
+    <style>
+        :root {
+            --bg: #121212;
+            --panel: #1e1e1e;
+            --border: #3d3d3d;
+            --accent: #e67e22;
+            --text: #e0e0e0;
+            --header-h: 60px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            height: var(--header-h);
+            background: #000;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 10px;
+            padding: 10px;
+            flex: 1;
+            height: calc(100vh - var(--header-h) - 40px);
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: #2a2a2a;
+            padding: 10px;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border);
+            color: var(--accent);
+            text-transform: uppercase;
+            font-size: 0.85em;
+        }
+
+        .scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .stat-val {
+            display: block;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .card {
+            background: #252525;
+            border: 1px solid #333;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            position: relative;
+        }
+
+        /* Recipe styling */
+        .recipe-cost {
+            font-size: 0.75em;
+            color: #aaa;
+            margin: 5px 0;
+            display: block;
+        }
+
+        .cost-item {
+            background: #111;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-right: 4px;
+            border: 1px solid #333;
+        }
+
+        /* Inventory stacking badge */
+        .qty-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--accent);
+            color: black;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.7em;
+        }
+
+        button {
+            background: #333;
+            color: white;
+            border: 1px solid var(--border);
+            padding: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-family: inherit;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--accent);
+            color: black;
+        }
+
+        button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .progress-container {
+            background: #111;
+            height: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            overflow: hidden;
+            border: 1px solid #444;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #d35400, #e67e22);
+            width: 0%;
+        }
+
+        .quality-Fine {
+            color: #5dade2;
+            font-weight: bold;
+        }
+
+        .quality-Masterwork {
+            color: #f4d03f;
+            text-shadow: 0 0 5px #f4d03f;
+            font-weight: bold;
+        }
+
+        footer {
+            height: 40px;
+            background: #000;
+            font-size: 0.8em;
+            padding: 5px 20px;
+            display: flex;
+            align-items: center;
+            border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div style="text-align:center">GOLD <span id="gold" class="stat-val">0</span></div>
+        <div style="text-align:center">LEVEL <span id="level" class="stat-val">0</span></div>
+        <div style="text-align:center">PROGRESS <span id="xp-text" class="stat-val">0/0</span></div>
+    </header>
+
+    <main>
+        <div class="panel">
+            <div class="panel-header">Supplies & Staff</div>
+            <div class="scroll-area">
+                <div id="shop-list"></div>
+                <div class="panel-header" style="background:transparent; padding:15px 0 5px 0;">Automation</div>
+                <div id="staff-list"></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">The Forge</div>
+            <div class="scroll-area">
+                <div id="forge-status"
+                    style="text-align:center; padding: 20px; background: #1a1a1a; border-radius: 8px;">
+                    <h2 id="active-item-name" style="margin:0">Forge Idle</h2>
+                    <div class="progress-container">
+                        <div id="forge-fill" class="progress-bar"></div>
+                    </div>
+                </div>
+                <div id="recipe-list" style="margin-top:20px;"></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Warehouse (Inventory)</div>
+            <div class="scroll-area" id="inventory-list"></div>
+        </div>
+    </main>
+
+    <footer>
+        <div id="log">The fires are cold. Start by buying Iron Ore.</div>
+    </footer>
+
+    <script>
+        const state = {
+            gold: 100, level: 1, xp: 0, nextLevelXp: 100,
+            resources: { iron: 0, wood: 0 },
+            inventory: [], // Raw array of items
+            isCrafting: false,
+            marketModifiers: { iron: 1, wood: 1, sell: 1 },
+            assistants: { gatherer: 0, apprentice: 0 }
+        };
+
+        const DATA = {
+            resources: {
+                iron: { name: "Iron Ore", price: 10 },
+                wood: { name: "Wood Planks", price: 5 }
+            },
+            recipes: [
+                { id: 'dagger', name: "Iron Dagger", lv: 1, cost: { iron: 2 }, time: 2000, xp: 20, val: 35 },
+                { id: 'shield', name: "Training Shield", lv: 1, cost: { wood: 5 }, time: 4000, xp: 30, val: 60 },
+                { id: 'sword', name: "Longsword", lv: 2, cost: { iron: 5, wood: 1 }, time: 7000, xp: 70, val: 140 },
+                { id: 'plate', name: "Chestplate", lv: 3, cost: { iron: 12 }, time: 12000, xp: 150, val: 350 }
+            ],
+            staff: {
+                gatherer: { name: "Scavenger", cost: 150, desc: "Finds 1 random resource every 5s" },
+                apprentice: { name: "Apprentice", cost: 400, desc: "Auto-sells items" }
+            }
+        };
+
+        function updateUI() {
+            document.getElementById('gold').innerText = Math.floor(state.gold);
+            document.getElementById('level').innerText = state.level;
+            document.getElementById('xp-text').innerText = `${state.xp}/${state.nextLevelXp}`;
+
+            // Market
+            let shopHTML = '';
+            for (let r in DATA.resources) {
+                let price = Math.ceil(DATA.resources[r].price * state.marketModifiers[r]);
+                shopHTML += `<div class="card">
+                <strong>${DATA.resources[r].name}</strong>: ${price}g
+                <br><small>Storage: ${state.resources[r]}</small>
+                <button onclick="buy('${r}', ${price})">Buy 1</button>
+            </div>`;
+            }
+            document.getElementById('shop-list').innerHTML = shopHTML;
+
+            // Recipes (With Cost Display)
+            let recipeHTML = '';
+            DATA.recipes.forEach(r => {
+                if (state.level >= r.lv) {
+                    let costDisplay = Object.entries(r.cost).map(([m, qty]) =>
+                        `<span class="cost-item">${qty}x ${m}</span>`).join("");
+
+                    recipeHTML += `<div class="card">
+                    <strong>${r.name}</strong>
+                    <div class="recipe-cost">Needs: ${costDisplay}</div>
+                    <button onclick="craft('${r.id}')" ${state.isCrafting ? 'disabled' : ''}>Forge (${r.time / 1000}s)</button>
+                </div>`;
+                }
+            });
+            document.getElementById('recipe-list').innerHTML = recipeHTML;
+
+            // Grouped Inventory (Merge Logic)
+            const grouped = state.inventory.reduce((acc, item) => {
+                const key = `${item.id}-${item.q}`; // Group by ID and Quality
+                if (!acc[key]) acc[key] = { ...item, count: 0 };
+                acc[key].count++;
+                return acc;
+            }, {});
+
+            let invHTML = '';
+            Object.values(grouped).forEach(item => {
+                let sellPrice = Math.floor(item.val * state.marketModifiers.sell);
+                invHTML += `<div class="card">
+                <span class="qty-badge">x${item.count}</span>
+                <span class="quality-${item.q}">${item.q}</span> ${item.name}
+                <button onclick="sellGrouped('${item.id}', '${item.q}', ${sellPrice})">Sell 1 for ${sellPrice}g</button>
+            </div>`;
+            });
+            document.getElementById('inventory-list').innerHTML = invHTML || "<p style='text-align:center; opacity:0.5'>Inventory is empty</p>";
+
+            // Staff
+            let staffHTML = '';
+            for (let s in DATA.staff) {
+                staffHTML += `<div class="card">
+                <strong>${DATA.staff[s].name}</strong> [${state.assistants[s]}]
+                <br><small>${DATA.staff[s].desc}</small>
+                <button onclick="hire('${s}')">Hire (${DATA.staff[s].cost}g)</button>
+            </div>`;
+            }
+            document.getElementById('staff-list').innerHTML = staffHTML;
+        }
+
+        function buy(res, price) {
+            if (state.gold >= price) {
+                state.gold -= price;
+                state.resources[res]++;
+                updateUI();
+            }
+        }
+
+        function craft(id) {
+            const r = DATA.recipes.find(x => x.id === id);
+            for (let mat in r.cost) {
+                if (state.resources[mat] < r.cost[mat]) return log("Missing materials!");
+            }
+
+            for (let mat in r.cost) state.resources[mat] -= r.cost[mat];
+
+            state.isCrafting = true;
+            document.getElementById('active-item-name').innerText = `Forging ${r.name}...`;
+            updateUI();
+
+            let start = null;
+            let duration = r.time / (1 + (state.level * 0.15));
+
+            function step(ts) {
+                if (!start) start = ts;
+                let elapsed = ts - start;
+                let pc = Math.min((elapsed / duration) * 100, 100);
+                document.getElementById('forge-fill').style.width = pc + "%";
+                if (elapsed < duration) requestAnimationFrame(step);
+                else finish(r);
+            }
+            requestAnimationFrame(step);
+        }
+
+        function finish(r) {
+            state.isCrafting = false;
+            document.getElementById('forge-fill').style.width = "0%";
+            document.getElementById('active-item-name').innerText = "Forge Idle";
+
+            const roll = Math.random() * state.level;
+            let q = "Common";
+            if (roll > 6) q = "Masterwork";
+            else if (roll > 3) q = "Fine";
+
+            state.inventory.push({ ...r, q: q });
+            addXp(r.xp);
+            updateUI();
+        }
+
+        // Logic for selling one item out of a grouped stack
+        function sellGrouped(id, quality, price) {
+            const index = state.inventory.findIndex(item => item.id === id && item.q === quality);
+            if (index > -1) {
+                state.gold += price;
+                state.inventory.splice(index, 1);
+                updateUI();
+            }
+        }
+
+        function hire(type) {
+            if (state.gold >= DATA.staff[type].cost) {
+                state.gold -= DATA.staff[type].cost;
+                state.assistants[type]++;
+                updateUI();
+            }
+        }
+
+        function addXp(v) {
+            state.xp += v;
+            if (state.xp >= state.nextLevelXp) {
+                state.level++;
+                state.xp = 0;
+                state.nextLevelXp = Math.floor(state.nextLevelXp * 1.7);
+                log(`LEVEL UP! You are now Level ${state.level}`);
+            }
+        }
+
+        function log(m) { document.getElementById('log').innerText = m; }
+
+        // Automation & Market Ticks
+        setInterval(() => {
+            if (state.assistants.gatherer > 0) {
+                const keys = Object.keys(state.resources);
+                for (let i = 0; i < state.assistants.gatherer; i++) {
+                    const randRes = keys[Math.floor(Math.random() * keys.length)];
+                    state.resources[randRes]++;
+                }
+            }
+            if (state.assistants.apprentice > 0 && state.inventory.length > 0) {
+                sellGrouped(state.inventory[0].id, state.inventory[0].q, Math.floor(state.inventory[0].val * state.marketModifiers.sell));
+            }
+            updateUI();
+        }, 4000);
+
+        setInterval(() => {
+            state.marketModifiers.iron = 0.6 + Math.random() * 0.8;
+            state.marketModifiers.sell = 0.7 + Math.random() * 0.6;
+            log("Market prices have shifted...");
+            updateUI();
+        }, 20000);
+
+        updateUI();
+    </script>
+</body>
+
+</html>

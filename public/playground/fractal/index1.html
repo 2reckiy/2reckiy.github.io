@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sierpinski Fractal Simulation</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #050505; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <canvas id="fractalCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('fractalCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            draw();
+        }
+
+        /**
+         * Draws a triangle and recurses inward
+         */
+        function drawSierpinski(p1, p2, p3, depth) {
+            if (depth === 0) {
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.lineTo(p3.x, p3.y);
+                ctx.closePath();
+                
+                // Color changes based on depth level
+                ctx.fillStyle = `hsl(${(depth * 60) + 180}, 80%, 50%)`;
+                ctx.fill();
+                return;
+            }
+
+            // Calculate midpoints of each side
+            const mid12 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+            const mid23 = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 };
+            const mid31 = { x: (p3.x + p1.x) / 2, y: (p3.y + p1.y) / 2 };
+
+            // Set color for the specific depth "layer"
+            ctx.strokeStyle = `hsl(${(depth * 45) % 360}, 100%, 60%)`;
+            ctx.lineWidth = 1;
+            
+            // Recurse into the three corner triangles
+            drawSierpinski(p1, mid12, mid31, depth - 1);
+            drawSierpinski(p2, mid12, mid23, depth - 1);
+            drawSierpinski(p3, mid23, mid31, depth - 1);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Define the three main points of the giant triangle
+            const margin = 50;
+            const size = Math.min(canvas.width, canvas.height) - margin * 2;
+            
+            const p1 = { x: canvas.width / 2, y: margin }; // Top
+            const p2 = { x: (canvas.width / 2) - (size / 1.1), y: canvas.height - margin }; // Bottom Left
+            const p3 = { x: (canvas.width / 2) + (size / 1.1), y: canvas.height - margin }; // Bottom Right
+
+            drawSierpinski(p1, p2, p3, 7); // Depth of 7-8 is usually the sweet spot
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+    </script>
+</body>
+</html>

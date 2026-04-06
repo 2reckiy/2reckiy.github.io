@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progressive Space-Filler</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #000; }
+        canvas { display: block; }
+        #stats {
+            position: absolute; top: 15px; left: 15px;
+            color: #0f0; font-family: 'Courier New', monospace;
+            background: rgba(0, 20, 0, 0.8); padding: 10px;
+            border: 1px solid #0f0; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="stats">STATUS: FILLING_SPACE...</div>
+    <canvas id="c"></canvas>
+
+    <script>
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+        
+        let order = 2; // Complexity level
+        let path = [];
+        let index = 0;
+        
+        // Hilbert Curve Logic: Maps 1D "progress" to 2D "space"
+        function hilbert(i, n) {
+            const points = [
+                { x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 0 }
+            ];
+            let v = points[i & 3];
+            for (let j = 1; j < n; j++) {
+                i = i >>> 2;
+                let index = i & 3;
+                let len = Math.pow(2, j);
+                if (index === 0) {
+                    let temp = v.x;
+                    v.x = v.y;
+                    v.y = temp;
+                } else if (index === 1) {
+                    v.y += len;
+                } else if (index === 2) {
+                    v.x += len;
+                    v.y += len;
+                } else if (index === 3) {
+                    let temp = len - 1 - v.x;
+                    v.x = len - 1 - v.y;
+                    v.y = temp;
+                    v.x += len;
+                }
+            }
+            return v;
+        }
+
+        function setup() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            path = [];
+            index = 0;
+            const n = Math.pow(2, order);
+            const totalPoints = n * n;
+            
+            // Pre-calculate the centered coordinates
+            const size = Math.min(canvas.width, canvas.height) * 0.9;
+            const step = size / n;
+            const offsetX = (canvas.width - size) / 2 + step / 2;
+            const offsetY = (canvas.height - size) / 2 + step / 2;
+
+            for (let i = 0; i < totalPoints; i++) {
+                let p = hilbert(i, order);
+                path.push({
+                    x: p.x * step + offsetX,
+                    y: p.y * step + offsetY
+                });
+            }
+            
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('stats').innerText = `ORDER: ${order} | PATH_NODES: ${totalPoints}`;
+        }
+
+        function draw() {
+            // How many segments to draw per frame
+            const speed = Math.pow(2, order - 1); 
+            
+            ctx.lineCap = "round";
+            ctx.lineWidth = 2;
+
+            for (let i = 0; i < speed; i++) {
+                if (index < path.length - 1) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = `hsl(${(index / path.length) * 360}, 100%, 50%)`;
+                    ctx.moveTo(path[index].x, path[index].y);
+                    ctx.lineTo(path[index + 1].x, path[index + 1].y);
+                    ctx.stroke();
+                    index++;
+                }
+            }
+
+            if (index >= path.length - 1) {
+                // When screen is full, wait then increase complexity
+                setTimeout(() => {
+                    order = order < 7 ? order + 1 : 2; 
+                    setup();
+                    requestAnimationFrame(draw);
+                }, 1500);
+            } else {
+                requestAnimationFrame(draw);
+            }
+        }
+
+        window.addEventListener('resize', setup);
+        setup();
+        draw();
+    </script>
+</body>
+</html>

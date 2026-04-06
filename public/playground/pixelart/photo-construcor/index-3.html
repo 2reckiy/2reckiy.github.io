@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>LEGO Pixelizer — Palettes (single file)</title>
+    <style>
+      :root {
+        --bg: #fff;
+        --muted: #666;
+      }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial;
+        margin: 18px;
+        color: #111;
+        background: #fafafa;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 12px;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      label {
+        font-size: 13px;
+      }
+      input[type="range"] {
+        width: 160px;
+      }
+      canvas {
+        background: var(--bg);
+        border: 1px solid #ddd;
+        image-rendering: pixelated;
+        display: block;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      .col {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      button {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        background: #f5f5f5;
+        cursor: pointer;
+      }
+      small {
+        color: var(--muted);
+      }
+      table {
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 6px 8px;
+        border: 1px solid #eee;
+        font-size: 13px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .swatch {
+        width: 22px;
+        height: 14px;
+        border: 1px solid #ccc;
+      }
+      .controls .group {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      footer {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      textarea {
+        width: 320px;
+        height: 70px;
+      }
+      .small-note {
+        font-size: 12px;
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>LEGO Pixelizer — з вибором палітр</h1>
+
+    <div class="controls">
+      <label>
+        <input id="file" type="file" accept="image/*" />
+        <small>Завантажити зображення</small>
+      </label>
+
+      <label
+        >Розмір цеглинки:
+        <input id="pixelSize" type="range" min="2" max="80" value="16" />
+        <span id="pixelSizeVal">16</span> px
+      </label>
+
+      <label
+        >Кількість кольорів (k):
+        <select id="k">
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6" selected>6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+        </select>
+      </label>
+
+      <label
+        >Квантизація методом:
+        <label
+          ><input type="radio" name="method" value="kmeans" checked />
+          K-means</label
+        >
+        <label
+          ><input type="radio" name="method" value="palette" /> Безпосередньо по
+          палітрі</label
+        >
+      </label>
+
+      <label
+        >Палітра:
+        <select id="paletteSelect">
+          <option value="grayscale">Grayscale (сірі)</option>
+          <option value="futureDusk">Future Dusk</option>
+          <option value="pantone">Pantone-style</option>
+          <option value="pastel">Trendy Pastel</option>
+          <option value="vibrant">Vibrant</option>
+          <option value="lego">Popular LEGO palette</option>
+          <option value="custom">Custom (enter HEXes)</option>
+        </select>
+      </label>
+
+      <label id="customLabel" style="display: none"
+        >Custom palette (comma-separated HEXs):
+        <textarea
+          id="customPalette"
+          placeholder="#ff0000,#00ff00,#0000ff"></textarea>
+      </label>
+
+      <label
+        ><input id="mapToPalette" type="checkbox" checked /> Map clusters to
+        chosen palette</label
+      >
+      <label><input id="grid" type="checkbox" checked /> Показати сітку</label>
+
+      <div class="group">
+        <button id="processBtn">Застосувати</button>
+        <button id="downloadPng" disabled>Завантажити PNG</button>
+        <button id="downloadSvg" disabled>Завантажити SVG</button>
+        <button id="downloadCsv" disabled>Завантажити CSV</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col" style="min-width: 320px">
+        <div>Оригінал</div>
+        <canvas id="origCanvas" width="360" height="240"></canvas>
+      </div>
+
+      <div class="col" style="min-width: 360px">
+        <div>Результат</div>
+        <canvas id="outCanvas" width="360" height="240"></canvas>
+      </div>
+
+      <div class="col" style="min-width: 300px">
+        <div>Легенда і підрахунок</div>
+        <div id="legend"></div>
+        <div id="countsTableWrap"></div>
+      </div>
+    </div>
+
+    <footer>
+      Клікни «Застосувати» після завантаження зображення. SVG містить
+      прямокутники для кожної «цеглинки» — готово для друку або подальшої
+      обробки.
+    </footer>
+
+    <script>
+      (() => {
+        // --- Палітри ---
+        const PRESET_PALETTES = {
+          grayscale: ["#000000", "#555555", "#AAAAAA", "#FFFFFF"],
+          futureDusk: ["#2B2F4A", "#4B4E6D", "#7A6B8E", "#B08DAA", "#D9C5BA"],
+          pantone: [
+            "#0B3954",
+            "#FFD400",
+            "#FF6B35",
+            "#175676",
+            "#4F5D75",
+            "#BFD7EA",
+          ],
+          pastel: [
+            "#F8EDEB",
+            "#F6D6AD",
+            "#DDEBC8",
+            "#C7E9B0",
+            "#B0E0E6",
+            "#E6D0EC",
+          ],
+          vibrant: [
+            "#FF3B3F",
+            "#FF9F1C",
+            "#2EC4B6",
+            "#247BA0",
+            "#53354A",
+            "#F72585",
+          ],
+          lego: [
+            "#FFFFFF",
+            "#000000",
+            "#CFCFD4",
+            "#6D6F72",
+            "#C91A09",
+            "#0055BF",
+            "#F2CD37",
+            "#237841",
+            "#6B4C3B",
+            "#D9C3A0",
+          ],
+        };
+
+        // --- UI elements ---
+        const fileInput = document.getElementById("file");
+        const pixelSizeInput = document.getElementById("pixelSize");
+        const pixelSizeVal = document.getElementById("pixelSizeVal");
+        const kSelect = document.getElementById("k");
+        const paletteSelect = document.getElementById("paletteSelect");
+        const customLabel = document.getElementById("customLabel");
+        const customPaletteInput = document.getElementById("customPalette");
+        const mapToPaletteCheckbox = document.getElementById("mapToPalette");
+        const gridCheckbox = document.getElementById("grid");
+        const processBtn = document.getElementById("processBtn");
+        const downloadPng = document.getElementById("downloadPng");
+        const downloadSvg = document.getElementById("downloadSvg");
+        const downloadCsv = document.getElementById("downloadCsv");
+
+        const origCanvas = document.getElementById("origCanvas");
+        const outCanvas = document.getElementById("outCanvas");
+        const origCtx = origCanvas.getContext("2d");
+        const outCtx = outCanvas.getContext("2d");
+
+        const legendWrap = document.getElementById("legend");
+        const countsTableWrap = document.getElementById("countsTableWrap");
+
+        let img = new Image();
+        let loaded = false;
+
+        pixelSizeInput.addEventListener(
+          "input",
+          () => (pixelSizeVal.textContent = pixelSizeInput.value)
+        );
+
+        paletteSelect.addEventListener("change", () => {
+          if (paletteSelect.value === "custom")
+            customLabel.style.display = "block";
+          else customLabel.style.display = "none";
+        });
+
+        fileInput.addEventListener("change", (e) => {
+          const f = e.target.files && e.target.files[0];
+          if (!f) return;
+          const url = URL.createObjectURL(f);
+          img = new Image();
+          img.onload = () => {
+            loaded = true;
+            URL.revokeObjectURL(url);
+            const maxW = 900,
+              maxH = 600;
+            let w = img.width,
+              h = img.height;
+            const r = w / h;
+            if (w > maxW) {
+              w = maxW;
+              h = Math.round(w / r);
+            }
+            if (h > maxH) {
+              h = maxH;
+              w = Math.round(h * r);
+            }
+            origCanvas.width = w;
+            origCanvas.height = h;
+            outCanvas.width = w;
+            outCanvas.height = h;
+            origCtx.imageSmoothingEnabled = true;
+            origCtx.clearRect(0, 0, w, h);
+            origCtx.drawImage(img, 0, 0, w, h);
+            outCtx.clearRect(0, 0, outCanvas.width, outCanvas.height);
+            legendWrap.innerHTML = "";
+            countsTableWrap.innerHTML = "";
+            downloadPng.disabled =
+              downloadSvg.disabled =
+              downloadCsv.disabled =
+                true;
+          };
+          img.onerror = () => alert("Не вдалося завантажити зображення.");
+          img.src = url;
+        });
+
+        // --- Color utilities ---
+        function hexToRgb(hex) {
+          const h = hex.replace("#", "");
+          const v =
+            h.length === 3
+              ? h
+                  .split("")
+                  .map((s) => s + s)
+                  .join("")
+              : h;
+          const r = parseInt(v.slice(0, 2), 16);
+          const g = parseInt(v.slice(2, 4), 16);
+          const b = parseInt(v.slice(4, 6), 16);
+          return [r, g, b];
+        }
+        function rgbToHex([r, g, b]) {
+          const to2 = (v) => v.toString(16).padStart(2, "0");
+          return "#" + to2(r) + to2(g) + to2(b);
+        }
+        function dist2(a, b) {
+          const dr = a[0] - b[0],
+            dg = a[1] - b[1],
+            db = a[2] - b[2];
+          return dr * dr + dg * dg + db * db;
+        }
+
+        // --- K-means ---
+        function kmeans(samples, k, maxIter = 16) {
+          if (samples.length === 0) return { centroids: [], labels: [] };
+          const centroids = [];
+          const used = new Set();
+          while (centroids.length < k) {
+            const i = Math.floor(Math.random() * samples.length);
+            if (!used.has(i)) {
+              used.add(i);
+              centroids.push(samples[i].slice());
+            }
+          }
+          let labels = new Array(samples.length).fill(0);
+          for (let iter = 0; iter < maxIter; iter++) {
+            let changed = false;
+            for (let i = 0; i < samples.length; i++) {
+              let best = 0,
+                bd = Infinity;
+              for (let c = 0; c < k; c++) {
+                const d = dist2(samples[i], centroids[c]);
+                if (d < bd) {
+                  bd = d;
+                  best = c;
+                }
+              }
+              if (labels[i] !== best) {
+                labels[i] = best;
+                changed = true;
+              }
+            }
+            const sums = Array.from({ length: k }, () => [0, 0, 0]);
+            const counts = new Array(k).fill(0);
+            for (let i = 0; i < samples.length; i++) {
+              const l = labels[i];
+              sums[l][0] += samples[i][0];
+              sums[l][1] += samples[i][1];
+              sums[l][2] += samples[i][2];
+              counts[l]++;
+            }
+            for (let c = 0; c < k; c++) {
+              if (counts[c] > 0) {
+                centroids[c][0] = Math.round(sums[c][0] / counts[c]);
+                centroids[c][1] = Math.round(sums[c][1] / counts[c]);
+                centroids[c][2] = Math.round(sums[c][2] / counts[c]);
+              } else
+                centroids[c] =
+                  samples[Math.floor(Math.random() * samples.length)].slice();
+            }
+            if (!changed) break;
+          }
+          return { centroids, labels };
+        }
+
+        // --- Main processing ---
+        function getSelectedPalette() {
+          const sel = paletteSelect.value;
+          if (sel === "custom") {
+            const txt = customPaletteInput.value.trim();
+            if (!txt) return PRESET_PALETTES.grayscale.slice();
+            const parts = txt
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean);
+            // normalize hex
+            return parts.map((p) => (p.startsWith("#") ? p : "#" + p));
+          }
+          return PRESET_PALETTES[sel].slice();
+        }
+
+        function process() {
+          if (!loaded) {
+            alert("Спочатку завантажте зображення.");
+            return;
+          }
+          const pixelSize = Math.max(1, parseInt(pixelSizeInput.value, 10));
+          const k = Math.max(2, Math.min(12, parseInt(kSelect.value, 10)));
+          const method = document.querySelector(
+            'input[name="method"]:checked'
+          ).value;
+          const palette = getSelectedPalette();
+          const mapToPalette = mapToPaletteCheckbox.checked;
+          const showGrid = gridCheckbox.checked;
+
+          const displayW = outCanvas.width,
+            displayH = outCanvas.height;
+          const cols = Math.max(1, Math.floor(displayW / pixelSize));
+          const rows = Math.max(1, Math.floor(displayH / pixelSize));
+
+          const small = document.createElement("canvas");
+          small.width = cols;
+          small.height = rows;
+          const sctx = small.getContext("2d");
+          sctx.imageSmoothingEnabled = true;
+          sctx.clearRect(0, 0, cols, rows);
+          sctx.drawImage(
+            origCanvas,
+            0,
+            0,
+            origCanvas.width,
+            origCanvas.height,
+            0,
+            0,
+            cols,
+            rows
+          );
+
+          const imgData = sctx.getImageData(0, 0, cols, rows);
+          const data = imgData.data;
+          const samples = [];
+          for (let y = 0; y < rows; y++)
+            for (let x = 0; x < cols; x++) {
+              const i = (y * cols + x) * 4;
+              samples.push([data[i], data[i + 1], data[i + 2]]);
+            }
+
+          let labels = new Array(samples.length).fill(0);
+          let centroids = [];
+          let mapped = [];
+
+          if (method === "palette") {
+            // assign directly to nearest palette color
+            centroids = palette.map((h) => hexToRgb(h));
+            for (let i = 0; i < samples.length; i++) {
+              let best = 0,
+                bd = Infinity;
+              for (let p = 0; p < centroids.length; p++) {
+                const d = dist2(samples[i], centroids[p]);
+                if (d < bd) {
+                  bd = d;
+                  best = p;
+                }
+              }
+              labels[i] = best;
+            }
+            mapped = centroids.map((c, idx) => ({
+              hex: rgbToHex(c),
+              name: "Palette " + (idx + 1),
+              rgb: c,
+            }));
+          } else {
+            // kmeans
+            // possibly sample for speed
+            let runSamples = samples;
+            const MAX_SAMPLES = 6000;
+            if (samples.length > MAX_SAMPLES) {
+              const step = Math.ceil(samples.length / MAX_SAMPLES);
+              runSamples = [];
+              for (let i = 0; i < samples.length; i += step)
+                runSamples.push(samples[i]);
+            }
+            const km = kmeans(runSamples, k, 20);
+            centroids = km.centroids.slice();
+            if (centroids.length < k)
+              while (centroids.length < k)
+                centroids.push(
+                  samples[Math.floor(Math.random() * samples.length)].slice()
+                );
+            // assign full set
+            for (let i = 0; i < samples.length; i++) {
+              let best = 0,
+                bd = Infinity;
+              for (let c = 0; c < centroids.length; c++) {
+                const d = dist2(samples[i], centroids[c]);
+                if (d < bd) {
+                  bd = d;
+                  best = c;
+                }
+              }
+              labels[i] = best;
+            }
+            // if mapping to palette, find nearest palette color for each centroid
+            if (mapToPalette) {
+              mapped = centroids.map((c) => {
+                let best = 0,
+                  bd = Infinity;
+                for (let p = 0; p < palette.length; p++) {
+                  const pr = hexToRgb(palette[p]);
+                  const d = dist2(c, pr);
+                  if (d < bd) {
+                    bd = d;
+                    best = p;
+                  }
+                }
+                return {
+                  hex: palette[best],
+                  name: palette[best],
+                  rgb: hexToRgb(palette[best]),
+                };
+              });
+            } else {
+              mapped = centroids.map((c, idx) => ({
+                hex: rgbToHex(c),
+                name: "Cluster " + (idx + 1),
+                rgb: c,
+              }));
+            }
+          }
+
+          // If method palette, mapped already set. If kmeans with mapToPalette true, mapped set. But labels reference palette indices in palette method; normalize mapped length and counts accordingly.
+
+          // Prepare counts per mapped color key
+          const mapKey = (labelIndex) =>
+            mapped[labelIndex] ? mapped[labelIndex].hex : "#000000";
+          // If method palette, labels use palette indices and mapped length equals palette.length
+
+          // Count occurrences by mapped color index
+          const countsMap = {};
+          for (let i = 0; i < labels.length; i++) {
+            const li = labels[i];
+            const key = mapKey(li);
+            countsMap[key] = (countsMap[key] || 0) + 1;
+          }
+
+          // Build legend and counts table
+          legendWrap.innerHTML = "";
+          countsTableWrap.innerHTML = "";
+
+          // Build rows array from mapped (but mapped might be empty if something wrong)
+          const rowsArr = [];
+          // Determine unique colors used and their counts
+          const usedColors = Object.keys(countsMap);
+          for (let i = 0; i < usedColors.length; i++) {
+            const hex = usedColors[i];
+            const cnt = countsMap[hex];
+            rowsArr.push({ hex, count: cnt });
+          }
+          // Sort by count desc
+          rowsArr.sort((a, b) => b.count - a.count);
+
+          // Legend
+          const frag = document.createDocumentFragment();
+          rowsArr.forEach((r, idx) => {
+            const div = document.createElement("div");
+            div.className = "legend-item";
+            const sw = document.createElement("div");
+            sw.className = "swatch";
+            sw.style.background = r.hex;
+            const txt = document.createElement("div");
+            txt.innerHTML = `<strong>${r.hex}</strong><br><small>${r.count} шт.</small>`;
+            div.appendChild(sw);
+            div.appendChild(txt);
+            frag.appendChild(div);
+          });
+          legendWrap.appendChild(frag);
+
+          // Counts table
+          const table = document.createElement("table");
+          table.innerHTML = `<thead><tr><th>№</th><th>HEX</th><th>Кількість</th></tr></thead>`;
+          const tbody = document.createElement("tbody");
+          rowsArr.forEach((r, idx) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td>${idx + 1}</td><td>${
+              r.hex
+            }</td><td style="text-align:right">${r.count}</td>`;
+            tbody.appendChild(tr);
+          });
+          table.appendChild(tbody);
+          countsTableWrap.appendChild(table);
+
+          // Render on outCanvas
+          outCtx.clearRect(0, 0, displayW, displayH);
+          outCtx.imageSmoothingEnabled = false;
+          const realW = cols * pixelSize,
+            realH = rows * pixelSize;
+          const dx = Math.round((displayW - realW) / 2);
+          const dy = Math.round((displayH - realH) / 2);
+          let idxSample = 0;
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+              const label = labels[idxSample++];
+              const colorHex = mapped[label]
+                ? mapped[label].hex
+                : method === "palette"
+                ? palette[label]
+                : "#000000";
+              outCtx.fillStyle = colorHex;
+              outCtx.fillRect(
+                dx + x * pixelSize,
+                dy + y * pixelSize,
+                pixelSize,
+                pixelSize
+              );
+            }
+          }
+          if (gridCheckbox.checked) {
+            outCtx.save();
+            outCtx.strokeStyle = "rgba(0,0,0,0.12)";
+            outCtx.lineWidth = 1;
+            for (let c = 0; c <= cols; c++) {
+              const x = dx + c * pixelSize + 0.5;
+              outCtx.beginPath();
+              outCtx.moveTo(x, dy);
+              outCtx.lineTo(x, dy + rows * pixelSize);
+              outCtx.stroke();
+            }
+            for (let r = 0; r <= rows; r++) {
+              const y = dy + r * pixelSize + 0.5;
+              outCtx.beginPath();
+              outCtx.moveTo(dx, y);
+              outCtx.lineTo(dx + cols * pixelSize, y);
+              outCtx.stroke();
+            }
+            outCtx.restore();
+          }
+
+          // Enable downloads
+          downloadPng.disabled = false;
+          downloadSvg.disabled = false;
+          downloadCsv.disabled = false;
+
+          // Prepare svg data
+          const svgPayload = {
+            cols,
+            rows,
+            pixelSize,
+            dx,
+            dy,
+            labels: labels.slice(),
+            mapped: mapped.length
+              ? mapped
+              : palette.map((h) => ({ hex: h, name: h, rgb: hexToRgb(h) })),
+            width: displayW,
+            height: displayH,
+          };
+
+          downloadPng.onclick = () => {
+            const a = document.createElement("a");
+            a.download = "lego_pixel_map.png";
+            a.href = outCanvas.toDataURL("image/png");
+            a.click();
+          };
+
+          downloadCsv.onclick = () => {
+            let csv = "hex,count\n";
+            rowsArr.forEach((r) => {
+              csv += `${r.hex},${r.count}\n`;
+            });
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "lego_counts.csv";
+            a.click();
+            URL.revokeObjectURL(url);
+          };
+
+          downloadSvg.onclick = () => {
+            const svg = buildSVG(svgPayload);
+            const blob = new Blob([svg], {
+              type: "image/svg+xml;charset=utf-8",
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "lego_pixel_map.svg";
+            a.click();
+            URL.revokeObjectURL(url);
+          };
+        }
+
+        function buildSVG({
+          cols,
+          rows,
+          pixelSize,
+          dx,
+          dy,
+          labels,
+          mapped,
+          width,
+          height,
+        }) {
+          const svgW = width,
+            svgH = height;
+          let svg = `<?xml version="1.0" encoding="utf-8"?>\n`;
+          svg += `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">\n`;
+          svg += `<rect width="100%" height="100%" fill="#ffffff"/>\n`;
+          svg += `<g id="bricks">\n`;
+          let idx = 0;
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+              const label = labels[idx++];
+              const color = mapped[label] ? mapped[label].hex : "#000000";
+              const rx = dx + x * pixelSize;
+              const ry = dy + y * pixelSize;
+              svg += `<rect x="${rx}" y="${ry}" width="${pixelSize}" height="${pixelSize}" fill="${color}" stroke="#000000" stroke-opacity="0.08" stroke-width="0.5"/>\n`;
+            }
+          }
+          svg += `</g>\n`;
+          // legend
+          const legendX = svgW - 180;
+          let ly = 8;
+          svg += `<g id="legend" font-family="sans-serif" font-size="12">\n`;
+          for (let i = 0; i < mapped.length; i++) {
+            const m = mapped[i];
+            svg += `<rect x="${legendX}" y="${ly}" width="20" height="12" fill="${m.hex}" stroke="#ccc"/>\n`;
+            const labelText = m.name ? `${m.name}` : `${m.hex}`;
+            svg += `<text x="${legendX + 26}" y="${
+              ly + 11
+            }" fill="#111">${labelText}</text>\n`;
+            ly += 18;
+          }
+          svg += `</g>\n`;
+          // grid lines
+          svg += `<g stroke="#000" stroke-opacity="0.06" stroke-width="0.5">\n`;
+          for (let c = 0; c <= cols; c++) {
+            const x = dx + c * pixelSize + 0.25;
+            svg += `<line x1="${x}" y1="${dy}" x2="${x}" y2="${
+              dy + rows * pixelSize
+            }"/>\n`;
+          }
+          for (let r = 0; r <= rows; r++) {
+            const y = dy + r * pixelSize + 0.25;
+            svg += `<line x1="${dx}" y1="${y}" x2="${
+              dx + cols * pixelSize
+            }" y2="${y}"/>\n`;
+          }
+          svg += `</g>\n`;
+          svg += `</svg>`;
+          return svg;
+        }
+
+        processBtn.addEventListener("click", process);
+      })();
+    </script>
+  </body>
+</html>

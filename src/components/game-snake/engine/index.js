@@ -10,20 +10,39 @@ const OBSTACLE_COLOR = "#000000";
 const OBSTACLE_GENERATION_PERIOD = 5000;
 const MAX_TRAIL_LENGTH = 10;
 
-const getIdFromPos = ({x, y}) => `${x}.${y}`;
+const getIdFromPos = ({ x, y }) => `${x}.${y}`;
 const randomPosition = (width, height) => ({
   x: Math.floor(Math.random() * width),
   y: Math.floor(Math.random() * height),
 });
-const generateHexColor = () => '#' + Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0');
+const generateHexColor = () =>
+  "#" +
+  Math.floor(Math.random() * 0xffffff)
+    .toString(16)
+    .padStart(6, "0");
 
 const isWrapped = (curr, prev, gridW, gridH) => {
-  return Math.abs(curr.x - prev.x) > 1 && Math.abs(curr.x - prev.x) === gridW - 1 ||
-         Math.abs(curr.y - prev.y) > 1 && Math.abs(curr.y - prev.y) === gridH - 1;
+  return (
+    (Math.abs(curr.x - prev.x) > 1 && Math.abs(curr.x - prev.x) === gridW - 1) ||
+    (Math.abs(curr.y - prev.y) > 1 && Math.abs(curr.y - prev.y) === gridH - 1)
+  );
 };
 
 export class GameEngine {
-  constructor({ canvas, gridWidth, gridHeight, cellSize, wallsEnabled, store, audio, onScore, onGameOver, onLevelUp, onElapsedTime, onFuryoku }) {
+  constructor({
+    canvas,
+    gridWidth,
+    gridHeight,
+    cellSize,
+    wallsEnabled,
+    store,
+    audio,
+    onScore,
+    onGameOver,
+    onLevelUp,
+    onElapsedTime,
+    onFuryoku,
+  }) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.gridWidth = gridWidth;
@@ -57,6 +76,11 @@ export class GameEngine {
   stop() {
     this.running = false;
     cancelAnimationFrame(this.requestAnimationFrameId);
+  }
+
+  close() {
+    this.stop();
+    this.audio.close();
   }
 
   restart() {
@@ -95,7 +119,7 @@ export class GameEngine {
     this.snakeSegmentsColors = [SNAKE_HEAD_COLOR];
     this.dir = { x: 1, y: 0 };
     this.nextDir = { x: 1, y: 0 };
-    this.food = {}
+    this.food = {};
     this.obstacles = {};
     this.nextObstacle = null;
     this.level = 1;
@@ -108,7 +132,7 @@ export class GameEngine {
     this.acceleration = 1;
     this.startTime = 0;
     this.ellapsedTime = 0;
-    
+
     this.running = false;
     this.loopPeriod = LOOP_PERIOD_MS;
     this.lastUpdate = 0;
@@ -124,7 +148,7 @@ export class GameEngine {
     if (!this.running) return;
 
     const dt = now - this.lastUpdate;
-    this.ellapsedTime = now - this. startTime;
+    this.ellapsedTime = now - this.startTime;
     this.interpolationProgress = Math.min(dt / (this.loopPeriod * this.acceleration), 1);
 
     if (dt > this.loopPeriod * this.acceleration) {
@@ -140,7 +164,7 @@ export class GameEngine {
 
   #update(now) {
     this.dir = this.nextDir;
-    this.prevSnake = this.snake.map(seg => ({ ...seg }));
+    this.prevSnake = this.snake.map((seg) => ({ ...seg }));
     const head = { x: this.snake[0].x + this.dir.x, y: this.snake[0].y + this.dir.y, color: this.snake[0].color };
 
     if (!this.wallsEnabled) {
@@ -155,7 +179,7 @@ export class GameEngine {
       this.store.setGameOver(true);
       this.stop();
       this.onGameOver?.();
-      
+
       return;
     }
 
@@ -182,8 +206,8 @@ export class GameEngine {
     this.store.setElapsedTime(this.ellapsedTime);
   }
 
-  #eat({x, y}) {
-    const id = getIdFromPos({x, y});
+  #eat({ x, y }) {
+    const id = getIdFromPos({ x, y });
     this.snakeSegmentsColors.push(this.food[id].color);
     delete this.food[id];
     this.audio.play("eat");
@@ -206,7 +230,7 @@ export class GameEngine {
   }
 
   #hitSelf(pos) {
-    return this.snake.some(seg => seg.x === pos.x && seg.y === pos.y);
+    return this.snake.some((seg) => seg.x === pos.x && seg.y === pos.y);
   }
 
   #hitObstacle(pos) {
@@ -215,7 +239,7 @@ export class GameEngine {
 
   #handleFoodGeneration() {
     let pos = randomPosition(this.gridWidth, this.gridHeight);
-    
+
     while (this.obstacles?.[getIdFromPos(pos)]) {
       pos = randomPosition(this.gridWidth, this.gridHeight);
     }
@@ -223,7 +247,7 @@ export class GameEngine {
     this.food[getIdFromPos(pos)] = {
       ...pos,
       color: generateHexColor(),
-    }
+    };
   }
 
   #handleObstacleGeneration(now) {
@@ -231,7 +255,7 @@ export class GameEngine {
 
     if (!this.nextObstacle) {
       let pos = randomPosition(this.gridWidth, this.gridHeight);
-    
+
       while (this.food?.[getIdFromPos(pos)]) {
         pos = randomPosition(this.gridWidth, this.gridHeight);
       }
@@ -239,14 +263,13 @@ export class GameEngine {
       this.nextObstacle = {
         ...pos,
         color: NEXT_OBSTACLE_COLOR,
-      }
+      };
       this.nextObstacleAnimationStart = now;
     }
 
     if (!isTime) {
       return;
     }
-
 
     this.lastObstacleGenerationTime = now;
     this.obstacles[getIdFromPos(this.nextObstacle)] = {
@@ -279,53 +302,59 @@ export class GameEngine {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Next obstacle
-    if(this.nextObstacle) {
+    if (this.nextObstacle) {
       const { x, y, color } = this.nextObstacle;
 
       const animT = (now - this.nextObstacleAnimationStart) / 1000;
       const pulseScale = 1 + 0.2 * Math.sin(Math.PI * 2 * animT); // Smooth pulse
-    
+
       const cx = x * GRID_CELL_SIZE + GRID_CELL_SIZE / 2;
       const cy = y * GRID_CELL_SIZE + GRID_CELL_SIZE / 2;
-    
+
       ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 1)';
+      ctx.shadowColor = "rgba(0, 0, 0, 1)";
       ctx.shadowBlur = 6;
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
       // Move origin to center of cell
       ctx.translate(cx, cy);
-    
+
       // Apply pulse scale
       ctx.scale(pulseScale, pulseScale);
-    
+
       // Set style and draw square centered at (0,0)
       ctx.fillStyle = color;
       ctx.fillRect(-GRID_CELL_SIZE / 2, -GRID_CELL_SIZE / 2, GRID_CELL_SIZE, GRID_CELL_SIZE);
-    
+
       ctx.restore();
     }
     // Current obstacles
-    Object.values(this.obstacles).forEach(o => {
+    Object.values(this.obstacles).forEach((o) => {
       ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 1)';
+      ctx.shadowColor = "rgba(0, 0, 0, 1)";
       ctx.shadowBlur = 6;
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
       ctx.fillStyle = o.color;
-      ctx.fillRect(o.x * cellSize, o.y * cellSize, cellSize, cellSize)
+      ctx.fillRect(o.x * cellSize, o.y * cellSize, cellSize, cellSize);
       ctx.restore();
     });
 
     // Food
-    Object.values(this.food).forEach(f => {
+    Object.values(this.food).forEach((f) => {
       ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 1)';
+      ctx.shadowColor = "rgba(0, 0, 0, 1)";
       ctx.shadowBlur = 6;
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
       ctx.beginPath();
-      ctx.arc(f.x * GRID_CELL_SIZE + GRID_CELL_SIZE * 0.5, f.y * GRID_CELL_SIZE + GRID_CELL_SIZE * 0.5, GRID_CELL_SIZE * 0.5, 0, 2 * Math.PI);
+      ctx.arc(
+        f.x * GRID_CELL_SIZE + GRID_CELL_SIZE * 0.5,
+        f.y * GRID_CELL_SIZE + GRID_CELL_SIZE * 0.5,
+        GRID_CELL_SIZE * 0.5,
+        0,
+        2 * Math.PI,
+      );
       ctx.fillStyle = f.color;
       ctx.fill();
       ctx.restore();
@@ -345,7 +374,7 @@ export class GameEngine {
       }
 
       ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 1)';
+      ctx.shadowColor = "rgba(0, 0, 0, 1)";
       ctx.shadowBlur = 6;
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
@@ -355,4 +384,3 @@ export class GameEngine {
     });
   }
 }
-

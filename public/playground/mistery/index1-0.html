@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mystery Minimal Game</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #111;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <script>
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      let dots = [];
+      let connections = [];
+      const CONNECT_DIST = 100;
+
+      // Dot click creation
+      canvas.addEventListener("click", (e) => {
+        dots.push({
+          x: e.clientX,
+          y: e.clientY,
+          baseX: e.clientX, // anchor position
+          baseY: e.clientY,
+          connected: false,
+        });
+      });
+
+      // Distance helper
+      function distance(a, b) {
+        return Math.hypot(a.x - b.x, a.y - b.y);
+      }
+
+      // Update logic
+      function update() {
+        // Slight movement around base position
+        dots.forEach((dot) => {
+          const maxDeviation = 2; // max pixels from base position
+          dot.x = dot.baseX + (Math.random() - 0.5) * maxDeviation * 2;
+          dot.y = dot.baseY + (Math.random() - 0.5) * maxDeviation * 2;
+        });
+
+        // Find new connections
+        for (let i = 0; i < dots.length; i++) {
+          const a = dots[i];
+          if (a.connected) continue;
+          for (let j = i + 1; j < dots.length; j++) {
+            const b = dots[j];
+            if (b.connected) continue;
+            if (distance(a, b) < CONNECT_DIST) {
+              connections.push([a, b]);
+              a.connected = true;
+              b.connected = true;
+              break; // stop searching for this dot
+            }
+          }
+        }
+      }
+
+      // Draw everything
+      function draw() {
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw connections
+        ctx.strokeStyle = "#0ff";
+        ctx.lineWidth = 2;
+        connections.forEach((pair) => {
+          const [a, b] = pair;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        });
+
+        // Draw dots
+        ctx.fillStyle = "#fff";
+        dots.forEach((dot) => {
+          ctx.beginPath();
+          ctx.arc(dot.x, dot.y, 5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      // Main loop
+      function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+      }
+      loop();
+
+      // Resize
+      window.addEventListener("resize", () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      });
+    </script>
+  </body>
+</html>

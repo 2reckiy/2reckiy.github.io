@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Minimalist Rocket Dev</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #0a0a0c;
+            font-family: monospace;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ff41;
+            pointer-events: none;
+            text-shadow: 0 0 5px #00ff41;
+        }
+
+        #modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        #modal-content {
+            background: #1a1a1f;
+            border: 2px solid #00ff41;
+            padding: 40px;
+            color: #00ff41;
+            text-align: center;
+            box-shadow: 0 0 20px #00ff4144;
+        }
+
+        #retry-btn {
+            background: #00ff41;
+            color: #0a0a0c;
+            border: none;
+            padding: 10px 20px;
+            font-family: monospace;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        #retry-btn:hover {
+            background: #00cc33;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <h2>MISSION CONTROL</h2>
+        <div id="stats">ALTITUDE: 0m<br>FUEL: 100%<br>SPEED: 0 m/s</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="modal-overlay" style="display: none;">
+        <div id="modal-content">
+            <h1 id="modal-title">MISSION REPORT</h1>
+            <p id="modal-msg"></p>
+            <div id="modal-stats"></div>
+            <button id="retry-btn" onclick="game.retry()">RETURN TO HANGAR</button>
+        </div>
+    </div>
+
+    <script>
+        const GROUND_INIT_ALTITUDE = 50;
+        const ROCKET_INIT_ALTITUDE = 70;
+
+        /**
+         * BASE MODULE CLASS
+         * Every part of the rocket inherits from this.
+         */
+        class Module {
+            constructor(name, weight, fuelCapacity = 0, thrust = 0, stability = 1) {
+                this.name = name;
+                this.weight = weight;
+                this.fuelCapacity = fuelCapacity;
+                this.thrust = thrust;
+                this.stability = stability;
+            }
+        }
+
+        /**
+         * ROCKET CLASS
+         * Manages the assembly and physics of the modules.
+         */
+        class Rocket {
+            constructor() {
+                this.modules = [];
+                this.y = 0;
+                this.x = 0;
+                this.velocity = 0;      // Vertical Speed
+                this.velocityX = 0;     // Horizontal Speed (Inertia!)
+                this.fuel = 0;
+                this.acceleration = 0;
+                this.tilt = 0;
+                this.angularVelocity = 0;
+                this.isCrashed = false;
+                this.isIgnited = false;
+                this.crashTimer = 0;
+
+                this.maxAltitude = 0;
+
+            }
+
+            addModule(mod) {
+                this.modules.push(mod);
+                this.fuel += mod.fuelCapacity;
+            }
+
+            getTotalWeight() {
+                // Sum weight of modules + current fuel weight (fuel has mass!)
+                const hardwareWeight = this.modules.reduce((sum, m) => sum + m.weight, 0);
+                return hardwareWeight + (this.fuel * 0.5);
+            }
+
+            getTotalThrust() {
+                return this.modules.reduce((sum, m) => sum + m.thrust, 0);
+            }
+
+            getStabilityRating() {
+                // Higher stability = harder to tilt. Fins help!
+                return this.modules.reduce((sum, m) => sum + (m.stability || 0), 0);
+            }
+
+            reset() {
+                this.x = 0;
+                this.y = 0;
+                this.velocity = 0;
+                this.velocityX = 0;
+                this.tilt = 0;
+                this.angularVelocity = 0;
+                this.acceleration = 0;
+                // Refill fuel based on modules
+                this.fuel = this.modules.reduce((sum, m) => sum + m.fuelCapacity, 0);
+                this.maxAltitude = 0;
+                this.crashTimer = 0;
+                this.isIgnited = false;
+                this.isCrashed = false;
+            }
+
+            // F = ma -> a = F/m
+            update(dt, windForce) {
+                if (!this.isIgnited || this.isCrashed) return;
+
+                const fastDt = dt * 2.5;
+                const weight = this.getTotalWeight();
+                const thrust = (this.fuel > 0) ? this.getTotalThrust() : 0;
+                const gravity = 20.0;
+                const stability = this.getStabilityRating();
+
+                // Thrust Vectors
+                let thrustY = thrust * Math.cos(this.tilt);
+                let thrustX = thrust * Math.sin(this.tilt);
+
+                // 1. VERTICAL LOGIC
+                let netForceY = (this.y <= 0) ? (thrustY - (weight * gravity)) : (thrustY - (weight * gravity));
+
+                // Safety: If on ground and thrust isn't enough to lift, don't accumulate negative velocity
+                if (this.y <= 0 && netForceY <= 0) {
+                    this.velocity = 0;
+                    this.acceleration = 0;
+                } else {
+                    this.acceleration = netForceY / weight;
+                    this.velocity += this.acceleration * fastDt;
+                }
+
+                // 2. HORIZONTAL & TILT (Only unlock once we leave the ground)
+                if (this.y > 0) {
+                    let stabilityMultiplier = (this.fuel > 0) ? 1 : 0.5;
+                    let tiltChange = (windForce / (stability * stabilityMultiplier + 1));
+
+                    this.angularVelocity += tiltChange * fastDt;
+                    this.tilt += this.angularVelocity * fastDt;
+
+                    let accX = thrustX / weight;
+                    this.velocityX += accX * fastDt;
+                } else {
+                    // Stay upright on the pad
+                    this.velocityX = 0;
+                    this.tilt = 0;
+                    this.angularVelocity = 0;
+                }
+
+                this.y += this.velocity * fastDt;
+                this.x += this.velocityX * fastDt;
+
+                // Snap to zero if landing
+                if (this.y < 0) this.y = 0;
+
+                if (this.fuel > 0) {
+                    this.fuel -= (thrust * 0.02) * fastDt;
+                }
+
+                if (this.y > this.maxAltitude) this.maxAltitude = this.y;
+            }
+
+            draw(ctx, canvas) {
+                // Calculate screen position
+                const screenX = Math.floor((canvas.width / 2) + this.x);
+                const screenY = canvas.height - ROCKET_INIT_ALTITUDE;
+
+                ctx.save();
+                ctx.translate(screenX, screenY);
+
+                if (this.isCrashed) {
+                    this.drawCrashAnimation(ctx);
+                } else {
+                    ctx.rotate(this.tilt);
+                    this.drawNormal(ctx);
+                }
+
+                ctx.restore(); // Reset rotation for UI
+            }
+
+            drawNormal(ctx) {
+                ctx.font = "bold 14px monospace";
+                ctx.textAlign = "center";
+                let offset = 0;
+                this.modules.forEach((mod, index) => {
+                    let symbol = (index === this.modules.length - 1) ? "/\\" : (index === 0) ? "|_|" : "| |";
+                    if (index === 0 && this.fuel > 0 && this.isIgnited) {
+                        ctx.fillStyle = "#ff5839";
+                        ctx.fillText("vvv", 0, 10 + (Math.random() * 5));
+                    }
+                    ctx.fillStyle = "#00ff41";
+                    ctx.fillText(symbol, 0, -offset);
+                    offset += 20;
+                });
+            }
+
+            drawCrashAnimation(ctx) {
+                // crashTimer controls the progression of the collapse
+                this.crashTimer = Math.min(this.crashTimer + 0.05, 6);
+
+                ctx.font = "bold 14px monospace";
+                ctx.fillStyle = "#ff4141";
+                ctx.textAlign = "center";
+
+                // The floor level relative to the rocket's translation point (0,0)
+                // Since we translated to the ground level, 0 is the floor.
+                const floorY = 10;
+
+                this.modules.forEach((mod, index) => {
+                    ctx.save();
+
+                    // 1. HORIZONTAL SLIDE
+                    // Pieces slide outward based on their index (left/right)
+                    const direction = (index % 2 === 0) ? 1 : -1;
+                    const slideDist = direction * (index + 1) * this.crashTimer * 7;
+
+                    // 2. VERTICAL COLLAPSE
+                    // Gravity pulls them down, but we clamp it at the floorY
+                    let yOffset = (this.crashTimer * 50); // Falling speed
+
+                    // This is the "Stay on ground" logic:
+                    if (yOffset > floorY) {
+                        yOffset = floorY; // Don't fall through the floor
+                    }
+
+                    ctx.translate(slideDist, yOffset);
+
+                    // 3. THE TUMBLED ROTATION
+                    // Stop spinning once the piece hits the ground (timer > some value)
+                    // or just let them settle at a fixed random-looking angle
+                    const rotationAngle = Math.min(this.crashTimer * 2, 10) * (index + 1) * direction;
+                    ctx.rotate(rotationAngle);
+
+                    // 4. DRAW SYMBOL
+                    let symbol = (index === this.modules.length - 1) ? "/\\" : (index === 0) ? "|_|" : "| |";
+                    ctx.fillText(symbol, 0, 0);
+
+                    ctx.restore();
+                });
+            }
+        }
+
+        class Star {
+            constructor(canvas) {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2;
+                // Stars at different "depths" move at different speeds
+                this.depth = Math.random() * 0.5 + 0.1;
+            }
+
+            draw(ctx, canvas, rocketY) {
+                // 1. Calculate the star's position based on altitude
+                // Note: We subtract because as we go UP, the stars move DOWN.
+                let relativeY = (this.y + (rocketY * this.depth)) % canvas.height;
+
+                // 2. The ground line moves DOWN as rocketY increases
+                const currentGroundY = (canvas.height - GROUND_INIT_ALTITUDE) + rocketY;
+
+                // 3. Only draw if the star is above the ground line
+                if (relativeY < currentGroundY) {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${this.depth})`;
+                    ctx.beginPath();
+                    ctx.arc(this.x, relativeY, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        /**
+         * ENGINE / CORE GAME LOOP
+         */
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.rocket = new Rocket();
+                this.stars = [];
+                this.lastTime = 0;
+
+                this.wind = 0;
+                this.windTarget = 0;
+                this.windTimer = 0;
+
+                window.addEventListener('resize', () => this.resize());
+                window.addEventListener('keydown', (e) => { if (e.code === 'Space') this.rocket.isIgnited = true; });
+
+                this.resize();
+                this.initRocket();
+                this.generateStars();
+                requestAnimationFrame((t) => this.loop(t));
+            }
+
+            generateStars() {
+                this.stars = [];
+                for (let i = 0; i < 100; i++) {
+                    this.stars.push(new Star(this.canvas));
+                }
+            }
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+                this.generateStars(); // Regrow stars on resize
+            }
+
+            initRocket() {
+                // Boosted Engine so it actually lifts off!
+                this.rocket.addModule(new Module("Engine", 50, 0, 8000));
+                this.rocket.addModule(new Module("Tank", 100, 1000));
+                this.rocket.addModule(new Module("Nose", 20, 0, 0, 5));
+            }
+
+            drawSky() {
+                const alt = this.rocket.y;
+
+                // Darkness factor: 0 at ground, 1 at 10k meters
+                let darkness = Math.min(alt / 10000, 1);
+
+                // Start with a Deep Atmospheric Blue: RGB(20, 30, 60)
+                // Fade to Space Black: RGB(0, 0, 0)
+                let r = Math.floor(20 * (1 - darkness));
+                let g = Math.floor(30 * (1 - darkness));
+                let b = Math.floor(60 * (1 - darkness));
+
+                // Fill the background
+                this.ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Subtle Horizon Glow (White/Light Blue)
+                if (alt < 5000) {
+                    let glowOpacity = (1 - (alt / 5000)) * 0.2;
+                    let gradient = this.ctx.createLinearGradient(0, this.canvas.height - 400, 0, this.canvas.height - 150);
+
+                    gradient.addColorStop(0, "rgba(0, 0, 0, 0)"); // Clear at the top
+                    gradient.addColorStop(1, `rgba(100, 150, 255, ${glowOpacity})`); // Soft Blue at the bottom
+
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+            }
+
+            drawGround(rocketY) {
+                const groundBaseY = this.canvas.height - GROUND_INIT_ALTITUDE;
+                const currentGroundY = groundBaseY + rocketY; // Moves down as rocket goes up
+
+                // Only draw the ground if it's still visible on screen
+                if (currentGroundY < this.canvas.height + 200) {
+                    this.ctx.strokeStyle = "#00ff41";
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, currentGroundY);
+                    this.ctx.lineTo(this.canvas.width, currentGroundY);
+                    this.ctx.stroke();
+
+                    // Draw the "Dirt" under the line so stars don't show through
+                    this.ctx.fillStyle = "#0a0a0c";
+                    this.ctx.fillRect(0, currentGroundY + 2, this.canvas.width, this.canvas.height);
+
+                    // Draw some "Launch Pad" details
+                    for (let i = -2; i <= 2; i++) {
+                        let padX = (this.canvas.width / 2) + (i * 40);
+                        this.ctx.strokeRect(padX - 10, currentGroundY - 6, 20, 5);
+                    }
+                }
+            }
+
+            drawWindIndicator() {
+                const anchorX = this.canvas.width - 150; // The fixed position of the "|"
+                const cy = 100;
+
+                const maxLen = 3;
+                const absWind = Math.abs(this.wind);
+                const force = Math.min(Math.round(absWind), maxLen);
+
+                this.ctx.fillStyle = "#00ff41";
+                this.ctx.font = "12px monospace";
+                this.ctx.textAlign = "center";
+                this.ctx.fillText("WIND", anchorX, cy - 20);
+
+                this.ctx.font = "bold 12px monospace";
+
+                if (this.wind > 0.5 && force > 0) {
+                    // WIND EAST: Anchor is on the left
+                    const arrow = "|" + "=".repeat(force - 1) + ">";
+                    this.ctx.textAlign = "left";
+                    this.ctx.fillText(arrow, anchorX, cy + 10);
+                } else if (this.wind < -0.5 && force > 0) {
+                    // WIND WEST: Anchor is on the right
+                    const arrow = "<" + "=".repeat(force - 1) + "|";
+                    this.ctx.textAlign = "right";
+                    this.ctx.fillText(arrow, anchorX, cy + 10);
+                } else {
+                    // CALM: Just the anchor
+                    this.ctx.textAlign = "center";
+                    this.ctx.fillText("|", anchorX, cy + 10);
+                }
+
+                // Numerical readout centered under the anchor
+                this.ctx.textAlign = "center";
+                this.ctx.font = "10px monospace";
+                this.ctx.fillText(`${absWind.toFixed(1)} kN`, anchorX, cy + 35);
+            }
+
+            checkFlightStatus() {
+                const rocket = this.rocket;
+                if (rocket.isCrashed) return; // Don't check status if already exploding
+
+                // A. OFF-SCREEN CHECK
+                const margin = 150;
+                const halfWidth = this.canvas.width / 2;
+                if (rocket.x < -halfWidth - margin || rocket.x > halfWidth + margin) {
+                    this.triggerCrash("LOST IN SECTOR X: Out of Bounds");
+                }
+
+                // B. GROUND CHECK
+                if (rocket.y <= 0) {
+                    rocket.y = 0;
+                    if (rocket.velocity < -15) {
+                        this.triggerCrash("CRITICAL FAILURE: Impact Detected");
+                    } else if (rocket.isIgnited && rocket.velocity <= 0 && rocket.fuel <= 0) {
+                        this.endRun("MISSION COMPLETE: Return to Hangar", rocket.maxAltitude);
+                    }
+                }
+            }
+
+            triggerCrash(message) {
+                this.rocket.isCrashed = true;
+                this.rocket.isIgnited = false;
+
+                // Pause briefly to show the "Explosion" before the modal pops up
+                setTimeout(() => {
+                    this.endRun(message, this.rocket.maxAltitude);
+                }, 2000); // 2 second delay
+            }
+
+            endRun(message, maxAltitude) {
+                this.rocket.isIgnited = false;
+
+                // Show the Modal
+                const overlay = document.getElementById('modal-overlay');
+                const msg = document.getElementById('modal-msg');
+                const stats = document.getElementById('modal-stats');
+
+                overlay.style.display = 'flex';
+                msg.innerText = message;
+                stats.innerHTML = `MAX ALTITUDE: ${Math.floor(maxAltitude)}m`;
+            }
+
+            retry() {
+                // Use the new class method!
+                this.rocket.reset();
+
+                // Hide modal
+                document.getElementById('modal-overlay').style.display = 'none';
+            }
+
+            resetRocket() {
+                this.rocket.reset();
+            }
+
+            updateWind(dt) {
+                this.windTimer -= dt;
+                if (this.windTimer <= 0) {
+                    // Pick a new wind force and duration
+                    this.windTarget = (Math.random() - 0.5) * 10;
+                    this.windTimer = 2 + Math.random() * 3; // Change every 2-5 seconds
+                }
+
+                // Smoothly transition to the new wind target (Interpolation)
+                this.wind += (this.windTarget - this.wind) * dt;
+            }
+
+            loop(time) {
+                const dt = (time - this.lastTime) / 1000;
+                this.lastTime = time;
+
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                this.updateWind(dt);
+
+                // Update Physics
+                this.rocket.update(dt, this.wind);
+
+                // Referee Check
+                this.checkFlightStatus();
+
+                // Rendering
+                this.drawSky();
+                this.stars.forEach(star => star.draw(this.ctx, this.canvas, this.rocket.y));
+                this.drawGround(this.rocket.y);
+                this.drawWindIndicator();
+                this.rocket.draw(this.ctx, this.canvas);
+
+                // UPDATE UI
+                document.getElementById('stats').innerHTML = `
+                    ALTITUDE: ${Math.floor(this.rocket.y)}m<br>
+                    FUEL: ${Math.max(0, Math.floor(this.rocket.fuel))} units<br>
+                    SPEED: ${Math.floor(this.rocket.velocity)} m/s<br>
+                    ACCEL: ${this.rocket.acceleration.toFixed(2)} m/s²<br>
+                    WEIGHT: ${Math.floor(this.rocket.getTotalWeight())} kg
+                `;
+
+                requestAnimationFrame((t) => this.loop(t));
+            }
+        }
+        const game = new Game();
+    </script>
+</body>
+
+</html>

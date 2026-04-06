@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>LEGO Pixelizer — single file</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:18px;color:#111}
+  h1{font-size:20px;margin:0 0 12px}
+  .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px}
+  label{font-size:13px}
+  input[type="range"]{width:180px}
+  canvas{background:#fff;border:1px solid #ddd;image-rendering: pixelated;display:block}
+  .row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+  .col{display:flex;flex-direction:column;gap:8px}
+  button{padding:8px 12px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer}
+  small{color:#555}
+</style>
+</head>
+<body>
+  <h1>LEGO Pixelizer — зображення → піксель-схема (4–8 сірих відтінків)</h1>
+
+  <div class="controls">
+    <label>
+      <input id="file" type="file" accept="image/*">
+      <small>Завантажити зображення</small>
+    </label>
+
+    <label>Розмір цеглинки:
+      <input id="pixelSize" type="range" min="2" max="80" value="16">
+      <span id="pixelSizeVal">16</span> px
+    </label>
+
+    <label>Кількість відтінків:
+      <select id="shades">
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6" selected>6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+      </select>
+    </label>
+
+    <label><input id="grid" type="checkbox" checked> Показати сітку</label>
+
+    <button id="processBtn">Застосувати</button>
+    <button id="downloadBtn" disabled>Завантажити PNG</button>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <div>Оригінал</div>
+      <canvas id="origCanvas" width="320" height="240"></canvas>
+    </div>
+
+    <div class="col">
+      <div>Результат (піксель + сірі відтінки)</div>
+      <canvas id="outCanvas" width="320" height="240"></canvas>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const fileInput = document.getElementById('file');
+  const pixelSizeInput = document.getElementById('pixelSize');
+  const pixelSizeVal = document.getElementById('pixelSizeVal');
+  const shadesSelect = document.getElementById('shades');
+  const gridCheckbox = document.getElementById('grid');
+  const processBtn = document.getElementById('processBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+
+  const origCanvas = document.getElementById('origCanvas');
+  const outCanvas = document.getElementById('outCanvas');
+  const origCtx = origCanvas.getContext('2d');
+  const outCtx = outCanvas.getContext('2d');
+
+  let img = new Image();
+  let loaded = false;
+
+  // Показати значення ползунка
+  pixelSizeInput.addEventListener('input', () => {
+    pixelSizeVal.textContent = pixelSizeInput.value;
+  });
+
+  // Завантаження з файлу
+  fileInput.addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    img = new Image();
+    img.onload = () => {
+      loaded = true;
+      URL.revokeObjectURL(url);
+      // Встановимо розміри canvas для відображення (обмежимо для зручності)
+      const maxW = 640;
+      const maxH = 480;
+      let w = img.width;
+      let h = img.height;
+      const ratio = w / h;
+      if (w > maxW) { w = maxW; h = Math.round(w / ratio); }
+      if (h > maxH) { h = maxH; w = Math.round(h * ratio); }
+      origCanvas.width = w;
+      origCanvas.height = h;
+      outCanvas.width = w;
+      outCanvas.height = h;
+      // Малюємо оригінал (з smoothing)
+      origCtx.imageSmoothingEnabled = true;
+      origCtx.clearRect(0,0,w,h);
+      origCtx.drawImage(img, 0, 0, w, h);
+      // Вмикаємо кнопку
+      downloadBtn.disabled = true;
+    };
+    img.onerror = () => alert("Не вдалося завантажити зображення.");
+    img.src = url;
+  });
+
+  // Основна функція: пікселізація + квантизація в сірі відтінки
+  function process() {
+    if (!loaded) { alert("Спочатку завантажте зображення."); return; }
+
+    const pixelSize = Math.max(1, parseInt(pixelSizeInput.value,10));
+    const shades = Math.max(2, Math.min(16, parseInt(shadesSelect.value,10))); // 4..8 за UI
+    const showGrid = gridCheckbox.checked;
+
+    // Відображувані розміри (canvas)
+    const displayW = outCanvas.width;
+    const displayH = outCanvas.height;
+
+    // Обчислимо розмір "маленького" зображення (кількість блоків по осях)
+    // Краще вибирати цілі к-сті блоків по ширині/висоті:
+    const cols = Math.max(1, Math.floor(displayW / pixelSize));
+    const rows = Math.max(1, Math.floor(displayH / pixelSize));
+
+    // Offscreen small canvas
+    const small = document.createElement('canvas');
+    small.width = cols;
+    small.height = rows;
+    const sctx = small.getContext('2d');
+
+    // Малюємо оригінальне зображення, масштабоване до cols x rows (це робить пікселізацію)
+    // Для кращої відповідності, беремо дані з origCanvas (вже містить змінений пропорційно img)
+    sctx.imageSmoothingEnabled = true; // downscale with smoothing first
+    sctx.clearRect(0,0,cols,rows);
+    sctx.drawImage(origCanvas, 0, 0, origCanvas.width, origCanvas.height, 0, 0, cols, rows);
+
+    // Отримуємо дані і квантизуємо в зазначену кількість відтінків сірого
+    const imgData = sctx.getImageData(0,0,cols,rows);
+    const data = imgData.data;
+    // крок інтервалу
+    const levels = shades;
+    const step = 255 / (levels - 1);
+
+    // Функція для лінійної світлості (luminance)
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i+1], b = data[i+2];
+      // стандартна формула для сприйняття яскравості
+      const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      // квантуємо до найближчого рівня
+      const q = Math.round(lum / step) * step;
+      const v = Math.max(0, Math.min(255, Math.round(q)));
+      data[i] = data[i+1] = data[i+2] = v;
+      // alpha залишаємо без змін
+    }
+    sctx.putImageData(imgData, 0, 0);
+
+    // Тепер масштабюємо small canvas назад на outCanvas без інтерполяції (щоб отримати чіткі квадрати)
+    outCtx.clearRect(0,0,displayW,displayH);
+    outCtx.imageSmoothingEnabled = false;
+    outCtx.drawImage(small, 0, 0, cols, rows, 0, 0, cols * pixelSize, rows * pixelSize);
+
+    // Якщо потрібна сітка — домалюємо тонкі лінії
+    if (showGrid) {
+      outCtx.save();
+      outCtx.strokeStyle = 'rgba(0,0,0,0.12)';
+      outCtx.lineWidth = 1;
+      // вертикальні
+      for (let c = 0; c <= cols; c++) {
+        const x = c * pixelSize + 0.5; // +0.5 для чіткої 1px лінії
+        outCtx.beginPath();
+        outCtx.moveTo(x, 0);
+        outCtx.lineTo(x, rows * pixelSize);
+        outCtx.stroke();
+      }
+      // горизонтальні
+      for (let r = 0; r <= rows; r++) {
+        const y = r * pixelSize + 0.5;
+        outCtx.beginPath();
+        outCtx.moveTo(0, y);
+        outCtx.lineTo(cols * pixelSize, y);
+        outCtx.stroke();
+      }
+      outCtx.restore();
+    }
+
+    // Якщо відображуване полотно менше за реальні розміри (cols*pixelSize може бути менше displayW),
+    // поправимо масштаб/позицію: за умовою canvas має розміри displayW x displayH; тому щоб центр був,
+    // ми перемісимо зображення у центр якщо воно не займає весь площі.
+    const realW = cols * pixelSize;
+    const realH = rows * pixelSize;
+    if (realW !== displayW || realH !== displayH) {
+      // беремо його як тимчасовий кадр і центруємо
+      const tmp = document.createElement('canvas');
+      tmp.width = displayW;
+      tmp.height = displayH;
+      const tctx = tmp.getContext('2d');
+      tctx.fillStyle = '#fff';
+      tctx.fillRect(0,0,displayW,displayH);
+      const dx = Math.round((displayW - realW)/2);
+      const dy = Math.round((displayH - realH)/2);
+      tctx.drawImage(outCanvas, 0, 0, displayW, displayH, 0, 0, displayW, displayH);
+      outCtx.clearRect(0,0,displayW,displayH);
+      outCtx.drawImage(tmp, 0, 0);
+    }
+
+    // Готово — дозволяємо скачати
+    downloadBtn.disabled = false;
+  }
+
+  processBtn.addEventListener('click', process);
+
+  downloadBtn.addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'lego_pixel_map.png';
+    link.href = outCanvas.toDataURL('image/png');
+    link.click();
+  });
+
+  // Дозволимо обробляти double-click на оригіналі щоб клонувати у результат
+  origCanvas.addEventListener('dblclick', () => {
+    if (loaded) process();
+  });
+
+  // Початкові підказки
+  // Якщо хочеш — можна також автоматично пікселізувати при завантаженні:
+  // img.onload -> process();
+})();
+</script>
+</body>
+</html>
+

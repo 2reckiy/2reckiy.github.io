@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <title>The Circular Forge - Fixed Snapping</title>
+    <style>
+        body {
+            margin: 0;
+            background: #050508;
+            color: #fff;
+            font-family: 'Consolas', monospace;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(10, 10, 15, 0.9);
+            padding: 15px;
+            border: 1px solid #00f2ff;
+            pointer-events: none;
+        }
+
+        .stat {
+            color: #00f2ff;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="ui">
+        <div class="stat">ЗОЛОТО: <span id="gold-val">100</span></div>
+        <div class="stat">СИСТЕМА: СТАБІЛЬНА</div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let state = {
+            gold: 100,
+            citadelRadius: 30,
+            rings: [
+                { radius: 120, buildings: [] },
+                { radius: 190, buildings: [] },
+                { radius: 260, buildings: [] }
+            ],
+            roads: [],
+            isDraggingRoad: false,
+            mouseAngle: 0,
+            mouseDist: 0,
+            hoverRing: -1,
+            snapAngle: null
+        };
+
+        const BUILD_ARC = 35 * (Math.PI / 180);
+        const SNAP_LIMIT = 8 * (Math.PI / 180);
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Нормалізація кута в межах [0, 2π]
+        const norm = a => (a + Math.PI * 2) % (Math.PI * 2);
+
+        // Розрахунок найкоротшої відстані між кутами на колі
+        const angleDist = (a, b) => {
+            let diff = Math.abs(norm(a) - norm(b));
+            return Math.min(diff, Math.PI * 2 - diff);
+        };
+
+        canvas.addEventListener('mousedown', (e) => {
+            const { x, y } = getMousePos(e);
+            if (Math.sqrt(x * x + y * y) < state.citadelRadius + 10) state.isDraggingRoad = true;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const { x, y } = getMousePos(e);
+            state.mouseDist = Math.sqrt(x * x + y * y);
+            state.mouseAngle = norm(Math.atan2(y, x));
+
+            state.hoverRing = -1;
+            state.snapAngle = null;
+
+            state.rings.forEach((r, i) => {
+                if (Math.abs(state.mouseDist - r.radius) < 30) {
+                    state.hoverRing = i;
+
+                    r.buildings.forEach(b => {
+                        // Перевірка правого краю існуючої будівлі
+                        let dRight = angleDist(state.mouseAngle, b.angle + (BUILD_ARC + b.arc) / 2);
+                        // Перевірка лівого краю існуючої будівлі
+                        let dLeft = angleDist(state.mouseAngle, b.angle - (BUILD_ARC + b.arc) / 2);
+
+                        if (dRight < SNAP_LIMIT) state.snapAngle = b.angle + (BUILD_ARC + b.arc) / 2;
+                        if (dLeft < SNAP_LIMIT) state.snapAngle = b.angle - (BUILD_ARC + b.arc) / 2;
+                    });
+                }
+            });
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (state.isDraggingRoad) {
+                if (state.mouseDist > state.citadelRadius + 30) {
+                    state.roads.push({ angle: state.mouseAngle, length: state.mouseDist });
+                    state.gold -= 5;
+                }
+                state.isDraggingRoad = false;
+            } else if (state.hoverRing !== -1) {
+                placeBuilding(state.hoverRing);
+            }
+        });
+
+        function getMousePos(e) {
+            return { x: e.clientX - canvas.width / 2, y: e.clientY - canvas.height / 2 };
+        }
+
+        function placeBuilding(idx) {
+            const ring = state.rings[idx];
+            const angle = state.snapAngle !== null ? state.snapAngle : state.mouseAngle;
+
+            const collision = ring.buildings.some(b => angleDist(angle, b.angle) < (BUILD_ARC + b.arc) / 2 - 0.02);
+
+            if (!collision && state.gold >= 20) {
+                state.gold -= 20;
+                ring.buildings.push({ angle: norm(angle), arc: BUILD_ARC });
+            }
+        }
+
+        function drawBuilding(cx, cy, r, angle, arc, ringBuildings, isGhost = false) {
+            // Перевірка на "злиття" з сусідами
+            const isMergedLeft = ringBuildings.some(b => angleDist(angle - arc / 2, b.angle + b.arc / 2) < 0.02);
+            const isMergedRight = ringBuildings.some(b => angleDist(angle + arc / 2, b.angle - b.arc / 2) < 0.02);
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, angle - arc / 2, angle + arc / 2);
+            ctx.lineWidth = isGhost ? 10 : 14;
+
+            // Магія Caps: якщо стикується — обрізаємо краї, якщо ні — закругляємо
+            if (isMergedLeft && isMergedRight) ctx.lineCap = 'butt';
+            else if (isMergedLeft) {
+                // Малюємо закруглення тільки справа
+                ctx.lineCap = 'butt';
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, angle + arc / 2 - 0.01, angle + arc / 2);
+                ctx.lineCap = 'round';
+            } else if (isMergedRight) {
+                // Малюємо закруглення тільки зліва
+                ctx.lineCap = 'butt';
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, angle - arc / 2, angle - arc / 2 + 0.01);
+                ctx.lineCap = 'round';
+            } else {
+                ctx.lineCap = 'round';
+            }
+
+            ctx.strokeStyle = isGhost ? 'rgba(0, 242, 255, 0.4)' : '#00f2ff';
+            if (!isGhost && (isMergedLeft || isMergedRight)) ctx.strokeStyle = '#00ffff';
+            ctx.stroke();
+        }
+
+        function draw() {
+            ctx.fillStyle = '#050508';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Кільця
+            state.rings.forEach((ring, i) => {
+                ctx.beginPath();
+                ctx.arc(cx, cy, ring.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = (state.hoverRing === i) ? '#222' : '#111';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ring.buildings.forEach(b => drawBuilding(cx, cy, ring.radius, b.angle, b.arc, ring.buildings));
+            });
+
+            // Дороги
+            state.roads.forEach(r => {
+                ctx.beginPath();
+                ctx.moveTo(cx + Math.cos(r.angle) * state.citadelRadius, cy + Math.sin(r.angle) * state.citadelRadius);
+                ctx.lineTo(cx + Math.cos(r.angle) * r.length, cy + Math.sin(r.angle) * r.length);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            });
+
+            // Фантом дороги
+            if (state.isDraggingRoad) {
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx + Math.cos(state.mouseAngle) * state.mouseDist, cy + Math.sin(state.mouseAngle) * state.mouseDist);
+                ctx.strokeStyle = 'rgba(0, 242, 255, 0.5)';
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Цитадель
+            ctx.beginPath();
+            ctx.arc(cx, cy, state.citadelRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#000';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Фантом будівлі
+            if (state.hoverRing !== -1) {
+                const r = state.rings[state.hoverRing];
+                const a = state.snapAngle !== null ? state.snapAngle : state.mouseAngle;
+                drawBuilding(cx, cy, r.radius, a, BUILD_ARC, r.buildings, true);
+            }
+
+            document.getElementById('gold-val').innerText = Math.floor(state.gold);
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+
+</html>

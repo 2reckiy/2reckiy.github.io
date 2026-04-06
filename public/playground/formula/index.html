@@ -1,0 +1,2384 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Formula Forge</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #0d0e12;
+        --bg2: #12141a;
+        --bg3: #181b23;
+        --border: #252836;
+        --border2: #2f3347;
+        --amber: #e8a942;
+        --amber2: #f5c26b;
+        --teal: #3ecfcf;
+        --teal2: #5de0e0;
+        --purple: #8b6fd4;
+        --green: #4ecb71;
+        --red: #e05252;
+        --text: #d4d8e8;
+        --dim: #6b7190;
+        --dimmer: #3d4260;
+        --common: #8899aa;
+        --uncommon: #4ecb71;
+        --rare: #4a9eff;
+        --legendary: #e8a942;
+        --font-mono: "Share Tech Mono", monospace;
+        --font-ui: "Rajdhani", sans-serif;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-ui);
+        height: 100vh;
+        display: grid;
+        grid-template-columns: 200px 1fr 240px;
+        grid-template-rows: 52px 1fr 36px;
+        overflow: hidden;
+      }
+      /* ── SCROLLBAR ── */
+      ::-webkit-scrollbar {
+        width: 3px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border2);
+        border-radius: 2px;
+      }
+
+      /* ── HEADER ── */
+      #hdr {
+        grid-column: 1/-1;
+        background: var(--bg2);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 0 16px;
+      }
+      #hdr-logo {
+        font-family: var(--font-mono);
+        font-size: 15px;
+        color: var(--amber);
+        letter-spacing: 3px;
+        white-space: nowrap;
+      }
+      .xp-wrap {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .xp-bar {
+        flex: 1;
+        height: 5px;
+        background: var(--border);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .xp-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--amber), var(--amber2));
+        border-radius: 3px;
+        transition: width 0.4s ease;
+      }
+      #lvl-badge {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--amber);
+        white-space: nowrap;
+      }
+      #xp-txt {
+        font-size: 11px;
+        color: var(--dim);
+        white-space: nowrap;
+      }
+
+      /* ── LEFT PANEL ── */
+      #left {
+        background: var(--bg2);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .pnl-hdr {
+        font-size: 9px;
+        letter-spacing: 3px;
+        color: var(--dim);
+        padding: 9px 12px 7px;
+        border-bottom: 1px solid var(--border);
+        text-transform: uppercase;
+      }
+      #res-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 6px;
+      }
+      .res-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 9px;
+        border-radius: 5px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        margin-bottom: 3px;
+        transition: all 0.15s;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .res-row:hover {
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .res-row.sel {
+        border-color: var(--amber);
+        background: rgba(232, 169, 66, 0.07);
+      }
+      .res-row .amt {
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+
+      #quest-pnl {
+        border-top: 1px solid var(--border);
+        max-height: 200px;
+        display: flex;
+        flex-direction: column;
+      }
+      #quest-list {
+        overflow-y: auto;
+        padding: 5px 6px;
+        flex: 1;
+      }
+      .quest {
+        font-size: 11px;
+        padding: 5px 8px;
+        border-radius: 4px;
+        margin-bottom: 3px;
+        background: rgba(255, 255, 255, 0.02);
+        border-left: 2px solid var(--border2);
+        line-height: 1.4;
+      }
+      .quest.done {
+        border-left-color: var(--green);
+        opacity: 0.6;
+      }
+      .quest.act {
+        border-left-color: var(--amber);
+      }
+      .quest-sub {
+        color: var(--dim);
+        font-size: 10px;
+      }
+      .quest-rew {
+        color: var(--teal);
+        font-size: 10px;
+      }
+
+      /* ── CENTER ── */
+      #ctr {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px 12px 12px;
+        gap: 14px;
+        overflow-y: auto;
+      }
+      #res-hero {
+        text-align: center;
+        line-height: 1;
+      }
+      #res-hero-lbl {
+        font-size: 10px;
+        letter-spacing: 3px;
+        color: var(--dim);
+        text-transform: uppercase;
+        margin-bottom: 6px;
+      }
+      #res-hero-val {
+        font-family: var(--font-mono);
+        font-size: 52px;
+        font-weight: 700;
+        transition: color 0.3s;
+      }
+      #res-hero-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--dim);
+        margin-top: 4px;
+        letter-spacing: 1px;
+      }
+
+      /* ── FORMULA AREA ── */
+      #formula-area {
+        width: 100%;
+        max-width: 520px;
+      }
+      .formula-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+      }
+      .formula-topbar-l {
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--dim);
+        text-transform: uppercase;
+      }
+      .formula-topbar-r {
+        font-size: 10px;
+        color: var(--dim);
+      }
+
+      #fslots {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        min-height: 52px;
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        border-radius: 7px;
+        padding: 7px;
+        margin-bottom: 8px;
+      }
+      .fslot {
+        width: 42px;
+        height: 42px;
+        border-radius: 5px;
+        border: 1px dashed var(--border2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--dimmer);
+        cursor: default;
+        transition: all 0.12s;
+        position: relative;
+        user-select: none;
+      }
+      .fslot.filled {
+        border-style: solid;
+        color: var(--text);
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .fslot.perm {
+        border-color: var(--amber);
+      }
+      .fslot.disp {
+        border-color: var(--teal);
+      }
+      .fslot.filled:hover {
+        border-color: var(--red);
+        background: rgba(224, 82, 82, 0.12);
+      }
+      .fslot.filled:hover::after {
+        content: "×";
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: var(--red);
+        color: #fff;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        font-size: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #f-actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .btn {
+        padding: 7px 13px;
+        border: 1px solid var(--border2);
+        background: var(--bg3);
+        color: var(--text);
+        border-radius: 5px;
+        cursor: pointer;
+        font-family: var(--font-ui);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        transition: all 0.13s;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        border-color: var(--amber);
+        background: rgba(232, 169, 66, 0.1);
+      }
+      .btn.primary {
+        border-color: var(--amber);
+        color: var(--amber);
+      }
+      .btn.primary:hover {
+        background: var(--amber);
+        color: #0d0e12;
+      }
+      .btn.danger {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .btn.danger:hover {
+        background: var(--red);
+        color: #fff;
+      }
+      .btn.teal {
+        border-color: var(--teal);
+        color: var(--teal);
+      }
+      .btn.teal:hover {
+        background: var(--teal);
+        color: #0d0e12;
+      }
+      .btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+      .btn.sm {
+        padding: 5px 9px;
+        font-size: 11px;
+      }
+
+      #f-result {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        min-height: 18px;
+        text-align: center;
+        color: var(--dim);
+        margin-top: 4px;
+        letter-spacing: 0.5px;
+      }
+      #f-result.ok {
+        color: var(--green);
+      }
+      #f-result.err {
+        color: var(--red);
+      }
+
+      /* ── BLUEPRINT PANEL ── */
+      #bp-wrap {
+        position: relative;
+      }
+      #bp-panel {
+        position: absolute;
+        bottom: 36px;
+        left: 0;
+        background: var(--bg2);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        padding: 10px;
+        z-index: 100;
+        width: 280px;
+        display: none;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      }
+      #bp-panel.open {
+        display: block;
+      }
+      #bp-panel-hdr {
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--dim);
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      .bp-item {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 7px;
+        border-radius: 4px;
+        font-size: 12px;
+        border: 1px solid var(--border);
+        margin-bottom: 4px;
+        background: var(--bg3);
+      }
+      .bp-item-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .bp-item-name {
+        font-weight: 600;
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .bp-item-formula {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .bp-empty {
+        font-size: 11px;
+        color: var(--dim);
+        text-align: center;
+        padding: 12px;
+      }
+      #bp-save-row {
+        display: flex;
+        gap: 6px;
+        margin-top: 8px;
+        border-top: 1px solid var(--border);
+        padding-top: 8px;
+      }
+      #bp-name-in {
+        flex: 1;
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        color: var(--text);
+        border-radius: 4px;
+        padding: 5px 8px;
+        font-family: var(--font-ui);
+        font-size: 12px;
+      }
+      #bp-name-in:focus {
+        outline: none;
+        border-color: var(--amber);
+      }
+      #bp-name-in::placeholder {
+        color: var(--dimmer);
+      }
+
+      /* ── RIGHT PANEL ── */
+      #right {
+        background: var(--bg2);
+        border-left: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border);
+      }
+      .tab {
+        flex: 1;
+        padding: 8px 4px;
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        text-align: center;
+        cursor: pointer;
+        color: var(--dim);
+        border-bottom: 2px solid transparent;
+        transition: all 0.13s;
+        font-weight: 700;
+      }
+      .tab.on {
+        color: var(--amber);
+        border-bottom-color: var(--amber);
+      }
+      .tab-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px;
+        display: none;
+      }
+      .tab-body.on {
+        display: block;
+      }
+
+      /* ── ENTITY CARDS ── */
+      .cat-lbl {
+        font-size: 9px;
+        letter-spacing: 2px;
+        color: var(--dim);
+        text-transform: uppercase;
+        margin: 8px 0 4px 2px;
+      }
+      .ent-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+      }
+      .ent-card {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 7px 7px 5px;
+        cursor: pointer;
+        transition: all 0.12s;
+        position: relative;
+        user-select: none;
+      }
+      .ent-card:hover {
+        border-color: var(--amber);
+        background: rgba(232, 169, 66, 0.07);
+        transform: translateY(-1px);
+      }
+      .ent-card.out {
+        opacity: 0.35;
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+      .ent-card.border-uncommon {
+        border-color: #2a4a2a;
+      }
+      .ent-card.border-rare {
+        border-color: #1a2d4a;
+      }
+      .ent-card.border-legendary {
+        border-color: #3a2a00;
+      }
+      .ent-icon {
+        font-family: var(--font-mono);
+        font-size: 15px;
+        text-align: center;
+        margin-bottom: 3px;
+        line-height: 1.2;
+      }
+      .ent-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .ent-cnt {
+        font-size: 9px;
+        color: var(--dim);
+      }
+      .ent-pp {
+        font-size: 9px;
+        padding: 1px 4px;
+        border-radius: 3px;
+      }
+      .pp-y {
+        background: rgba(232, 169, 66, 0.15);
+        color: var(--amber);
+      }
+      .pp-n {
+        background: rgba(62, 207, 207, 0.15);
+        color: var(--teal);
+      }
+      .rdot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        position: absolute;
+        top: 4px;
+        right: 4px;
+      }
+      .rc {
+        background: var(--common);
+      }
+      .ru {
+        background: var(--uncommon);
+      }
+      .rr {
+        background: var(--rare);
+      }
+      .rl {
+        background: var(--legendary);
+      }
+
+      /* ── SHOP ── */
+      .shop-slot-box {
+        background: var(--bg3);
+        border: 1px solid var(--amber);
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+      .shop-slot-hdr {
+        font-size: 9px;
+        letter-spacing: 2px;
+        color: var(--amber);
+        text-transform: uppercase;
+        margin-bottom: 5px;
+      }
+      .shop-item {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 8px;
+        margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .shop-ent-icon {
+        font-family: var(--font-mono);
+        font-size: 16px;
+        width: 28px;
+        text-align: center;
+      }
+      .shop-info {
+        flex: 1;
+      }
+      .shop-info-name {
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .shop-info-sub {
+        font-size: 10px;
+        color: var(--dim);
+      }
+      .shop-info-cost {
+        font-size: 10px;
+        margin-top: 2px;
+      }
+
+      /* ── ACHIEVEMENTS ── */
+      .ach-item {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 8px;
+        margin-bottom: 5px;
+      }
+      .ach-name {
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .ach-desc {
+        font-size: 10px;
+        color: var(--dim);
+        margin-top: 1px;
+      }
+
+      /* ── FOOTER ── */
+      #ftr {
+        grid-column: 1/-1;
+        background: var(--bg2);
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        padding: 0 14px;
+        gap: 12px;
+      }
+      #log-txt {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--dim);
+        flex: 1;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      #calc-cnt {
+        font-size: 10px;
+        color: var(--dimmer);
+        white-space: nowrap;
+      }
+
+      /* ── MODALS ── */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        backdrop-filter: blur(3px);
+      }
+      .overlay.open {
+        display: flex;
+      }
+      .modal {
+        background: var(--bg2);
+        border: 1px solid var(--border2);
+        border-radius: 10px;
+        padding: 22px;
+        max-width: 460px;
+        width: 92%;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      }
+      .modal-h {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--amber);
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+      }
+      .modal-sub {
+        font-size: 11px;
+        color: var(--dim);
+        margin-bottom: 16px;
+        line-height: 1.5;
+      }
+      .pick-row {
+        display: flex;
+        gap: 10px;
+      }
+      .pick-card {
+        flex: 1;
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        padding: 14px 10px;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.18s;
+      }
+      .pick-card:hover {
+        border-color: var(--amber);
+        background: rgba(232, 169, 66, 0.07);
+        transform: translateY(-3px);
+      }
+      .pc-icon {
+        font-family: var(--font-mono);
+        font-size: 26px;
+        margin-bottom: 6px;
+      }
+      .pc-name {
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 3px;
+      }
+      .pc-cat {
+        font-size: 10px;
+        color: var(--dim);
+      }
+      .pc-rar {
+        font-size: 9px;
+        margin-top: 5px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        display: inline-block;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+      .pc-pp {
+        font-size: 9px;
+        color: var(--dim);
+        margin-top: 4px;
+      }
+
+      /* ── TOAST ── */
+      #toast {
+        position: fixed;
+        bottom: 50px;
+        right: 16px;
+        background: var(--bg2);
+        border: 1px solid var(--amber);
+        border-radius: 7px;
+        padding: 9px 14px;
+        font-size: 11px;
+        z-index: 300;
+        transform: translateX(130%);
+        transition: transform 0.3s ease;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        max-width: 220px;
+      }
+      #toast.show {
+        transform: translateX(0);
+      }
+      #toast-lbl {
+        font-size: 9px;
+        color: var(--amber);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      #toast-msg {
+        font-size: 11px;
+        margin-top: 2px;
+        line-height: 1.4;
+      }
+
+      /* ── LEVEL UP FLASH ── */
+      @keyframes lvlflash {
+        0% {
+          opacity: 0;
+          transform: scale(0.8);
+        }
+        40% {
+          opacity: 1;
+          transform: scale(1.05);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.1);
+        }
+      }
+      #lvlflash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 250;
+        display: none;
+      }
+      #lvlflash.show {
+        display: flex;
+        animation: lvlflash 0.8s ease forwards;
+      }
+      #lvlflash-txt {
+        font-family: var(--font-mono);
+        font-size: 40px;
+        color: var(--amber);
+        text-shadow:
+          0 0 40px var(--amber),
+          0 0 80px rgba(232, 169, 66, 0.4);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- HEADER -->
+    <div id="hdr">
+      <div id="hdr-logo">⚗ FORMULA FORGE</div>
+      <div class="xp-wrap">
+        <span id="lvl-badge">LVL 1</span>
+        <div class="xp-bar">
+          <div class="xp-fill" id="xp-fill" style="width: 0%"></div>
+        </div>
+        <span id="xp-txt">0 / 10 XP</span>
+      </div>
+    </div>
+
+    <!-- LEFT -->
+    <div id="left">
+      <div class="pnl-hdr">Resources</div>
+      <div id="res-list"></div>
+      <div id="quest-pnl">
+        <div class="pnl-hdr">Quests</div>
+        <div id="quest-list"></div>
+      </div>
+    </div>
+
+    <!-- CENTER -->
+    <div id="ctr">
+      <div id="res-hero">
+        <div id="res-hero-lbl">Selected Resource</div>
+        <div id="res-hero-val">0</div>
+        <div id="res-hero-name">Mana</div>
+      </div>
+
+      <div id="formula-area">
+        <div class="formula-topbar">
+          <span class="formula-topbar-l">Formula Builder</span>
+          <span class="formula-topbar-r" id="slot-info">0 / 1 slots</span>
+        </div>
+        <div id="fslots"></div>
+        <div id="f-actions">
+          <div id="bp-wrap">
+            <button class="btn teal sm" onclick="toggleBP()">
+              📋 Blueprints
+            </button>
+            <div id="bp-panel">
+              <div id="bp-panel-hdr">Saved Blueprints</div>
+              <div id="bp-list"></div>
+              <div id="bp-save-row">
+                <input
+                  id="bp-name-in"
+                  placeholder="Blueprint name…"
+                  maxlength="22"
+                />
+                <button class="btn sm primary" onclick="saveBlueprint()">
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+          <button class="btn primary" id="calc-btn" onclick="calcFormula()">
+            ▶ Calculate
+          </button>
+          <button class="btn danger sm" onclick="clearFormula()">
+            ✕ Clear
+          </button>
+          <button class="btn sm" id="slot-btn" onclick="buySlot()">
+            ＋ Slot
+          </button>
+        </div>
+        <div id="f-result">Click an entity card to add it to the formula</div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div id="right">
+      <div class="tabs">
+        <div class="tab on" onclick="switchTab('inv')">Entities</div>
+        <div class="tab" onclick="switchTab('shop')">Shop</div>
+        <div class="tab" onclick="switchTab('ach')">Achiev.</div>
+      </div>
+      <div class="tab-body on" id="tb-inv"></div>
+      <div class="tab-body" id="tb-shop"></div>
+      <div class="tab-body" id="tb-ach"></div>
+    </div>
+
+    <!-- FOOTER -->
+    <div id="ftr">
+      <div id="log-txt">
+        Welcome to Formula Forge. Click an entity to begin.
+      </div>
+      <div id="calc-cnt">Calcs: 0</div>
+    </div>
+
+    <!-- CARD PICK MODAL -->
+    <div class="overlay" id="pick-overlay">
+      <div class="modal">
+        <div class="modal-h">✨ Discovery</div>
+        <div class="modal-sub" id="pick-sub">
+          Choose one entity to add to your collection:
+        </div>
+        <div class="pick-row" id="pick-row"></div>
+      </div>
+    </div>
+
+    <!-- LEVEL UP FLASH -->
+    <div id="lvlflash"><div id="lvlflash-txt"></div></div>
+
+    <!-- TOAST -->
+    <div id="toast">
+      <div id="toast-lbl">Notification</div>
+      <div id="toast-msg"></div>
+    </div>
+
+    <script>
+      // ═══════════════════════════════════════════════
+      // CONFIG — fully data-driven
+      // ═══════════════════════════════════════════════
+      const CFG = {
+        theme: { name: "Alchemy", icon: "⚗" },
+
+        resources: [
+          {
+            id: "mana",
+            name: "Mana",
+            icon: "💧",
+            color: "#4a9eff",
+            unlocked: true,
+          },
+          {
+            id: "essence",
+            name: "Essence",
+            icon: "✨",
+            color: "#c084fc",
+            unlocked: false,
+          },
+          {
+            id: "crystal",
+            name: "Crystal",
+            icon: "💎",
+            color: "#38d9d9",
+            unlocked: false,
+          },
+          {
+            id: "gold",
+            name: "Gold",
+            icon: "🪙",
+            color: "#f5c26b",
+            unlocked: false,
+          },
+          {
+            id: "ember",
+            name: "Ember",
+            icon: "🔥",
+            color: "#fb923c",
+            unlocked: false,
+          },
+          {
+            id: "void",
+            name: "Void",
+            icon: "🌑",
+            color: "#a78bfa",
+            unlocked: false,
+          },
+        ],
+
+        entities: [
+          // numbers
+          {
+            id: "n0",
+            title: "0",
+            value: "0",
+            isPerm: true,
+            cat: "numbers",
+            rar: "common",
+          },
+          {
+            id: "n1",
+            title: "1",
+            value: "1",
+            isPerm: true,
+            cat: "numbers",
+            rar: "common",
+          },
+          {
+            id: "n2",
+            title: "2",
+            value: "2",
+            isPerm: true,
+            cat: "numbers",
+            rar: "common",
+          },
+          {
+            id: "n3",
+            title: "3",
+            value: "3",
+            isPerm: false,
+            cat: "numbers",
+            rar: "common",
+          },
+          {
+            id: "n4",
+            title: "4",
+            value: "4",
+            isPerm: false,
+            cat: "numbers",
+            rar: "common",
+          },
+          {
+            id: "n5",
+            title: "5",
+            value: "5",
+            isPerm: false,
+            cat: "numbers",
+            rar: "common",
+          },
+          {
+            id: "n6",
+            title: "6",
+            value: "6",
+            isPerm: false,
+            cat: "numbers",
+            rar: "uncommon",
+          },
+          {
+            id: "n7",
+            title: "7",
+            value: "7",
+            isPerm: false,
+            cat: "numbers",
+            rar: "uncommon",
+          },
+          {
+            id: "n8",
+            title: "8",
+            value: "8",
+            isPerm: false,
+            cat: "numbers",
+            rar: "uncommon",
+          },
+          {
+            id: "n9",
+            title: "9",
+            value: "9",
+            isPerm: false,
+            cat: "numbers",
+            rar: "rare",
+          },
+          {
+            id: "n10",
+            title: "10",
+            value: "10",
+            isPerm: false,
+            cat: "numbers",
+            rar: "uncommon",
+          },
+          {
+            id: "n100",
+            title: "100",
+            value: "100",
+            isPerm: false,
+            cat: "numbers",
+            rar: "rare",
+          },
+          {
+            id: "dot",
+            title: ".",
+            value: ".",
+            isPerm: true,
+            cat: "numbers",
+            rar: "uncommon",
+          },
+          // operators
+          {
+            id: "add",
+            title: "+",
+            value: "+",
+            isPerm: true,
+            cat: "operators",
+            rar: "common",
+          },
+          {
+            id: "sub",
+            title: "−",
+            value: "-",
+            isPerm: true,
+            cat: "operators",
+            rar: "common",
+          },
+          {
+            id: "mul",
+            title: "×",
+            value: "*",
+            isPerm: true,
+            cat: "operators",
+            rar: "uncommon",
+          },
+          {
+            id: "div",
+            title: "÷",
+            value: "/",
+            isPerm: true,
+            cat: "operators",
+            rar: "uncommon",
+          },
+          {
+            id: "mod",
+            title: "%",
+            value: "%",
+            isPerm: false,
+            cat: "operators",
+            rar: "rare",
+          },
+          {
+            id: "exp",
+            title: "**",
+            value: "**",
+            isPerm: false,
+            cat: "operators",
+            rar: "rare",
+          },
+          // punctuation
+          {
+            id: "pl",
+            title: "(",
+            value: "(",
+            isPerm: true,
+            cat: "punct",
+            rar: "uncommon",
+          },
+          {
+            id: "pr",
+            title: ")",
+            value: ")",
+            isPerm: true,
+            cat: "punct",
+            rar: "uncommon",
+          },
+          {
+            id: "com",
+            title: ",",
+            value: ",",
+            isPerm: true,
+            cat: "punct",
+            rar: "uncommon",
+          },
+          // constants
+          {
+            id: "pi",
+            title: "π",
+            value: "Math.PI",
+            isPerm: true,
+            cat: "constants",
+            rar: "rare",
+          },
+          {
+            id: "eu",
+            title: "e",
+            value: "Math.E",
+            isPerm: true,
+            cat: "constants",
+            rar: "rare",
+          },
+          // trig
+          {
+            id: "sin",
+            title: "sin(",
+            value: "Math.sin(",
+            isPerm: true,
+            cat: "trig",
+            rar: "rare",
+          },
+          {
+            id: "cos",
+            title: "cos(",
+            value: "Math.cos(",
+            isPerm: true,
+            cat: "trig",
+            rar: "rare",
+          },
+          {
+            id: "tan",
+            title: "tan(",
+            value: "Math.tan(",
+            isPerm: true,
+            cat: "trig",
+            rar: "legendary",
+          },
+          {
+            id: "asin",
+            title: "asin(",
+            value: "Math.asin(",
+            isPerm: true,
+            cat: "trig",
+            rar: "legendary",
+          },
+          {
+            id: "acos",
+            title: "acos(",
+            value: "Math.acos(",
+            isPerm: true,
+            cat: "trig",
+            rar: "legendary",
+          },
+          {
+            id: "atan",
+            title: "atan(",
+            value: "Math.atan(",
+            isPerm: true,
+            cat: "trig",
+            rar: "legendary",
+          },
+          {
+            id: "atan2",
+            title: "atan2(",
+            value: "Math.atan2(",
+            isPerm: true,
+            cat: "trig",
+            rar: "legendary",
+          },
+          // advanced
+          {
+            id: "sqrt",
+            title: "√(",
+            value: "Math.sqrt(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "rare",
+          },
+          {
+            id: "cbrt",
+            title: "∛(",
+            value: "Math.cbrt(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "rare",
+          },
+          {
+            id: "abs",
+            title: "abs(",
+            value: "Math.abs(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "uncommon",
+          },
+          {
+            id: "log",
+            title: "log(",
+            value: "Math.log(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "rare",
+          },
+          {
+            id: "log2",
+            title: "log2(",
+            value: "Math.log2(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "rare",
+          },
+          {
+            id: "log10",
+            title: "lg10(",
+            value: "Math.log10(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "rare",
+          },
+          {
+            id: "ceil",
+            title: "ceil(",
+            value: "Math.ceil(",
+            isPerm: false,
+            cat: "advanced",
+            rar: "uncommon",
+          },
+          {
+            id: "flor",
+            title: "⌊(",
+            value: "Math.floor(",
+            isPerm: false,
+            cat: "advanced",
+            rar: "uncommon",
+          },
+          {
+            id: "rnd",
+            title: "rnd(",
+            value: "Math.round(",
+            isPerm: false,
+            cat: "advanced",
+            rar: "uncommon",
+          },
+          {
+            id: "pow",
+            title: "pow(",
+            value: "Math.pow(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "legendary",
+          },
+          {
+            id: "hypot",
+            title: "hyp(",
+            value: "Math.hypot(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "legendary",
+          },
+          {
+            id: "max",
+            title: "max(",
+            value: "Math.max(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "legendary",
+          },
+          {
+            id: "min",
+            title: "min(",
+            value: "Math.min(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "legendary",
+          },
+          {
+            id: "sign",
+            title: "sgn(",
+            value: "Math.sign(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "uncommon",
+          },
+          {
+            id: "trunc",
+            title: "trn(",
+            value: "Math.trunc(",
+            isPerm: false,
+            cat: "advanced",
+            rar: "uncommon",
+          },
+          {
+            id: "exp2",
+            title: "exp(",
+            value: "Math.exp(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "rare",
+          },
+          {
+            id: "expm1",
+            title: "exm(",
+            value: "Math.expm1(",
+            isPerm: true,
+            cat: "advanced",
+            rar: "legendary",
+          },
+        ],
+
+        startInventory: [{ id: "n1", cnt: 1 }],
+        startSlots: 1,
+        startResource: "mana",
+
+        slotCost: (len) => Math.floor(Math.pow(len, 2.1) * 6),
+        xpToLevel: (lvl) => Math.floor(10 * Math.pow(lvl, 1.55)),
+
+        // Entity groups awarded at each level (will become card pick choices)
+        levelRewards: {
+          2: {
+            pick: ["n1", "add"],
+            bonus: 1,
+            res: [],
+            msg: "Addition unlocked!",
+          },
+          3: {
+            pick: ["n2", "n3", "sub"],
+            bonus: 1,
+            res: ["essence"],
+            msg: "Essence stirs within the forge.",
+          },
+          4: {
+            pick: ["mul", "pl", "pr"],
+            bonus: 2,
+            res: [],
+            msg: "Multiplication and grouping!",
+          },
+          5: {
+            pick: ["n4", "n5", "div"],
+            bonus: 1,
+            res: [],
+            msg: "Division opens new paths.",
+          },
+          6: {
+            pick: ["abs", "rnd", "ceil"],
+            bonus: 1,
+            res: ["crystal"],
+            msg: "Crystals form from precision.",
+          },
+          7: {
+            pick: ["n6", "n7", "flor"],
+            bonus: 2,
+            res: [],
+            msg: "Numbers grow stronger.",
+          },
+          8: {
+            pick: ["pi", "sqrt", "eu"],
+            bonus: 1,
+            res: [],
+            msg: "Constants of the universe revealed.",
+          },
+          9: {
+            pick: ["sin", "cos", "com"],
+            bonus: 2,
+            res: ["gold"],
+            msg: "Gold shimmers with trigonometry.",
+          },
+          10: {
+            pick: ["pow", "n8", "n9", "exp"],
+            bonus: 3,
+            res: [],
+            msg: "The forge reaches true power!",
+          },
+          11: {
+            pick: ["log", "log2", "cbrt"],
+            bonus: 1,
+            res: ["ember"],
+            msg: "Ember blazes from logarithms.",
+          },
+          12: {
+            pick: ["tan", "asin", "acos"],
+            bonus: 2,
+            res: [],
+            msg: "Full trigonometry mastered.",
+          },
+          13: {
+            pick: ["max", "min", "hypot"],
+            bonus: 2,
+            res: ["void"],
+            msg: "The Void opens its depths.",
+          },
+          14: {
+            pick: ["n10", "n100", "dot"],
+            bonus: 2,
+            res: [],
+            msg: "Large numbers await.",
+          },
+          15: {
+            pick: ["exp2", "expm1", "atan2"],
+            bonus: 3,
+            res: [],
+            msg: "The forge ascends beyond limits.",
+          },
+        },
+
+        quests: [
+          {
+            id: "q1",
+            name: "First Spark",
+            desc: "Calculate any formula",
+            check: (s) => s.calcs >= 1,
+            rew: { pick: ["n1", "add"] },
+            rewLbl: "Unlock 1 + add",
+          },
+          {
+            id: "q2",
+            name: "Mana Seeker",
+            desc: "Earn 10 Mana",
+            check: (s) => s.res.mana >= 10,
+            rew: { pick: ["n2", "n3"] },
+            rewLbl: "Unlock 2 or 3",
+          },
+          {
+            id: "q3",
+            name: "Century Mark",
+            desc: "Earn 100 of any resource",
+            check: (s) => anyRes(s, 100),
+            rew: { pick: ["mul", "pl", "pr"] },
+            rewLbl: "Unlock × or ( )",
+          },
+          {
+            id: "q4",
+            name: "Formula Habit",
+            desc: "Calculate 10 formulas",
+            check: (s) => s.calcs >= 10,
+            rew: { slots: 2 },
+            rewLbl: "+2 Formula Slots",
+          },
+          {
+            id: "q5",
+            name: "Five Slots",
+            desc: "Reach 5 formula slots",
+            check: (s) => s.maxSlots >= 5,
+            rew: { pick: ["sqrt", "pi", "eu"] },
+            rewLbl: "Unlock √ π e",
+          },
+          {
+            id: "q6",
+            name: "Multiplicator",
+            desc: "Use × in a calculation",
+            check: (s) => s.usedIds.has("mul"),
+            rew: { pick: ["n4", "n5"] },
+            rewLbl: "Unlock 4 or 5",
+          },
+          {
+            id: "q7",
+            name: "Thousand Forge",
+            desc: "Earn 1000 of any resource",
+            check: (s) => anyRes(s, 1000),
+            rew: { pick: ["sin", "cos", "com"] },
+            rewLbl: "Unlock sin or cos or ,",
+          },
+          {
+            id: "q8",
+            name: "Formula Veteran",
+            desc: "Calculate 50 formulas",
+            check: (s) => s.calcs >= 50,
+            rew: { pick: ["pow", "log", "cbrt"] },
+            rewLbl: "Unlock pow log cbrt",
+          },
+          {
+            id: "q9",
+            name: "All Resources",
+            desc: "Unlock all 6 resources",
+            check: (s) => s.unlocked.size >= 6,
+            rew: { slots: 5 },
+            rewLbl: "+5 Formula Slots",
+          },
+          {
+            id: "q10",
+            name: "Mega Forge",
+            desc: "Earn 1,000,000 of any resource",
+            check: (s) => anyRes(s, 1e6),
+            rew: { pick: ["max", "min", "hypot"] },
+            rewLbl: "Unlock max min hyp",
+          },
+        ],
+
+        achievements: [
+          {
+            id: "a1",
+            name: "First Spark",
+            desc: "Calculate once",
+            check: (s) => s.calcs >= 1,
+          },
+          {
+            id: "a2",
+            name: "Apprentice",
+            desc: "Reach Level 5",
+            check: (s) => s.level >= 5,
+          },
+          {
+            id: "a3",
+            name: "Arcanist",
+            desc: "Reach Level 10",
+            check: (s) => s.level >= 10,
+          },
+          {
+            id: "a4",
+            name: "Grand Alchemist",
+            desc: "Reach Level 15",
+            check: (s) => s.level >= 15,
+          },
+          {
+            id: "a5",
+            name: "Century",
+            desc: "Calculate 100 formulas",
+            check: (s) => s.calcs >= 100,
+          },
+          {
+            id: "a6",
+            name: "Thousand Calcs",
+            desc: "Calculate 1000 formulas",
+            check: (s) => s.calcs >= 1000,
+          },
+          {
+            id: "a7",
+            name: "Collector",
+            desc: "Own 15+ entity types",
+            check: (s) => ownedTypes(s) >= 15,
+          },
+          {
+            id: "a8",
+            name: "Algebraist",
+            desc: "Calculate a result ≥ 1000",
+            check: (s) => s.bigResult >= 1000,
+          },
+          {
+            id: "a9",
+            name: "Millionaire",
+            desc: "Earn 1M of any resource",
+            check: (s) => anyRes(s, 1e6),
+          },
+          {
+            id: "a10",
+            name: "Architect",
+            desc: "Save a blueprint",
+            check: (s) => s.blueprints.length >= 1,
+          },
+          {
+            id: "a11",
+            name: "Trigonometrist",
+            desc: "Use sin or cos in a calculation",
+            check: (s) => s.usedIds.has("sin") || s.usedIds.has("cos"),
+          },
+          {
+            id: "a12",
+            name: "Big Spender",
+            desc: "Upgrade formula slot 10 times",
+            check: (s) => s.slotsBought >= 10,
+          },
+        ],
+
+        shopItems: [
+          { id: "n0", res: "mana", cost: 5, qty: 3 },
+          { id: "n3", res: "mana", cost: 8, qty: 2 },
+          { id: "n4", res: "mana", cost: 10, qty: 2 },
+          { id: "n5", res: "mana", cost: 12, qty: 2 },
+          { id: "n6", res: "essence", cost: 10, qty: 2 },
+          { id: "n7", res: "essence", cost: 14, qty: 2 },
+          { id: "n8", res: "essence", cost: 18, qty: 2 },
+          { id: "n9", res: "crystal", cost: 10, qty: 1 },
+          { id: "n10", res: "essence", cost: 20, qty: 1 },
+          { id: "n100", res: "crystal", cost: 18, qty: 1 },
+          { id: "dot", res: "mana", cost: 15, qty: 2 },
+          { id: "mod", res: "mana", cost: 30, qty: 1 },
+          { id: "exp", res: "essence", cost: 25, qty: 1 },
+          { id: "pl", res: "mana", cost: 12, qty: 2 },
+          { id: "pr", res: "mana", cost: 12, qty: 2 },
+          { id: "com", res: "essence", cost: 15, qty: 2 },
+          { id: "abs", res: "mana", cost: 20, qty: 1 },
+          { id: "ceil", res: "mana", cost: 16, qty: 2 },
+          { id: "flor", res: "mana", cost: 16, qty: 2 },
+          { id: "rnd", res: "mana", cost: 16, qty: 2 },
+          { id: "sign", res: "essence", cost: 18, qty: 1 },
+          { id: "trunc", res: "essence", cost: 18, qty: 1 },
+          { id: "log", res: "essence", cost: 40, qty: 1 },
+          { id: "log2", res: "essence", cost: 38, qty: 1 },
+          { id: "log10", res: "essence", cost: 35, qty: 1 },
+          { id: "sqrt", res: "essence", cost: 45, qty: 1 },
+          { id: "cbrt", res: "essence", cost: 40, qty: 1 },
+          { id: "pi", res: "crystal", cost: 28, qty: 1 },
+          { id: "eu", res: "crystal", cost: 28, qty: 1 },
+          { id: "sin", res: "crystal", cost: 55, qty: 1 },
+          { id: "cos", res: "crystal", cost: 55, qty: 1 },
+          { id: "tan", res: "gold", cost: 40, qty: 1 },
+          { id: "exp2", res: "gold", cost: 45, qty: 1 },
+          { id: "expm1", res: "void", cost: 60, qty: 1 },
+          { id: "pow", res: "gold", cost: 75, qty: 1 },
+          { id: "hypot", res: "gold", cost: 55, qty: 1 },
+          { id: "max", res: "gold", cost: 55, qty: 1 },
+          { id: "min", res: "gold", cost: 55, qty: 1 },
+          { id: "asin", res: "void", cost: 50, qty: 1 },
+          { id: "acos", res: "void", cost: 50, qty: 1 },
+          { id: "atan", res: "void", cost: 50, qty: 1 },
+          { id: "atan2", res: "void", cost: 60, qty: 1 },
+        ],
+      };
+
+      // ═══════════════════════════════════════════════
+      // STATE
+      // ═══════════════════════════════════════════════
+      const S = {
+        res: {},
+        inv: {}, // entityId → count
+        formula: [], // [entityId|null] length = maxSlots
+        maxSlots: CFG.startSlots,
+        selRes: CFG.startResource,
+        level: 1,
+        xp: 0,
+        blueprints: [],
+        doneQuests: new Set(),
+        doneAch: new Set(),
+        picks: [], // queued card picks [{ids,sub}]
+        calcs: 0,
+        bigResult: 0,
+        usedIds: new Set(),
+        unlocked: new Set(),
+        slotsBought: 0,
+      };
+
+      // ── helpers ──
+      function ent(id) {
+        return CFG.entities.find((e) => e.id === id);
+      }
+      function res(id) {
+        return CFG.resources.find((r) => r.id === id);
+      }
+      function invCount(id) {
+        return S.inv[id] || 0;
+      }
+      function inFormula(id) {
+        return S.formula.filter((f) => f === id).length;
+      }
+      function free(id) {
+        return invCount(id) - inFormula(id);
+      }
+      function anyRes(s, n) {
+        return Object.values(s.res).some((v) => v >= n);
+      }
+      function ownedTypes(s) {
+        return Object.keys(s.inv).filter((k) => s.inv[k] > 0).length;
+      }
+      function fmtN(n) {
+        if (!isFinite(n) || isNaN(n)) return String(n);
+        const a = Math.abs(n);
+        if (a >= 1e12) return (n / 1e12).toFixed(2) + "T";
+        if (a >= 1e9) return (n / 1e9).toFixed(2) + "B";
+        if (a >= 1e6) return (n / 1e6).toFixed(2) + "M";
+        if (a >= 1e3) return (n / 1e3).toFixed(2) + "K";
+        return Number.isInteger(n)
+          ? String(n)
+          : parseFloat(n.toFixed(6)).toString();
+      }
+      function rarColor(r) {
+        return (
+          {
+            common: "var(--common)",
+            uncommon: "var(--uncommon)",
+            rare: "var(--rare)",
+            legendary: "var(--legendary)",
+          }[r] || "#aaa"
+        );
+      }
+      function catLabel(c) {
+        return (
+          {
+            numbers: "Numbers",
+            operators: "Operators",
+            trig: "Trigonometry",
+            advanced: "Advanced",
+            constants: "Constants",
+            punct: "Punctuation",
+          }[c] || c
+        );
+      }
+      function log(msg) {
+        document.getElementById("log-txt").textContent = msg;
+      }
+
+      // ═══════════════════════════════════════════════
+      // INIT
+      // ═══════════════════════════════════════════════
+      function init() {
+        CFG.resources.forEach((r) => {
+          S.res[r.id] = 0;
+          if (r.unlocked) S.unlocked.add(r.id);
+        });
+        CFG.startInventory.forEach((i) => addInv(i.id, i.cnt));
+        S.formula = new Array(S.maxSlots).fill(null);
+        renderAll();
+        log("Welcome to Formula Forge. Click an entity card to begin.");
+      }
+
+      // ═══════════════════════════════════════════════
+      // INVENTORY
+      // ═══════════════════════════════════════════════
+      function addInv(id, n = 1) {
+        S.inv[id] = (S.inv[id] || 0) + n;
+      }
+      function removeInv(id, n = 1) {
+        if ((S.inv[id] || 0) >= n) {
+          S.inv[id] -= n;
+          return true;
+        }
+        return false;
+      }
+
+      // ═══════════════════════════════════════════════
+      // FORMULA
+      // ═══════════════════════════════════════════════
+      function addToFormula(id) {
+        if (free(id) <= 0) {
+          log(`No free ${ent(id)?.title} — all copies in use or zero.`);
+          return;
+        }
+        const slot = S.formula.indexOf(null);
+        if (slot === -1) {
+          log("Formula is full! Buy more slots.");
+          return;
+        }
+        S.formula[slot] = id;
+        renderFormula();
+        renderInv();
+      }
+
+      function removeSlot(i) {
+        S.formula[i] = null;
+        renderFormula();
+        renderInv();
+      }
+
+      function clearFormula() {
+        S.formula = new Array(S.maxSlots).fill(null);
+        renderFormula();
+        renderInv();
+        setResult("Formula cleared.", "");
+      }
+
+      function calcFormula() {
+        const filled = S.formula.filter(Boolean);
+        if (!filled.length) {
+          setResult("Nothing in formula.", "err");
+          return;
+        }
+        const expr = filled.map((id) => ent(id)?.value || "").join("");
+        let result;
+        try {
+          console.log(expr);
+          result = eval(expr);
+        } catch (e) {
+          setResult("Syntax error: " + e.message, "err");
+          return;
+        }
+        // TODO: use big numbers
+        if (typeof result !== "number" || !isFinite(result) || isNaN(result)) {
+          setResult(`Result invalid (${result})`, "err");
+          return;
+        }
+        // TODO: negative is possible
+        const earned = Math.max(0, Math.floor(Math.abs(result)));
+        S.res[S.selRes] = (S.res[S.selRes] || 0) + earned;
+        S.calcs++;
+        if (result > S.bigResult) S.bigResult = result;
+        filled.forEach((id) => S.usedIds.add(id));
+        // consume disposables, keep permanents
+        filled.forEach((id) => {
+          if (!ent(id)?.isPerm) removeInv(id);
+        });
+
+        // TODO: update XP gaining formula
+        const xpG = Math.max(1, Math.floor(Math.min(earned, 50000) * 1));
+        S.formula = new Array(S.maxSlots).fill(null);
+        gainXP(xpG);
+
+        const rc = res(S.selRes);
+        setResult(
+          `= ${fmtN(result)}  →  +${fmtN(earned)} ${rc?.icon} ${rc?.name}  |  +${xpG} XP`,
+          "ok",
+        );
+        log(`[${expr}] = ${fmtN(result)}  →  +${fmtN(earned)} ${rc?.name}`);
+        document.getElementById("calc-cnt").textContent = `Calcs: ${S.calcs}`;
+        checkQuests();
+        checkAch();
+        renderAll();
+      }
+
+      function setResult(msg, cls) {
+        const el = document.getElementById("f-result");
+        el.textContent = msg;
+        el.className = cls;
+      }
+
+      // ═══════════════════════════════════════════════
+      // XP / LEVELLING
+      // ═══════════════════════════════════════════════
+      function gainXP(n) {
+        S.xp += n;
+        const need = CFG.xpToLevel(S.level);
+        if (S.xp >= need) {
+          S.xp -= need;
+          S.level++;
+          levelUp(S.level);
+          flashLevel(S.level);
+        }
+        renderHeader();
+      }
+      function levelUp(lvl) {
+        const r = CFG.levelRewards[lvl];
+
+        if (r) {
+          if (r.bonus) {
+            S.maxSlots += r.bonus;
+            S.formula = [...S.formula, ...new Array(r.bonus).fill(null)];
+          }
+          r.res?.forEach((rid) => {
+            if (!S.unlocked.has(rid)) {
+              S.unlocked.add(rid);
+              toast(`New resource: ${res(rid)?.name}!`);
+            }
+          });
+          if (r.pick?.length)
+            queuePick(
+              r.pick,
+              `Level ${lvl} — ${r.msg || "Choose a new entity:"}`,
+            );
+        }
+        toast(`Level ${lvl}!`);
+        log(`Level Up → ${lvl}!`);
+      }
+
+      // ═══════════════════════════════════════════════
+      // CARD PICK
+      // ═══════════════════════════════════════════════
+      function queuePick(ids, sub) {
+        S.picks.push({ ids, sub });
+        if (S.picks.length === 1) showPick();
+      }
+      function showPick() {
+        const p = S.picks[0];
+        if (!p) return;
+        document.getElementById("pick-sub").textContent = p.sub;
+        const row = document.getElementById("pick-row");
+        row.innerHTML = "";
+        p.ids.forEach((id) => {
+          const e = ent(id);
+          if (!e) return;
+          const c = document.createElement("div");
+          c.className = "pick-card";
+          const rc = rarColor(e.rar);
+          c.innerHTML = `
+      <div class="pc-icon">${e.title}</div>
+      <div class="pc-name">${e.title}</div>
+      <div class="pc-cat">${catLabel(e.cat)}</div>
+      <div class="pc-rar" style="background:${rc}22;color:${rc}">${e.rar}</div>
+      <div class="pc-pp">${e.isPerm ? "♾ Permanent" : "🔸 Disposable"}</div>
+    `;
+          c.onclick = () => choosePick(id);
+          row.appendChild(c);
+        });
+        document.getElementById("pick-overlay").classList.add("open");
+      }
+      function choosePick(id) {
+        addInv(id, 1);
+        S.picks.shift();
+        document.getElementById("pick-overlay").classList.remove("open");
+        log(`Added ${ent(id)?.title} to your collection.`);
+        renderInv();
+        if (S.picks.length) setTimeout(showPick, 280);
+      }
+
+      // ═══════════════════════════════════════════════
+      // QUESTS & ACHIEVEMENTS
+      // ═══════════════════════════════════════════════
+      function checkQuests() {
+        CFG.quests.forEach((q) => {
+          if (S.doneQuests.has(q.id)) return;
+          if (q.check(S)) {
+            S.doneQuests.add(q.id);
+            applyQuestRew(q);
+            toast(`Quest: ${q.name}`);
+            log(`Quest complete: ${q.name}! Reward: ${q.rewLbl}`);
+            renderQuests();
+          }
+        });
+      }
+      function applyQuestRew(q) {
+        const r = q.rew;
+        if (r.slots) {
+          S.maxSlots += r.slots;
+          S.formula = [...S.formula, ...new Array(r.slots).fill(null)];
+        }
+        if (r.pick?.length) {
+          if (r.pick.length > 1) queuePick(r.pick, `Quest Reward: ${q.name}`);
+          else addInv(r.pick[0], 1);
+        }
+      }
+      function checkAch() {
+        CFG.achievements.forEach((a) => {
+          if (S.doneAch.has(a.id)) return;
+          if (a.check(S)) {
+            S.doneAch.add(a.id);
+            toast(`🏆 Achievement: ${a.name}`);
+            renderAch();
+          }
+        });
+      }
+
+      // ═══════════════════════════════════════════════
+      // SLOT UPGRADE
+      // ═══════════════════════════════════════════════
+      function buySlot() {
+        const cost = CFG.slotCost(S.maxSlots);
+        if ((S.res[S.selRes] || 0) < cost) {
+          log(`Need ${cost} ${res(S.selRes)?.name} for +1 slot.`);
+          return;
+        }
+        S.res[S.selRes] -= cost;
+        S.maxSlots++;
+        S.formula.push(null);
+        S.slotsBought++;
+        log(`Slot upgraded! Now ${S.maxSlots} slots.`);
+        checkAch();
+        renderAll();
+      }
+
+      // ═══════════════════════════════════════════════
+      // SHOP
+      // ═══════════════════════════════════════════════
+      function buyShop(id, resId, cost, qty) {
+        if ((S.res[resId] || 0) < cost) return;
+        S.res[resId] -= cost;
+        addInv(id, qty);
+        log(`Bought ${qty}× ${ent(id)?.title} for ${cost} ${res(resId)?.name}`);
+        checkAch();
+        renderAll();
+      }
+
+      // ═══════════════════════════════════════════════
+      // BLUEPRINTS
+      // ═══════════════════════════════════════════════
+      function toggleBP() {
+        const p = document.getElementById("bp-panel");
+        p.classList.toggle("open");
+        if (p.classList.contains("open")) renderBP();
+      }
+      function renderBP() {
+        const el = document.getElementById("bp-list");
+        if (!S.blueprints.length) {
+          el.innerHTML = '<div class="bp-empty">No blueprints yet.</div>';
+          return;
+        }
+        el.innerHTML = "";
+        S.blueprints.forEach((bp, i) => {
+          const formulaStr = bp.formula
+            .map((id) => ent(id)?.title || "?")
+            .join(" ");
+          const canLoad =
+            bp.formula.length <= S.maxSlots &&
+            (() => {
+              const tmp = {};
+              for (const id of bp.formula) {
+                tmp[id] = (tmp[id] || 0) + 1;
+                if ((S.inv[id] || 0) < tmp[id]) return false;
+              }
+              return true;
+            })();
+          const d = document.createElement("div");
+          d.className = "bp-item";
+          d.innerHTML = `
+      <div class="bp-item-info">
+        <div class="bp-item-name">${bp.name}</div>
+        <div class="bp-item-formula">${formulaStr}</div>
+      </div>
+      <button class="btn sm teal" onclick="loadBP(${i})" ${canLoad ? "" : "disabled"} style="padding:4px 8px">▶</button>
+      <button class="btn sm danger" onclick="delBP(${i})" style="padding:4px 8px">×</button>
+    `;
+          el.appendChild(d);
+        });
+      }
+      function saveBlueprint() {
+        const name = document.getElementById("bp-name-in").value.trim();
+        const filled = S.formula.filter(Boolean);
+        if (!name) {
+          log("Enter a blueprint name.");
+          return;
+        }
+        if (!filled.length) {
+          log("Formula is empty — nothing to save.");
+          return;
+        }
+        S.blueprints.push({ name, formula: [...filled] });
+        document.getElementById("bp-name-in").value = "";
+        log(`Blueprint "${name}" saved.`);
+        checkAch();
+        renderBP();
+      }
+      function loadBP(i) {
+        const bp = S.blueprints[i];
+        if (!bp) return;
+        if (bp.formula.length > S.maxSlots) {
+          log(`Blueprint needs ${bp.formula.length} slots.`);
+          return;
+        }
+        const tmp = {};
+        for (const id of bp.formula) {
+          tmp[id] = (tmp[id] || 0) + 1;
+          if ((S.inv[id] || 0) < tmp[id]) {
+            log(`Missing: ${ent(id)?.title}`);
+            return;
+          }
+        }
+        S.formula = new Array(S.maxSlots).fill(null);
+        bp.formula.forEach((id, i) => (S.formula[i] = id));
+        document.getElementById("bp-panel").classList.remove("open");
+        log(`Blueprint "${bp.name}" loaded!`);
+        renderFormula();
+        renderInv();
+      }
+      function delBP(i) {
+        const n = S.blueprints[i]?.name;
+        S.blueprints.splice(i, 1);
+        log(`Blueprint "${n}" deleted.`);
+        renderBP();
+      }
+
+      // ═══════════════════════════════════════════════
+      // RENDER
+      // ═══════════════════════════════════════════════
+      function renderAll() {
+        renderHeader();
+        renderResources();
+        renderFormula();
+        renderInv();
+        renderQuests();
+        renderAch();
+        // refresh active tab
+        const shop = document.getElementById("tb-shop");
+        if (shop.classList.contains("on")) renderShop();
+        updateSlotBtn();
+      }
+
+      function renderHeader() {
+        const need = CFG.xpToLevel(S.level);
+        const pct = Math.min(100, (S.xp / need) * 100);
+        document.getElementById("lvl-badge").textContent = `LVL ${S.level}`;
+        document.getElementById("xp-fill").style.width = pct + "%";
+        document.getElementById("xp-txt").textContent =
+          `${fmtN(S.xp)} / ${fmtN(need)} XP`;
+      }
+
+      function renderResources() {
+        const el = document.getElementById("res-list");
+        el.innerHTML = "";
+        CFG.resources.forEach((r) => {
+          if (!S.unlocked.has(r.id)) return;
+          const d = document.createElement("div");
+          d.className = "res-row" + (S.selRes === r.id ? " sel" : "");
+          d.innerHTML = `<span>${r.icon} ${r.name}</span><span class="amt" style="color:${r.color}">${fmtN(S.res[r.id] || 0)}</span>`;
+          d.onclick = () => {
+            S.selRes = r.id;
+            renderResources();
+            updateSlotBtn();
+            renderShop();
+          };
+          el.appendChild(d);
+        });
+        const rc = res(S.selRes);
+        document.getElementById("res-hero-val").textContent = fmtN(
+          S.res[S.selRes] || 0,
+        );
+        document.getElementById("res-hero-val").style.color =
+          rc?.color || "var(--teal)";
+        document.getElementById("res-hero-name").textContent =
+          `${rc?.icon} ${rc?.name}`;
+      }
+
+      function renderFormula() {
+        const el = document.getElementById("fslots");
+        el.innerHTML = "";
+        const used = S.formula.filter(Boolean).length;
+        document.getElementById("slot-info").textContent =
+          `${used} / ${S.maxSlots} slots`;
+        S.formula.forEach((id, i) => {
+          const s = document.createElement("div");
+          s.className = "fslot";
+          if (id) {
+            const e = ent(id);
+            s.classList.add("filled", e?.isPerm ? "perm" : "disp");
+            s.textContent = e?.title || "?";
+            s.title = `${e?.title} — click to remove`;
+            s.onclick = () => removeSlot(i);
+          }
+          el.appendChild(s);
+        });
+      }
+
+      function renderInv() {
+        const el = document.getElementById("tb-inv");
+        el.innerHTML = "";
+        const cats = [
+          "numbers",
+          "operators",
+          "trig",
+          "advanced",
+          "constants",
+          "punct",
+        ];
+        let any = false;
+        cats.forEach((cat) => {
+          const items = Object.entries(S.inv).filter(
+            ([id, cnt]) => cnt > 0 && ent(id)?.cat === cat,
+          );
+          if (!items.length) return;
+          any = true;
+          const lbl = document.createElement("div");
+          lbl.className = "cat-lbl";
+          lbl.textContent = catLabel(cat);
+          el.appendChild(lbl);
+          const grid = document.createElement("div");
+          grid.className = "ent-grid";
+          items.forEach(([id]) => {
+            const e = ent(id);
+            if (!e) return;
+            const avail = free(id);
+            const c = document.createElement("div");
+            c.className = `ent-card border-${e.rar}${avail <= 0 ? " out" : ""}`;
+            const rc = rarColor(e.rar);
+            c.innerHTML = `
+        <div class="rdot r${e.rar[0]}"></div>
+        <div class="ent-icon" style="color:${rc}">${e.title}</div>
+        <div class="ent-meta">
+          <span class="ent-cnt">×${invCount(id)} (${avail})</span>
+          <span class="ent-pp ${e.isPerm ? "pp-y" : "pp-n"}">${e.isPerm ? "♾" : "🔸"}</span>
+        </div>
+      `;
+            if (avail > 0) {
+              c.onclick = () => addToFormula(id);
+              c.title = `Add ${e.title} to formula`;
+            }
+            grid.appendChild(c);
+          });
+          el.appendChild(grid);
+        });
+        if (!any)
+          el.innerHTML =
+            '<div style="font-size:12px;color:var(--dim);text-align:center;padding:24px;line-height:1.7">No entities yet.<br>Calculate your first formula!<br><br><span style="color:var(--amber)">Click ▶ Calculate to begin.</span></div>';
+      }
+
+      function renderShop() {
+        const el = document.getElementById("tb-shop");
+        el.innerHTML = "";
+        // Slot upgrade box
+        const cost = CFG.slotCost(S.maxSlots);
+        const rc = res(S.selRes);
+        const can = (S.res[S.selRes] || 0) >= cost;
+        const sb = document.createElement("div");
+        sb.className = "shop-slot-box";
+        sb.innerHTML = `
+    <div class="shop-slot-hdr">Formula Slot Upgrade</div>
+    <div style="font-size:11px;margin-bottom:5px">Current: ${S.maxSlots} slots</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:6px">Cost: ${cost} ${rc?.icon} ${rc?.name}</div>
+    <button class="btn sm primary" onclick="buySlot()" ${can ? "" : "disabled"}>Buy +1 Slot</button>
+  `;
+        el.appendChild(sb);
+
+        CFG.shopItems.forEach((item) => {
+          const e = ent(item.id);
+          const rc2 = res(item.res);
+          if (!e || !rc2) return;
+          if (!S.unlocked.has(item.res)) return;
+          const can2 = (S.res[item.res] || 0) >= item.cost;
+          const d = document.createElement("div");
+          d.className = "shop-item";
+          const rc3 = rarColor(e.rar);
+          d.innerHTML = `
+      <div class="shop-ent-icon" style="color:${rc3}">${e.title}</div>
+      <div class="shop-info">
+        <div class="shop-info-name">${e.title} <span style="color:${rc3};font-size:9px">[${e.rar}]</span></div>
+        <div class="shop-info-sub">${catLabel(e.cat)} · ${e.isPerm ? "Permanent" : "Disposable"}</div>
+        <div class="shop-info-cost">${rc2.icon} ${item.cost} ${rc2.name} · ×${item.qty}</div>
+      </div>
+      <button class="btn sm ${can2 ? "primary" : ""}" onclick="buyShop('${item.id}','${item.res}',${item.cost},${item.qty})" ${can2 ? "" : "disabled"}>Buy</button>
+    `;
+          el.appendChild(d);
+        });
+      }
+
+      function renderQuests() {
+        const el = document.getElementById("quest-list");
+        el.innerHTML = "";
+        CFG.quests.forEach((q) => {
+          const done = S.doneQuests.has(q.id);
+          const d = document.createElement("div");
+          d.className = `quest ${done ? "done" : "act"}`;
+          d.innerHTML = `<div>${done ? "✓ " : ""}<b>${q.name}</b></div><div class="quest-sub">${q.desc}</div>${!done ? `<div class="quest-rew">→ ${q.rewLbl}</div>` : ""}`;
+          el.appendChild(d);
+        });
+      }
+
+      function renderAch() {
+        const el = document.getElementById("tb-ach");
+        el.innerHTML = "";
+        CFG.achievements.forEach((a) => {
+          const done = S.doneAch.has(a.id);
+          const d = document.createElement("div");
+          d.className = "ach-item";
+          d.style.borderColor = done ? "var(--legendary)" : "var(--border)";
+          d.style.opacity = done ? "1" : "0.45";
+          d.innerHTML = `<div class="ach-name" style="color:${done ? "var(--legendary)" : "var(--text)"}">${done ? "🏆 " : ""} ${a.name}</div><div class="ach-desc">${a.desc}</div>`;
+          el.appendChild(d);
+        });
+      }
+
+      function updateSlotBtn() {
+        const cost = CFG.slotCost(S.maxSlots);
+        const rc = res(S.selRes);
+        const can = (S.res[S.selRes] || 0) >= cost;
+        const btn = document.getElementById("slot-btn");
+        btn.textContent = `＋ Slot (${cost} ${rc?.icon || ""})`;
+        btn.disabled = !can;
+      }
+
+      // ═══════════════════════════════════════════════
+      // TABS
+      // ═══════════════════════════════════════════════
+      function switchTab(name) {
+        const names = ["inv", "shop", "ach"];
+        document
+          .querySelectorAll(".tab")
+          .forEach((t, i) => t.classList.toggle("on", names[i] === name));
+        document
+          .querySelectorAll(".tab-body")
+          .forEach((b, i) => b.classList.toggle("on", names[i] === name));
+        if (name === "shop") renderShop();
+      }
+
+      // ═══════════════════════════════════════════════
+      // NOTIFICATIONS
+      // ═══════════════════════════════════════════════
+      let toastTm;
+      function toast(msg) {
+        document.getElementById("toast-msg").textContent = msg;
+        const el = document.getElementById("toast");
+        el.classList.add("show");
+        clearTimeout(toastTm);
+        toastTm = setTimeout(() => el.classList.remove("show"), 3200);
+      }
+
+      function flashLevel(lvl) {
+        const el = document.getElementById("lvlflash");
+        document.getElementById("lvlflash-txt").textContent = `LEVEL ${lvl}`;
+        el.classList.add("show");
+        setTimeout(() => el.classList.remove("show"), 800);
+      }
+
+      // ── close blueprint panel on outside click ──
+      document.addEventListener("click", (e) => {
+        const wrap = document.getElementById("bp-wrap");
+        if (!wrap.contains(e.target))
+          document.getElementById("bp-panel").classList.remove("open");
+      });
+
+      // ══════════════════════════════════════════
+      // TICKER STUB — enable for passive auto-run
+      // ══════════════════════════════════════════
+      // const TICKER = {
+      //   active: false,
+      //   interval: null,
+      //   start(ms = 5000) {
+      //     if (this.active) return;
+      //     this.active = true;
+      //     this.interval = setInterval(() => {
+      //       if (S.formula.some(Boolean)) calcFormula();
+      //     }, ms);
+      //   },
+      //   stop() { clearInterval(this.interval); this.active = false; }
+      // };
+
+      // ═══════════════════════════════════════════════
+      // GO
+      // ═══════════════════════════════════════════════
+      init();
+    </script>
+  </body>
+</html>

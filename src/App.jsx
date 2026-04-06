@@ -1,52 +1,93 @@
 import { useCallback, useState } from "react";
-import "./App.css";
+import classNames from "classnames";
+import { FaHome } from "react-icons/fa";
+import { MdArrowRight } from "react-icons/md";
+
 import { AudioProvider } from "./providers/audio-provider";
-import { GameDuelDue } from "./components/game-duel-due/game-duel-due";
 import { GameCatcher } from "./components/game-catcher/game-catcher";
 import { GameSnake } from "./components/game-snake/game-snake";
-// import { Banner } from "./components/banner/banner";
-import classNames from "classnames";
+import { GameFrame } from "./components/game-frame/game-frame";
+import snakeImage from "./assets/images/snake-logo.jpg";
+import catcherImage from "./assets/images/catcher-logo.png";
+import "./App.css";
 
-const GAMES = [
-  {
+const GAMES = {
+  ["snake"]: {
     id: "snake",
     title: "Snake",
+    backgroundImage: `url(${snakeImage})`,
+    backgroundColor: "#04053f",
+    isFramed: false,
+    render: GameSnake,
   },
-  {
+  ["catcher"]: {
     id: "catcher",
     title: "Catcher",
+    backgroundImage: `url(${catcherImage})`,
+    backgroundColor: "#049146",
+    isFramed: false,
+    render: GameCatcher,
+  },
+  ["formula"]: {
+    id: "formula",
+    title: "Formula",
+    backgroundColor: "#4e4e4e",
+    isFramed: true,
+    path: "/playground/formula/index.html",
   },
   // {
   //   id: "duel-due",
   //   title: "Duel Due",
   // },
-];
+};
 
 export const App = () => {
-  const [game, setGame] = useState("");
+  const [game, setGame] = useState(null);
 
-  const onPreviewGameSelect = useCallback(
+  const handlePreviewGameSelect = useCallback(
     (e) => {
-      if (e.target.id === game) {
+      const selectedGame = GAMES[e.target.id];
+      if (selectedGame.id === game?.id) {
         return;
       }
 
-      setGame(e.target.id);
+      setGame(selectedGame);
     },
     [game],
   );
 
+  const handleHomeClick = () => setGame(null);
+
   return (
     <div className="app-container">
+      <header className="appHeader">
+        {game && (
+          <div className="appBreadcrumps">
+            <FaHome className="appBreadcrumpHome" onClick={handleHomeClick} />
+            <MdArrowRight className="appBreadcrumpSeparator" />
+            <span className="appBreadcrumpTitle">{game.title}</span>
+          </div>
+        )}
+      </header>
       {!game && (
         <>
           {/* <div>
             <Banner game={game} />
           </div> */}
           <div className="games-container">
-            {GAMES.map((g) => (
-              <div className={classNames("game-container", g.id)} key={g.id} id={g.id} onClick={onPreviewGameSelect}>
-                <div className={classNames("game-logo", g.id)}></div>
+            {Object.values(GAMES).map((g) => (
+              <div
+                className={classNames("game-container", g.id)}
+                key={g.id}
+                id={g.id}
+                onClick={handlePreviewGameSelect}
+              >
+                <div
+                  className={classNames("game-logo")}
+                  style={{ backgroundImage: g.backgroundImage, backgroundColor: g.backgroundColor }}
+                >
+                  {!g.backgroundImage && <span className="game-logo-placeholder">{g.title}</span>}
+                </div>
                 <div className="game-title-container">
                   <span className="game-title">{g.title}</span>
                 </div>
@@ -57,9 +98,10 @@ export const App = () => {
       )}
 
       <AudioProvider>
-        {game === "snake" && <GameSnake />}
-        {game === "catcher" && <GameCatcher />}
-        {game === "duel-due" && <GameDuelDue />}
+        {/* {game?.id === "snake" && <GameSnake />}
+        {game?.id === "catcher" && <GameCatcher />}
+        {game?.id === "duel-due" && <GameDuelDue />} */}
+        {game?.isFramed ? <GameFrame game={game.path} /> : game?.render && <game.render />}
       </AudioProvider>
 
       {/* <footer className="footer">

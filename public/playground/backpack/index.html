@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Backpack Brawl – Fixed Prototype</title>
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #111;
+        color: #eee;
+        font-family: monospace;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #ui {
+        position: fixed;
+        right: 10px;
+        top: 10px;
+        width: 200px;
+        z-index: 10;
+      }
+
+      button {
+        width: 100%;
+        padding: 8px;
+        margin-top: 8px;
+        background: #222;
+        color: #fff;
+        border: 1px solid #555;
+        cursor: pointer;
+      }
+
+      #log {
+        margin-top: 10px;
+        white-space: pre-wrap;
+        font-size: 12px;
+      }
+
+      #grid {
+        position: absolute;
+        left: 0;
+        top: 0;
+        display: grid;
+        background: #222;
+      }
+
+      .cell {
+        border: 1px solid #333;
+      }
+
+      .item {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: grab;
+        user-select: none;
+        border: 2px solid #fff;
+        box-sizing: border-box;
+      }
+
+      .weapon {
+        background: #a33;
+      }
+      .armor {
+        background: #3366cc;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="grid"></div>
+
+    <div id="ui">
+      <button onclick="fight()">Fight</button>
+      <div id="log"></div>
+    </div>
+
+    <script>
+      /* =========================
+   CONFIG
+========================= */
+
+      const GRID_SIZE = 24;
+
+      const ITEM_DEFS = [
+        { id: "Sword", w: 2, h: 1, atk: 3, type: "weapon" },
+        { id: "Dagger", w: 1, h: 1, atk: 2, type: "weapon" },
+        { id: "Armor", w: 2, h: 2, hp: 6, type: "armor" },
+      ];
+
+      /* =========================
+   STATE
+========================= */
+
+      const grid = document.getElementById("grid");
+      const log = document.getElementById("log");
+
+      let cellSize = 0;
+      let placed = [];
+      let dragging = null;
+      let dragOffset = { x: 0, y: 0 };
+
+      /* =========================
+   GRID
+========================= */
+
+      function buildGrid() {
+        grid.innerHTML = "";
+        const size = Math.min(window.innerWidth, window.innerHeight);
+        cellSize = Math.floor(size / GRID_SIZE);
+
+        grid.style.width = cellSize * GRID_SIZE + "px";
+        grid.style.height = cellSize * GRID_SIZE + "px";
+        grid.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
+        grid.style.gridTemplateRows = `repeat(${GRID_SIZE}, 1fr)`;
+
+        for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+          const c = document.createElement("div");
+          c.className = "cell";
+          grid.appendChild(c);
+        }
+
+        updateAllItemPositions();
+      }
+
+      window.addEventListener("resize", buildGrid);
+
+      /* =========================
+   ITEMS
+========================= */
+
+      function spawnItems() {
+        ITEM_DEFS.forEach((def) => {
+          const el = document.createElement("div");
+          el.className = `item ${def.type}`;
+          el.textContent = def.id;
+
+          el.gridX = null;
+          el.gridY = null;
+          el.homeX = parseInt(el.style.left);
+          el.homeY = parseInt(el.style.top);
+
+          el.dataset.w = def.w;
+          el.dataset.h = def.h;
+          el.dataset.atk = def.atk || 0;
+          el.dataset.hp = def.hp || 0;
+          el.dataset.type = def.type;
+
+          el.style.width = def.w * cellSize + "px";
+          el.style.height = def.h * cellSize + "px";
+          el.style.left = grid.offsetWidth + 20 + "px";
+          el.style.top = 20 + Math.random() * 200 + "px";
+
+          el.onpointerdown = (e) => {
+            dragging = el;
+            dragOffset.x = e.offsetX;
+            dragOffset.y = e.offsetY;
+
+            // remember last position before drag
+            el.homeX = parseInt(el.style.left);
+            el.homeY = parseInt(el.style.top);
+
+            el.setPointerCapture(e.pointerId);
+          };
+
+          document.body.appendChild(el);
+        });
+      }
+
+      /* =========================
+   DRAG & SNAP
+========================= */
+
+      document.onpointermove = (e) => {
+        if (!dragging) return;
+
+        dragging.style.left = e.pageX - dragOffset.x + "px";
+        dragging.style.top = e.pageY - dragOffset.y + "px";
+      };
+
+      document.onpointerup = (e) => {
+        if (!dragging) return;
+
+        const rect = grid.getBoundingClientRect();
+        const gx = Math.floor((e.clientX - rect.left) / cellSize);
+        const gy = Math.floor((e.clientY - rect.top) / cellSize);
+
+        const isPlaceble = canPlace(dragging, gx, gy);
+        if (isPlaceble) {
+          place(dragging, gx, gy);
+          dragging.gridX = gx;
+          dragging.gridY = gy;
+        } else {
+          // snap back
+          dragging.style.left = dragging.homeX + "px";
+          dragging.style.top = dragging.homeY + "px";
+        }
+
+        dragging = null;
+      };
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key.toLowerCase() === "r" && dragging) rotate(dragging);
+      });
+
+      function rotate(el) {
+        const w = +el.dataset.w;
+        const h = +el.dataset.h;
+        el.dataset.w = h;
+        el.dataset.h = w;
+        el.style.width = h * cellSize + "px";
+        el.style.height = w * cellSize + "px";
+      }
+
+      /* =========================
+   PLACEMENT LOGIC
+========================= */
+
+      function canPlace(el, x, y) {
+        const w = +el.dataset.w;
+        const h = +el.dataset.h;
+
+        if (x < 0 || y < 0 || x + w > GRID_SIZE || y + h > GRID_SIZE)
+          return false;
+
+        return !placed.some(
+          (p) => x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + h > p.y
+        );
+      }
+
+      function place(el, x, y) {
+        placed = placed.filter((p) => p.el !== el);
+
+        placed.push({
+          el,
+          x,
+          y,
+          w: +el.dataset.w,
+          h: +el.dataset.h,
+          atk: +el.dataset.atk,
+          hp: +el.dataset.hp,
+          type: el.dataset.type,
+        });
+        el.gridX = x;
+        el.gridY = y;
+
+        updateItemPosition(el, x, y);
+      }
+
+      function updateItemPosition(el, x, y) {
+        el.style.left = grid.offsetLeft + x * cellSize + "px";
+        el.style.top = grid.offsetTop + y * cellSize + "px";
+      }
+
+      function updateAllItemPositions() {
+        placed.forEach((p) => updateItemPosition(p.el, p.x, p.y));
+      }
+
+      /* =========================
+   COMBAT
+========================= */
+
+      function fight() {
+        let atk = 0;
+        let hp = 10;
+
+        for (const it of placed) {
+          atk += it.atk;
+          hp += it.hp;
+
+          if (it.type === "weapon") {
+            atk += adjacentWeapons(it);
+          }
+        }
+
+        log.textContent =
+          `Player ATK: ${atk}\nPlayer HP: ${hp}\n\n` +
+          (atk * 3 >= 20 ? "YOU WIN" : "YOU LOSE");
+      }
+
+      function adjacentWeapons(item) {
+        let bonus = 0;
+        for (const o of placed) {
+          if (o === item || o.type !== "weapon") continue;
+
+          const touching =
+            item.x + item.w === o.x ||
+            o.x + o.w === item.x ||
+            item.y + item.h === o.y ||
+            o.y + o.h === item.y;
+
+          if (touching) bonus++;
+        }
+        return bonus;
+      }
+
+      /* =========================
+   INIT
+========================= */
+
+      buildGrid();
+      spawnItems();
+    </script>
+  </body>
+</html>

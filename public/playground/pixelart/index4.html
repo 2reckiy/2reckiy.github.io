@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>LEGO Pixelizer — single file</title>
+    <style>
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        margin: 18px;
+        background: #f0f0f0;
+        color: #111;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 12px;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 12px;
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      label {
+        font-size: 13px;
+        font-weight: bold;
+      }
+      input[type="range"] {
+        width: 150px;
+      }
+      canvas {
+        background: #fff;
+        border: 1px solid #ddd;
+        image-rendering: pixelated;
+        display: block;
+      }
+      .row {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      .col {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      button {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        background: #f5f5f5;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      button:hover {
+        background: #e0e0e0;
+      }
+
+      .canvas-container {
+        position: relative;
+        cursor: crosshair;
+        user-select: none;
+      }
+      #selector {
+        position: absolute;
+        border: 2px solid #00ff88;
+        background: rgba(0, 255, 136, 0.2);
+        pointer-events: none;
+        display: none;
+        box-sizing: border-box;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>LEGO Pixelizer — Блоки та Кроп</h1>
+
+    <div class="controls">
+      <label>
+        <input id="file" type="file" accept="image/*" />
+      </label>
+
+      <label
+        >Розмір блоку:
+        <input id="pixelSize" type="range" min="2" max="50" value="8" />
+        <span id="pixelSizeVal">8</span> px
+      </label>
+
+      <label
+        >Ширина (блоків):
+        <input id="targetW" type="number" value="64" style="width: 50px" />
+      </label>
+      <label
+        >Висота (блоків):
+        <input id="targetH" type="number" value="64" style="width: 50px" />
+      </label>
+
+      <label
+        >Відтінки:
+        <select id="shades">
+          <option value="4">4</option>
+          <option value="5" selected>5</option>
+          <option value="6">6</option>
+          <option value="8">8</option>
+        </select>
+      </label>
+
+      <label><input id="grid" type="checkbox" checked /> Сітка</label>
+
+      <button id="downloadBtn" disabled>Скачати PNG</button>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <div>1. Виберіть область на оригіналі</div>
+        <div class="canvas-container" id="canvasWrapper">
+          <canvas id="origCanvas"></canvas>
+          <div id="selector"></div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div>2. Результат (<span id="finalSize">0x0</span> px)</div>
+        <canvas id="outCanvas"></canvas>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        const fileInput = document.getElementById("file");
+        const pixelSizeInput = document.getElementById("pixelSize");
+        const pixelSizeVal = document.getElementById("pixelSizeVal");
+        const targetWInput = document.getElementById("targetW");
+        const targetHInput = document.getElementById("targetH");
+        const shadesSelect = document.getElementById("shades");
+        const gridCheckbox = document.getElementById("grid");
+        const downloadBtn = document.getElementById("downloadBtn");
+        const finalSizeText = document.getElementById("finalSize");
+
+        const origCanvas = document.getElementById("origCanvas");
+        const outCanvas = document.getElementById("outCanvas");
+        const origCtx = origCanvas.getContext("2d");
+        const outCtx = outCanvas.getContext("2d");
+        const wrapper = document.getElementById("canvasWrapper");
+        const selector = document.getElementById("selector");
+
+        let img = new Image();
+        let loaded = false;
+        let isDragging = false;
+        let selectorPos = { x: 0, y: 0 };
+
+        // --- Слухачі подій ---
+
+        fileInput.addEventListener("change", handleFile);
+        [
+          pixelSizeInput,
+          targetWInput,
+          targetHInput,
+          shadesSelect,
+          gridCheckbox,
+        ].forEach((el) => {
+          el.addEventListener("input", () => {
+            if (el === pixelSizeInput) pixelSizeVal.textContent = el.value;
+            updateSelectorSize();
+            process();
+          });
+        });
+
+        function handleFile(e) {
+          const f = e.target.files[0];
+          if (!f) return;
+          const url = URL.createObjectURL(f);
+          img.onload = () => {
+            loaded = true;
+            URL.revokeObjectURL(url);
+
+            // Масштабуємо прев'ю оригінала для екрану
+            const displayScale = Math.min(600 / img.width, 450 / img.height, 1);
+            origCanvas.width = img.width * displayScale;
+            origCanvas.height = img.height * displayScale;
+            origCtx.drawImage(img, 0, 0, origCanvas.width, origCanvas.height);
+
+            updateSelectorSize();
+            process();
+            downloadBtn.disabled = false;
+          };
+          img.src = url;
+        }
+
+        function updateSelectorSize() {
+          if (!loaded) return;
+          const pixelSize = parseInt(pixelSizeInput.value);
+          const blocksW = parseInt(targetWInput.value);
+          const blocksH = parseInt(targetHInput.value);
+
+          // Розмір кроп-зони в пікселях оригінального прев'ю
+          selector.style.width = blocksW * pixelSize + "px";
+          selector.style.height = blocksH * pixelSize + "px";
+          selector.style.display = "block";
+
+          // Перевірка чи не виходить селектор за межі при зміні розмірів
+          const rect = wrapper.getBoundingClientRect();
+          let x = parseFloat(selector.style.left || 0);
+          let y = parseFloat(selector.style.top || 0);
+          x = Math.max(0, Math.min(x, origCanvas.width - blocksW * pixelSize));
+          y = Math.max(0, Math.min(y, origCanvas.height - blocksH * pixelSize));
+          selector.style.left = x + "px";
+          selector.style.top = y + "px";
+          selectorPos = { x, y };
+        }
+
+        // --- Логіка Перетягування ---
+
+        wrapper.onmousedown = (e) => {
+          isDragging = true;
+          updatePos(e);
+        };
+        window.onmousemove = (e) => {
+          if (isDragging) updatePos(e);
+        };
+        window.onmouseup = () => {
+          isDragging = false;
+        };
+
+        function updatePos(e) {
+          if (!loaded) return;
+          const rect = wrapper.getBoundingClientRect();
+          let x = e.clientX - rect.left - selector.offsetWidth / 2;
+          let y = e.clientY - rect.top - selector.offsetHeight / 2;
+
+          x = Math.max(0, Math.min(x, origCanvas.width - selector.offsetWidth));
+          y = Math.max(
+            0,
+            Math.min(y, origCanvas.height - selector.offsetHeight),
+          );
+
+          selector.style.left = x + "px";
+          selector.style.top = y + "px";
+          selectorPos = { x, y };
+
+          process();
+        }
+
+        // --- Основна обробка ---
+
+        function process() {
+          if (!loaded) return;
+
+          const pixelSize = parseInt(pixelSizeInput.value);
+          const cols = parseInt(targetWInput.value);
+          const rows = parseInt(targetHInput.value);
+          const shades = parseInt(shadesSelect.value);
+
+          // Фізичний розмір вихідного зображення
+          const finalW = cols * pixelSize;
+          const finalH = rows * pixelSize;
+          outCanvas.width = finalW;
+          outCanvas.height = finalH;
+          finalSizeText.textContent = `${finalW}x${finalH}`;
+
+          // Offscreen canvas для пікселізації
+          const small = document.createElement("canvas");
+          small.width = cols;
+          small.height = rows;
+          const sctx = small.getContext("2d");
+
+          // Копіюємо вибрану область (в пікселях прев'ю) в малу сітку
+          sctx.imageSmoothingEnabled = true;
+          sctx.drawImage(
+            origCanvas,
+            selectorPos.x,
+            selectorPos.y,
+            cols * pixelSize,
+            rows * pixelSize, // Source
+            0,
+            0,
+            cols,
+            rows, // Destination
+          );
+
+          const imgData = sctx.getImageData(0, 0, cols, rows);
+          const data = imgData.data;
+          const step = 255 / (shades - 1);
+
+          for (let i = 0; i < data.length; i += 4) {
+            const lum =
+              0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+            const v = Math.round(Math.round(lum / step) * step);
+            data[i] = data[i + 1] = data[i + 2] = Math.max(0, Math.min(255, v));
+          }
+          sctx.putImageData(imgData, 0, 0);
+
+          // Малюємо результат на основний canvas
+          outCtx.imageSmoothingEnabled = false;
+          outCtx.clearRect(0, 0, finalW, finalH);
+          outCtx.drawImage(small, 0, 0, cols, rows, 0, 0, finalW, finalH);
+
+          // Сітка
+          if (gridCheckbox.checked) {
+            outCtx.strokeStyle = "rgba(0,0,0,0.15)";
+            outCtx.lineWidth = 1;
+            for (let x = 0; x <= finalW; x += pixelSize) {
+              outCtx.beginPath();
+              outCtx.moveTo(x + 0.5, 0);
+              outCtx.lineTo(x + 0.5, finalH);
+              outCtx.stroke();
+            }
+            for (let y = 0; y <= finalH; y += pixelSize) {
+              outCtx.beginPath();
+              outCtx.moveTo(0, y + 0.5);
+              outCtx.lineTo(finalW, y + 0.5);
+              outCtx.stroke();
+            }
+          }
+        }
+
+        downloadBtn.onclick = () => {
+          const link = document.createElement("a");
+          link.download = "pixel_plan.png";
+          link.href = outCanvas.toDataURL("image/png");
+          link.click();
+        };
+      })();
+    </script>
+  </body>
+</html>

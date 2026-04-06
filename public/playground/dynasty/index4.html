@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dynasty Tree Visualizer</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+      #dynastyCanvas {
+        display: block;
+        background: #f8f9fa;
+      }
+      #tooltip {
+        position: absolute;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 14px;
+        max-width: 250px;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.2s;
+        white-space: nowrap;
+      }
+      #tooltip.show {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="dynastyCanvas"></canvas>
+    <div id="tooltip"></div>
+
+    <script>
+      // ======================
+      // 1. DATA CONFIGURATION
+      // ======================
+      const DYNASTY_CONFIG = {
+        metadata: {
+          dynasty_name: "House of Tudor",
+          founder_couple: ["henry_vii", "elizabeth_of_york"],
+          succession_rule: "primogenitore_male",
+          version: "1.0",
+        },
+        individuals: [
+          {
+            id: "henry_vii",
+            name: "Henry VII",
+            gender: "male",
+            birth_year: 1457,
+            death_year: 1509,
+            title: "King of England",
+            traits: ["cautious", "wealthy"],
+            parents: [],
+          },
+          {
+            id: "elizabeth_of_york",
+            name: "Elizabeth of York",
+            gender: "female",
+            birth_year: 1466,
+            death_year: 1503,
+            title: "Queen Consort",
+            traits: ["pious", "fertile"],
+            parents: [],
+          },
+          {
+            id: "henry_viii",
+            name: "Henry VIII",
+            gender: "male",
+            birth_year: 1491,
+            death_year: 1547,
+            title: "King of England",
+            traits: ["athletic_young", "tyrannical_old"],
+            parents: ["henry_vii", "elizabeth_of_york"],
+            spouses: [
+              "catherine_of_aragon",
+              "anne_boleyn",
+              "jane_seymour",
+              "anne_of_cleves",
+              "catherine_howard",
+              "catherine_parr",
+            ],
+          },
+          {
+            id: "catherine_of_aragon",
+            name: "Catherine of Aragon",
+            gender: "female",
+            birth_year: 1485,
+            death_year: 1536,
+            title: "Queen Consort",
+            traits: ["devout", "resilient"],
+            parents: [],
+            spouses: ["henry_viii"],
+          },
+          {
+            id: "anne_boleyn",
+            name: "Anne Boleyn",
+            gender: "female",
+            birth_year: 1501,
+            death_year: 1536,
+            title: "Queen Consort",
+            traits: ["ambitious", "intelligent"],
+            parents: [],
+            spouses: ["henry_viii"],
+          },
+          {
+            id: "jane_seymour",
+            name: "Jane Seymour",
+            gender: "female",
+            birth_year: 1508,
+            death_year: 1537,
+            title: "Queen Consort",
+            traits: ["gentle", "loyal"],
+            parents: [],
+            spouses: ["henry_viii"],
+          },
+          {
+            id: "edward_vi",
+            name: "Edward VI",
+            gender: "male",
+            birth_year: 1537,
+            death_year: 1553,
+            title: "King of England",
+            traits: ["pious", "frail"],
+            parents: ["henry_viii", "jane_seymour"],
+          },
+          {
+            id: "mary_i",
+            name: "Mary I",
+            gender: "female",
+            birth_year: 1516,
+            death_year: 1558,
+            title: "Queen of England",
+            traits: ["devout", "resolute"],
+            parents: ["henry_viii", "catherine_of_aragon"],
+          },
+          {
+            id: "elizabeth_i",
+            name: "Elizabeth I",
+            gender: "female",
+            birth_year: 1533,
+            death_year: 1603,
+            title: "Queen of England",
+            traits: ["political", "resilient"],
+            parents: ["henry_viii", "anne_boleyn"],
+          },
+        ],
+      };
+
+      // ======================
+      // 2. CORE APPLICATION
+      // ======================
+      class DynastyVisualizer {
+        constructor() {
+          this.canvas = document.getElementById("dynastyCanvas");
+          this.ctx = this.canvas.getContext("2d");
+          this.tooltip = document.getElementById("tooltip");
+
+          // State
+          this.data = null;
+          this.renderState = {
+            nodes: {}, // { id: { x, y, width, height, ... } }
+            links: [], // [{ from, to, type }]
+            generations: {}, // { gen: [nodeIds] }
+          };
+          this.view = {
+            tx: 0,
+            ty: 0, // Translation
+            scale: 1, // Scale factor
+            startX: 0,
+            startY: 0, // For panning
+            isPanning: false,
+          };
+
+          // Constants
+          this.NODE_RADIUS = 25;
+          this.NODE_SPACING_H = 120; // Horizontal spacing between nodes in same generation
+          this.NODE_SPACING_V = 180; // Vertical spacing between generations
+          this.PADDING = 100;
+
+          this.init();
+        }
+        init() {
+          this.resizeCanvas();
+          this.loadData();
+          this.calculateLayout();
+          this.bindEvents();
+          this.animate();
+        }
+
+        resizeCanvas() {
+          this.canvas.width = window.innerWidth;
+          this.canvas.height = window.innerHeight;
+          window.addEventListener("resize", () => this.resizeCanvas());
+        }
+
+        loadData() {
+          // In real app: fetch('dynasty_config.json').then(r => r.json())
+          this.data = DYNASTY_CONFIG;
+          this.validateData();
+        }
+
+        validateData() {
+          // Basic validation - expand as needed
+          if (!this.data.individuals || !Array.isArray(this.data.individuals)) {
+            throw new Error("Invalid data: missing individuals array");
+          }
+
+          // Check for duplicate IDs
+          const ids = this.data.individuals.map((p) => p.id);
+          if (new Set(ids).size !== ids.length) {
+            throw new Error("Duplicate IDs found in data");
+          }
+
+          // Build lookup map for quick access
+          this.personMap = {};
+          this.data.individuals.forEach((p) => {
+            this.personMap[p.id] = p;
+          });
+        }
+
+        calculateLayout() {
+          // Reset state
+          this.renderState = {
+            nodes: {},
+            links: [],
+            generations: {},
+          };
+
+          // 1. Find founders (no parents)
+          const founders = this.data.individuals.filter(
+            (p) => !p.parents || p.parents.length === 0,
+          );
+
+          // 2. Assign generations via BFS
+          const generationMap = {}; // personId -> generation
+          const queue = [];
+
+          founders.forEach((founder) => {
+            generationMap[founder.id] = 0;
+            queue.push(founder.id);
+          });
+          while (queue.length) {
+            const currentId = queue.shift();
+            const currentGen = generationMap[currentId];
+            const person = this.personMap[currentId];
+
+            // Process children (people who list currentId as parent)
+            const children = this.data.individuals.filter(
+              (p) => p.parents && p.parents.includes(currentId),
+            );
+            children.forEach((child) => {
+              if (!(child.id in generationMap)) {
+                generationMap[child.id] = currentGen + 1;
+                queue.push(child.id);
+              }
+            });
+
+            // Process spouses (same generation approximation)
+            if (person.spouses) {
+              person.spouses.forEach((spouseId) => {
+                const spouse = this.personMap[spouseId];
+                if (spouse && !(spouseId in generationMap)) {
+                  // Assign spouse to same generation as current person (simplification)
+                  generationMap[spouseId] = currentGen;
+                  queue.push(spouseId);
+                }
+              });
+            }
+          }
+
+          // Group by generation
+          Object.keys(generationMap).forEach((id) => {
+            const gen = generationMap[id];
+            if (!this.renderState.generations[gen]) {
+              this.renderState.generations[gen] = [];
+            }
+            this.renderState.generations[gen].push(id);
+          });
+          // Sort nodes within each generation (by name for consistency)
+          Object.keys(this.renderState.generations).forEach((gen) => {
+            this.renderState.generations[gen].sort((a, b) => {
+              const nameA = this.personMap[a].name.toLowerCase();
+              const nameB = this.personMap[b].name.toLowerCase();
+              return nameA.localeCompare(nameB);
+            });
+          });
+
+          // 3. Calculate positions
+          const generations = Object.keys(this.renderState.generations)
+            .map(Number)
+            .sort((a, b) => a - b);
+
+          const genCount = generations.length;
+          const totalWidth = this.canvas.width - 2 * this.PADDING;
+          const maxGenWidth =
+            Math.max(
+              ...generations.map(
+                (gen) => this.renderState.generations[gen].length,
+              ),
+            ) || 1;
+
+          generations.forEach((gen, genIndex) => {
+            const nodesInGen = this.renderState.generations[gen];
+            const nodeCount = nodesInGen.length;
+
+            // Y position: generation-based
+            const y = this.PADDING + genIndex * this.NODE_SPACING_V;
+
+            // X positions: distribute evenly across width
+            let startX;
+            if (nodeCount === 1) {
+              startX = this.canvas.width / 2;
+            } else {
+              startX =
+                this.PADDING +
+                (totalWidth - (nodeCount - 1) * this.NODE_SPACING_H) / 2;
+            }
+
+            nodesInGen.forEach((nodeId, index) => {
+              const x = startX + index * this.NODE_SPACING_H;
+              const person = this.personMap[nodeId];
+
+              // Calculate text dimensions for node sizing
+              this.ctx.font = "14px sans-serif";
+              const nameWidth = this.ctx.measureText(person.name).width;
+              const yearsText = `${person.birth_year}–${person.death_year || "?"}`;
+              const yearsWidth = this.ctx.measureText(yearsText).width;
+              const textWidth = Math.max(nameWidth, yearsWidth) + 12; // padding
+              const width = Math.max(this.NODE_RADIUS * 2, textWidth);
+
+              this.renderState.nodes[nodeId] = {
+                id: nodeId,
+                x: x,
+                y: y,
+                width: width,
+                height: this.NODE_RADIUS * 2, // Fixed height for circle
+                person: person,
+              };
+            });
+          });
+
+          // 4. Build links (parent-child and spouse)
+          this.data.individuals.forEach((person) => {
+            // Parent-child links
+            if (person.parents) {
+              person.parents.forEach((parentId) => {
+                if (this.personMap[parentId]) {
+                  this.renderState.links.push({
+                    from: parentId,
+                    to: person.id,
+                    type: "parent-child",
+                  });
+                }
+              });
+            }
+
+            // Spouse links (avoid duplicates)
+            if (person.spouses) {
+              person.spouses.forEach((spouseId) => {
+                // Only add if we haven't added the reverse yet
+                const exists = this.renderState.links.some(
+                  (link) =>
+                    (link.from === spouseId && link.to === person.id) ||
+                    (link.from === person.id && link.to === spouseId),
+                );
+                if (!exists && this.personMap[spouseId]) {
+                  this.renderState.links.push({
+                    from: person.id,
+                    to: spouseId,
+                    type: "spouse",
+                  });
+                }
+              });
+            }
+          });
+
+          // Center the tree initially
+          this.centerTree();
+        }
+
+        centerTree() {
+          // Calculate bounds of all nodes
+          let minX = Infinity,
+            maxX = -Infinity;
+          let minY = Infinity,
+            maxY = -Infinity;
+
+          Object.values(this.renderState.nodes).forEach((node) => {
+            minX = Math.min(minX, node.x - this.NODE_RADIUS);
+            maxX = Math.max(maxX, node.x + this.NODE_RADIUS);
+            minY = Math.min(minY, node.y - this.NODE_RADIUS);
+            maxY = Math.max(maxY, node.y + this.NODE_RADIUS);
+          });
+
+          const width = maxX - minX;
+          const height = maxY - minY;
+
+          // Center and add padding
+          const scaleX = (this.canvas.width - 2 * this.PADDING) / width;
+          const scaleY = (this.canvas.height - 2 * this.PADDING) / height;
+          this.view.scale = Math.min(scaleX, scaleY, 1); // Don't zoom out beyond 1x
+
+          this.view.tx =
+            this.canvas.width / 2 -
+            ((minX + maxX) / 2) * this.view.scale +
+            this.PADDING * (1 - this.view.scale);
+          this.view.ty =
+            this.canvas.height / 2 -
+            ((minY + maxY) / 2) * this.view.scale +
+            this.PADDING * (1 - this.view.scale);
+        }
+
+        bindEvents() {
+          // Panning
+          this.canvas.addEventListener("mousedown", (e) => {
+            this.view.isPanning = true;
+            this.view.startX = e.clientX - this.view.tx;
+            this.view.startY = e.clientY - this.view.ty;
+          });
+          this.canvas.addEventListener("mousemove", (e) => {
+            if (!this.view.isPanning) return;
+            this.view.tx = e.clientX - this.view.startX;
+            this.view.ty = e.clientY - this.view.startY;
+            // Update tooltip position if visible
+            if (this.tooltip.classList.contains("show")) {
+              this.positionTooltip(e);
+            }
+          });
+
+          this.canvas.addEventListener("mouseup", () => {
+            this.view.isPanning = false;
+          });
+
+          this.canvas.addEventListener("mouseleave", () => {
+            this.view.isPanning = false;
+            this.hideTooltip();
+          });
+          // Zooming
+          this.canvas.addEventListener(
+            "wheel",
+            (e) => {
+              e.preventDefault();
+              const zoomIntensity = e.deltaY > 0 ? 0.9 : 1.1;
+              const zoomFactor = 1 + (zoomIntensity - 1) * 0.1;
+
+              // Zoom toward mouse point
+              const rect = this.canvas.getBoundingClientRect();
+              const mouseX = e.clientX - rect.left;
+              const mouseY = e.clientY - rect.top;
+
+              // Convert to world coordinates before zoom
+              const worldXBefore = (mouseX - this.view.tx) / this.view.scale;
+              const worldYBefore = (mouseY - this.view.ty) / this.view.scale;
+
+              // Apply zoom
+              this.view.scale *= zoomFactor;
+              this.view.scale = Math.min(Math.max(this.view.scale, 0.2), 3); // Clamp
+              // Adjust translation to keep mouse point fixed
+              this.view.tx = mouseX - worldXBefore * this.view.scale;
+              this.view.ty = mouseY - worldYBefore * this.view.scale;
+            },
+            { passive: false },
+          );
+
+          // Tooltip mousemove (separate from pan mousemove for accuracy)
+          this.canvas.addEventListener("mousemove", (e) =>
+            this.handleTooltip(e),
+          );
+        }
+
+        handleTooltip(e) {
+          const rect = this.canvas.getBoundingClientRect();
+          const canvasX = e.clientX - rect.left;
+          const canvasY = e.clientY - rect.top;
+
+          // Convert to world coordinates
+          const worldX = (canvasX - this.view.tx) / this.view.scale;
+          const worldY = (canvasY - this.view.ty) / this.view.scale;
+
+          // Check if over any node
+          let hoveredNode = null;
+          Object.values(this.renderState.nodes).forEach((node) => {
+            const dx = worldX - node.x;
+            const dy = worldY - node.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < this.NODE_RADIUS) {
+              hoveredNode = node;
+            }
+          });
+
+          if (hoveredNode) {
+            this.showTooltip(hoveredNode, e);
+          } else {
+            this.hideTooltip();
+          }
+        }
+
+        showTooltip(node, e) {
+          const person = node.person;
+          const years = person.death_year
+            ? `${person.birth_year}–${person.death_year}`
+            : `${person.birth_year}–present`;
+
+          this.tooltip.innerHTML = `
+                  <div><strong>${person.name}</strong></div>
+                  <div>${person.title || ""}</div>
+                  <div>${years}</div>
+                  ${
+                    person.traits && person.traits.length
+                      ? `<div><em>${person.traits.join(", ")}</em></div>`
+                      : ""
+                  }
+              `;
+          this.tooltip.classList.add("show");
+          this.positionTooltip(e);
+        }
+
+        positionTooltip(e) {
+          const rect = this.canvas.getBoundingClientRect();
+          let left = e.clientX - rect.left + 10;
+          let top = e.clientY - rect.top + 10;
+          // Keep tooltip within viewport
+          if (left + this.tooltip.offsetWidth > window.innerWidth) {
+            left = window.innerWidth - this.tooltip.offsetWidth - 10;
+          }
+          if (top + this.tooltip.offsetHeight > window.innerHeight) {
+            top = window.innerHeight - this.tooltip.offsetHeight - 10;
+          }
+
+          this.tooltip.style.left = `${left}px`;
+          this.tooltip.style.top = `${top}px`;
+        }
+
+        hideTooltip() {
+          this.tooltip.classList.remove("show");
+        }
+
+        animate() {
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          // Save state for transformations
+          this.ctx.save();
+          this.ctx.translate(this.view.tx, this.view.ty);
+          this.ctx.scale(this.view.scale, this.view.scale);
+
+          // Draw links first (so they appear behind nodes)
+          this.drawLinks();
+
+          // Draw nodes
+          this.drawNodes();
+
+          // Restore state
+          this.ctx.restore();
+
+          requestAnimationFrame(() => this.animate());
+        }
+
+        drawLinks() {
+          this.ctx.lineWidth = 2;
+
+          this.renderState.links.forEach((link) => {
+            const fromNode = this.renderState.nodes[link.from];
+            const toNode = this.renderState.nodes[link.to];
+            if (!fromNode || !toNode) return;
+
+            // Set color based on link type
+            if (link.type === "parent-child") {
+              this.ctx.strokeStyle = "#6c757d"; // Gray                    } else { // spouse
+              this.ctx.strokeStyle = "#dc3545"; // Red
+              this.ctx.setLineDash([5, 3]); // Dashed line for spouses
+            }
+
+            this.ctx.beginPath();
+            this.ctx.moveTo(fromNode.x, fromNode.y);
+            this.ctx.lineTo(toNode.x, toNode.y);
+            this.ctx.stroke();
+
+            if (link.type === "spouse") {
+              this.ctx.setLineDash([]); // Reset dash
+            }
+          });
+        }
+
+        drawNodes() {
+          Object.values(this.renderState.nodes).forEach((node) => {
+            const person = node.person;
+
+            // Node background (circle)
+            this.ctx.fillStyle =
+              person.gender === "male"
+                ? "#0d6efd" // Blue
+                : "#d63384"; // Pink/Red
+
+            this.ctx.beginPath();
+            this.ctx.arc(node.x, node.y, this.NODE_RADIUS, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Node border
+            this.ctx.strokeStyle = "#fff";
+            this.ctx.lineWidth = 2;
+            this.ctx.stroke();
+
+            // Text: Name
+            this.ctx.fillStyle = "#fff";
+            this.ctx.textAlign = "center";
+            this.ctx.font = "bold 14px sans-serif";
+            this.ctx.fillText(person.name, node.x, node.y - 4);
+
+            // Text: Years
+            this.ctx.font = "12px sans-serif";
+            const yearsText = person.death_year
+              ? `${person.birth_year}–${person.death_year}`
+              : `${person.birth_year}–?`;
+            this.ctx.fillText(yearsText, node.x, node.y + 14);
+          });
+        }
+      }
+
+      // Initialize when DOM is loaded
+      document.addEventListener("DOMContentLoaded", () => {
+        new DynastyVisualizer();
+      });
+    </script>
+  </body>
+</html>

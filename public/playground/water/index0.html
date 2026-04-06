@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fluid Drop Simulation</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #050505;
+        font-family: sans-serif;
+      }
+      canvas {
+        display: block;
+      }
+      .ui {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: rgba(255, 255, 255, 0.7);
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="ui">
+      <h1>Water Flow</h1>
+      <p>Click and hold to drop water</p>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+
+      let width, height;
+      let particles = [];
+
+      // Configuration
+      const gravity = 0.5;
+      const friction = 0.98;
+      const spreadForce = 0.4;
+      const particleRadius = 5;
+      const waterColor = "#3498db";
+
+      function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      }
+
+      window.addEventListener("resize", resize);
+      resize();
+
+      class Particle {
+        constructor(x, y) {
+          this.x = x;
+          this.y = y;
+          this.vx = (Math.random() - 0.5) * 4; // Slight random splash
+          this.vy = Math.random() * 2;
+          this.radius = particleRadius;
+        }
+
+        update() {
+          // Apply Gravity
+          this.vy += gravity;
+
+          // Update Position
+          this.x += this.vx;
+          this.y += this.vy;
+
+          // Floor Collision
+          if (this.y + this.radius > height) {
+            this.y = height - this.radius;
+            this.vy *= -0.2; // Dampen bounce
+            this.vx *= friction; // Horizontal drag
+          }
+
+          // Wall Collisions
+          if (this.x + this.radius > width || this.x - this.radius < 0) {
+            this.vx *= -0.5;
+          }
+
+          // Simple "Spreading" Logic:
+          // If particles are at the bottom, they push each other horizontally
+          if (this.y > height - 15) {
+            particles.forEach((other) => {
+              if (other === this) return;
+              let dx = other.x - this.x;
+              let dist = Math.abs(dx);
+              if (dist < this.radius * 2.5) {
+                let force = (this.radius * 2.5 - dist) * 0.05;
+                this.vx -= dx > 0 ? force : -force;
+              }
+            });
+          }
+        }
+
+        draw() {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = waterColor;
+          ctx.fill();
+        }
+      }
+
+      // Mouse/Touch Interaction
+      let isDrawing = false;
+      let mouseX = 0,
+        mouseY = 0;
+
+      function addWater(x, y) {
+        for (let i = 0; i < 3; i++) {
+          particles.push(new Particle(x, y));
+        }
+      }
+
+      window.addEventListener("mousedown", (e) => {
+        isDrawing = true;
+        updateMouse(e);
+      });
+      window.addEventListener("mouseup", () => (isDrawing = false));
+      window.addEventListener("mousemove", updateMouse);
+
+      function updateMouse(e) {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+      }
+
+      // Animation Loop
+      function animate() {
+        // Motion blur effect: instead of clearRect, we draw a faint rectangle
+        ctx.fillStyle = "rgba(5, 5, 5, 0.4)";
+        ctx.fillRect(0, 0, width, height);
+
+        if (isDrawing) {
+          addWater(mouseX, mouseY);
+        }
+
+        // Limit particle count for performance
+        if (particles.length > 800) {
+          particles.shift();
+        }
+
+        particles.forEach((p) => {
+          p.update();
+          p.draw();
+        });
+
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    </script>
+  </body>
+</html>

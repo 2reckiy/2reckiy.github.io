@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ASCII STUDIO</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=VT323&display=swap");
+
+      :root {
+        --green: #00ff41;
+        --green-dim: #00aa2a;
+        --green-dark: #003b0f;
+        --bg: #010a03;
+        --bg2: #050f07;
+        --surface: #0a1a0d;
+        --border: #00ff4130;
+        --text: #c8ffda;
+        --text-dim: #5a8f68;
+        --red: #ff2244;
+        --amber: #ffcc00;
+        --cyan: #00ffee;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Share Tech Mono", monospace;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      /* Scanline overlay */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 255, 65, 0.015) 2px,
+          rgba(0, 255, 65, 0.015) 4px
+        );
+        pointer-events: none;
+        z-index: 1000;
+      }
+
+      /* Noise texture */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 999;
+        opacity: 0.4;
+      }
+
+      header {
+        padding: 28px 40px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: baseline;
+        gap: 16px;
+        position: relative;
+      }
+
+      header::after {
+        content: "";
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        width: 60%;
+        height: 1px;
+        background: linear-gradient(90deg, var(--green), transparent);
+        box-shadow: 0 0 20px var(--green);
+      }
+
+      .logo {
+        font-family: "Orbitron", monospace;
+        font-size: 28px;
+        font-weight: 900;
+        color: var(--green);
+        text-shadow:
+          0 0 30px var(--green),
+          0 0 60px var(--green-dim);
+        letter-spacing: 6px;
+      }
+
+      .logo-sub {
+        font-family: "VT323", monospace;
+        font-size: 18px;
+        color: var(--text-dim);
+        letter-spacing: 3px;
+      }
+
+      .status-bar {
+        margin-left: auto;
+        font-size: 11px;
+        color: var(--text-dim);
+        display: flex;
+        gap: 20px;
+      }
+
+      .status-dot {
+        color: var(--green);
+        animation: blink 1.4s step-end infinite;
+      }
+
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+
+      main {
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        gap: 0;
+        min-height: calc(100vh - 80px);
+      }
+
+      /* Sidebar */
+      aside {
+        border-right: 1px solid var(--border);
+        padding: 28px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        background: var(--bg2);
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        background: var(--surface);
+        padding: 18px;
+        position: relative;
+      }
+
+      .panel::before {
+        content: attr(data-label);
+        position: absolute;
+        top: -10px;
+        left: 12px;
+        background: var(--surface);
+        padding: 0 8px;
+        font-size: 10px;
+        color: var(--green);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+
+      /* Tabs */
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 20px;
+      }
+
+      .tab {
+        flex: 1;
+        padding: 10px;
+        background: none;
+        border: none;
+        color: var(--text-dim);
+        font-family: "Share Tech Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 1px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        text-transform: uppercase;
+      }
+
+      .tab.active {
+        color: var(--green);
+        border-bottom-color: var(--green);
+        text-shadow: 0 0 10px var(--green);
+      }
+
+      .tab:hover:not(.active) {
+        color: var(--text);
+      }
+
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+
+      /* Drop zone */
+      .drop-zone {
+        border: 2px dashed var(--border);
+        padding: 32px 16px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+        background: var(--bg);
+      }
+
+      .drop-zone:hover,
+      .drop-zone.dragover {
+        border-color: var(--green);
+        background: var(--green-dark);
+        box-shadow:
+          inset 0 0 30px rgba(0, 255, 65, 0.05),
+          0 0 20px rgba(0, 255, 65, 0.1);
+      }
+
+      .drop-zone input {
+        display: none;
+      }
+
+      .drop-icon {
+        font-size: 36px;
+        margin-bottom: 10px;
+        display: block;
+        color: var(--green-dim);
+      }
+
+      .drop-text {
+        font-size: 12px;
+        color: var(--text-dim);
+        line-height: 1.8;
+      }
+
+      .drop-text strong {
+        color: var(--green);
+      }
+
+      /* Preview thumb */
+      #img-preview {
+        display: none;
+        width: 100%;
+        margin-top: 14px;
+        border: 1px solid var(--border);
+        image-rendering: pixelated;
+      }
+
+      /* Prompt area */
+      textarea {
+        width: 100%;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: "Share Tech Mono", monospace;
+        font-size: 13px;
+        padding: 12px;
+        resize: vertical;
+        min-height: 100px;
+        outline: none;
+        transition: border-color 0.2s;
+        line-height: 1.5;
+      }
+
+      textarea:focus {
+        border-color: var(--green);
+        box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
+      }
+
+      /* Controls */
+      .control-row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+
+      label {
+        font-size: 10px;
+        color: var(--text-dim);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--green);
+        cursor: pointer;
+      }
+
+      .range-val {
+        font-size: 12px;
+        color: var(--green);
+        float: right;
+        font-family: "VT323", monospace;
+        font-size: 16px;
+      }
+
+      select {
+        width: 100%;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: "Share Tech Mono", monospace;
+        font-size: 12px;
+        padding: 8px;
+        outline: none;
+        cursor: pointer;
+      }
+
+      select:focus {
+        border-color: var(--green);
+      }
+
+      /* Buttons */
+      .btn {
+        width: 100%;
+        padding: 13px;
+        background: transparent;
+        border: 1px solid var(--green);
+        color: var(--green);
+        font-family: "Orbitron", monospace;
+        font-size: 12px;
+        letter-spacing: 3px;
+        cursor: pointer;
+        text-transform: uppercase;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.2s;
+      }
+
+      .btn::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--green);
+        transform: translateX(-100%);
+        transition: transform 0.2s;
+        z-index: 0;
+      }
+
+      .btn:hover::before {
+        transform: translateX(0);
+      }
+      .btn:hover {
+        color: var(--bg);
+      }
+      .btn span {
+        position: relative;
+        z-index: 1;
+      }
+
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .btn:disabled::before {
+        display: none;
+      }
+      .btn:disabled:hover {
+        color: var(--green);
+      }
+
+      .btn-secondary {
+        border-color: var(--text-dim);
+        color: var(--text-dim);
+        margin-top: 8px;
+        font-size: 11px;
+      }
+
+      .btn-secondary::before {
+        background: var(--text-dim);
+      }
+      .btn-secondary:hover {
+        color: var(--bg);
+      }
+
+      /* Output area */
+      .output-panel {
+        padding: 24px 28px;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+      }
+
+      .output-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .output-title {
+        font-family: "Orbitron", monospace;
+        font-size: 11px;
+        letter-spacing: 3px;
+        color: var(--text-dim);
+      }
+
+      .output-actions {
+        display: flex;
+        gap: 10px;
+      }
+
+      .icon-btn {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        padding: 5px 12px;
+        cursor: pointer;
+        letter-spacing: 1px;
+        transition: all 0.2s;
+      }
+
+      .icon-btn:hover {
+        border-color: var(--green);
+        color: var(--green);
+      }
+
+      .ascii-viewport {
+        flex: 1;
+        overflow: auto;
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        padding: 20px;
+        position: relative;
+      }
+
+      pre#ascii-output {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 7px;
+        line-height: 1.1;
+        color: var(--green);
+        white-space: pre;
+        text-shadow: 0 0 4px rgba(0, 255, 65, 0.4);
+        transform-origin: top left;
+      }
+
+      /* Color mode */
+      .ascii-colored span {
+      }
+
+      /* Placeholder */
+      .placeholder {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        color: var(--text-dim);
+      }
+
+      .placeholder-art {
+        font-family: "VT323", monospace;
+        font-size: 13px;
+        line-height: 1.2;
+        color: var(--green-dim);
+        opacity: 0.4;
+        white-space: pre;
+        text-align: center;
+      }
+
+      .placeholder p {
+        font-size: 12px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+
+      /* Loading */
+      #loading {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(1, 10, 3, 0.9);
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 16px;
+        z-index: 10;
+      }
+
+      #loading.show {
+        display: flex;
+      }
+
+      .loader-text {
+        font-family: "VT323", monospace;
+        font-size: 24px;
+        color: var(--green);
+        animation: pulse 0.8s step-end infinite alternate;
+      }
+
+      @keyframes pulse {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0.3;
+        }
+      }
+
+      .progress-bar {
+        width: 200px;
+        height: 3px;
+        background: var(--border);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        position: absolute;
+        inset: 0;
+        background: var(--green);
+        box-shadow: 0 0 10px var(--green);
+        animation: progress 1.5s ease-in-out infinite;
+        transform-origin: left;
+      }
+
+      @keyframes progress {
+        0% {
+          transform: translateX(-100%);
+        }
+        100% {
+          transform: translateX(100%);
+        }
+      }
+
+      /* Zoom controls */
+      .zoom-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .zoom-btn {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        width: 26px;
+        height: 26px;
+        cursor: pointer;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+      }
+
+      .zoom-btn:hover {
+        border-color: var(--green);
+        color: var(--green);
+      }
+
+      #zoom-level {
+        font-size: 11px;
+        color: var(--text-dim);
+        min-width: 36px;
+        text-align: center;
+      }
+
+      /* Stats bar */
+      .stats-bar {
+        display: flex;
+        gap: 24px;
+        padding: 10px 0 0;
+        font-size: 10px;
+        color: var(--text-dim);
+        letter-spacing: 1px;
+      }
+
+      .stat {
+        display: flex;
+        gap: 6px;
+      }
+      .stat-val {
+        color: var(--green);
+      }
+
+      /* Checkbox */
+      .check-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+        cursor: pointer;
+      }
+
+      .check-row input {
+        accent-color: var(--green);
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+      }
+      .check-row span {
+        font-size: 12px;
+        color: var(--text-dim);
+        letter-spacing: 1px;
+      }
+
+      canvas {
+        display: none;
+      }
+
+      @media (max-width: 768px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+        aside {
+          border-right: none;
+          border-bottom: 1px solid var(--border);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo">ASCII</div>
+      <div class="logo-sub">// STUDIO v2.0</div>
+      <div class="status-bar">
+        <span><span class="status-dot">●</span> ONLINE</span>
+        <span>MODE: <span style="color: var(--green)">HYBRID</span></span>
+      </div>
+    </header>
+
+    <main>
+      <aside>
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('image')">
+            ⬡ IMAGE
+          </button>
+          <button class="tab" onclick="switchTab('ai')">⬡ AI GEN</button>
+        </div>
+
+        <!-- IMAGE TAB -->
+        <div class="tab-content active" id="tab-image">
+          <div
+            class="drop-zone"
+            id="drop-zone"
+            onclick="document.getElementById('file-input').click()"
+          >
+            <span class="drop-icon">⬡</span>
+            <div class="drop-text">
+              <strong>DROP IMAGE HERE</strong><br />
+              or click to browse<br />
+              <span style="font-size: 10px; color: var(--text-dim)"
+                >PNG · JPG · GIF · WEBP</span
+              >
+            </div>
+            <input type="file" id="file-input" accept="image/*" />
+          </div>
+          <img id="img-preview" alt="preview" />
+        </div>
+
+        <!-- AI TAB -->
+        <div class="tab-content" id="tab-ai">
+          <div class="control-row">
+            <label>Describe your ASCII art</label>
+            <textarea
+              id="ai-prompt"
+              placeholder="e.g. a skull with flames, a city skyline at night, a dragon flying over mountains..."
+            ></textarea>
+          </div>
+          <div class="control-row">
+            <label>Style</label>
+            <select id="ai-style">
+              <option value="detailed">Detailed & Complex</option>
+              <option value="minimal">Minimal & Clean</option>
+              <option value="portrait">Portrait / Face</option>
+              <option value="landscape">Landscape / Scene</option>
+              <option value="logo">Logo / Symbol</option>
+            </select>
+          </div>
+          <div class="control-row">
+            <label
+              >Width (chars)
+              <span class="range-val" id="ai-width-val">80</span></label
+            >
+            <input
+              type="range"
+              id="ai-width"
+              min="40"
+              max="120"
+              value="80"
+              oninput="
+                document.getElementById('ai-width-val').textContent = this.value
+              "
+            />
+          </div>
+        </div>
+
+        <!-- Shared controls -->
+        <div class="panel" data-label="OUTPUT SETTINGS">
+          <div class="control-row" id="image-controls">
+            <label
+              >Width (chars)
+              <span class="range-val" id="width-val">100</span></label
+            >
+            <input
+              type="range"
+              id="char-width"
+              min="30"
+              max="200"
+              value="100"
+              oninput="
+                document.getElementById('width-val').textContent = this.value;
+                debouncedRender();
+              "
+            />
+          </div>
+
+          <div class="control-row" id="image-controls2">
+            <label
+              >Contrast
+              <span class="range-val" id="contrast-val">1.0</span></label
+            >
+            <input
+              type="range"
+              id="contrast"
+              min="0.5"
+              max="2.5"
+              step="0.1"
+              value="1.0"
+              oninput="
+                document.getElementById('contrast-val').textContent =
+                  parseFloat(this.value).toFixed(1);
+                debouncedRender();
+              "
+            />
+          </div>
+
+          <div class="control-row" id="image-controls3">
+            <label
+              >Brightness
+              <span class="range-val" id="bright-val">1.0</span></label
+            >
+            <input
+              type="range"
+              id="brightness"
+              min="0.3"
+              max="2.0"
+              step="0.1"
+              value="1.0"
+              oninput="
+                document.getElementById('bright-val').textContent = parseFloat(
+                  this.value,
+                ).toFixed(1);
+                debouncedRender();
+              "
+            />
+          </div>
+
+          <div class="control-row">
+            <label>Character set</label>
+            <select id="charset" onchange="debouncedRender()">
+              <option value="detailed">Detailed (70 chars)</option>
+              <option value="standard">Standard (10 chars)</option>
+              <option value="blocks">Block elements ░▒▓█</option>
+              <option value="dots">Dots & braille ⠀⠁⠃⠇</option>
+              <option value="binary">Binary 01</option>
+              <option value="hex">Hex 0-F</option>
+            </select>
+          </div>
+
+          <div class="check-row" id="color-check">
+            <input type="checkbox" id="colorize" onchange="debouncedRender()" />
+            <span>COLORIZE OUTPUT</span>
+          </div>
+
+          <div class="check-row">
+            <input type="checkbox" id="invert" onchange="debouncedRender()" />
+            <span>INVERT</span>
+          </div>
+        </div>
+
+        <button class="btn" id="generate-btn" onclick="generate()">
+          <span>▶ GENERATE</span>
+        </button>
+        <button class="btn btn-secondary" onclick="randomExample()">
+          <span>⟳ RANDOM DEMO</span>
+        </button>
+      </aside>
+
+      <section class="output-panel">
+        <div class="output-header">
+          <div class="output-title">// OUTPUT TERMINAL</div>
+          <div style="display: flex; align-items: center; gap: 16px">
+            <div class="zoom-controls">
+              <button class="zoom-btn" onclick="zoom(-1)">−</button>
+              <span id="zoom-level">7px</span>
+              <button class="zoom-btn" onclick="zoom(1)">+</button>
+            </div>
+            <div class="output-actions">
+              <button class="icon-btn" onclick="copyOutput()">[ COPY ]</button>
+              <button class="icon-btn" onclick="downloadTxt()">[ TXT ]</button>
+              <button class="icon-btn" onclick="downloadPng()">[ PNG ]</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ascii-viewport" id="viewport">
+          <div class="placeholder" id="placeholder">
+            <div class="placeholder-art">
+              ______ ___________ ___________ / \/ _____/ _|/ / _ | / -- \____ \|
+              | \ / /_| | / | / \ | \ /\ | | \____|___/_______/|__| \/ \___|__|
+            </div>
+            <p>Upload an image or generate with AI</p>
+          </div>
+          <div id="loading">
+            <div class="loader-text" id="loader-msg">PROCESSING...</div>
+            <div class="progress-bar"><div class="progress-fill"></div></div>
+          </div>
+          <pre id="ascii-output"></pre>
+        </div>
+
+        <div class="stats-bar">
+          <div class="stat">
+            CHARS: <span class="stat-val" id="stat-chars">—</span>
+          </div>
+          <div class="stat">
+            LINES: <span class="stat-val" id="stat-lines">—</span>
+          </div>
+          <div class="stat">
+            COLS: <span class="stat-val" id="stat-cols">—</span>
+          </div>
+          <div class="stat">
+            MODE: <span class="stat-val" id="stat-mode">—</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+      // ── Character sets ──────────────────────────────────────────────
+      const CHARSETS = {
+        detailed:
+          "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ",
+        standard: "@#S%?*+;:,. ",
+        blocks: "█▓▒░ ",
+        dots: "⣿⣷⣮⣗⣖⣔⣀⠤⠔⠂ ",
+        binary: "1100101001 ",
+        hex: "F0E3DB97651A4 ",
+      };
+
+      // ── State ───────────────────────────────────────────────────────
+      let currentImage = null;
+      let currentFontSize = 7;
+      let activeTab = "image";
+      let renderTimeout = null;
+      let lastAscii = "";
+
+      // ── Tab switching ────────────────────────────────────────────────
+      function switchTab(tab) {
+        activeTab = tab;
+        document.querySelectorAll(".tab").forEach((t, i) => {
+          t.classList.toggle(
+            "active",
+            (i === 0 && tab === "image") || (i === 1 && tab === "ai"),
+          );
+        });
+        document
+          .getElementById("tab-image")
+          .classList.toggle("active", tab === "image");
+        document
+          .getElementById("tab-ai")
+          .classList.toggle("active", tab === "ai");
+
+        const imageOnly = [
+          "image-controls",
+          "image-controls2",
+          "image-controls3",
+          "color-check",
+        ];
+        imageOnly.forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.style.opacity = tab === "image" ? "1" : "0.4";
+        });
+      }
+
+      // ── File input ───────────────────────────────────────────────────
+      const dropZone = document.getElementById("drop-zone");
+      const fileInput = document.getElementById("file-input");
+
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("dragover");
+      });
+      dropZone.addEventListener("dragleave", () =>
+        dropZone.classList.remove("dragover"),
+      );
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("dragover");
+        handleFile(e.dataTransfer.files[0]);
+      });
+      fileInput.addEventListener("change", (e) =>
+        handleFile(e.target.files[0]),
+      );
+
+      function handleFile(file) {
+        if (!file || !file.type.startsWith("image/")) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            currentImage = img;
+            const preview = document.getElementById("img-preview");
+            preview.src = e.target.result;
+            preview.style.display = "block";
+            renderAscii();
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+
+      // ── Main generate dispatcher ─────────────────────────────────────
+      function generate() {
+        if (activeTab === "image") {
+          if (!currentImage) {
+            alert("Please upload an image first");
+            return;
+          }
+          renderAscii();
+        } else {
+          generateWithAI();
+        }
+      }
+
+      // ── Image → ASCII ────────────────────────────────────────────────
+      function renderAscii() {
+        if (!currentImage) return;
+        showLoading("RENDERING...");
+
+        requestAnimationFrame(() => {
+          const canvas = document.getElementById("canvas");
+          const ctx = canvas.getContext("2d");
+          const width = parseInt(document.getElementById("char-width").value);
+          const charset = CHARSETS[document.getElementById("charset").value];
+          const contrast = parseFloat(
+            document.getElementById("contrast").value,
+          );
+          const brightness = parseFloat(
+            document.getElementById("brightness").value,
+          );
+          const invert = document.getElementById("invert").checked;
+          const colorize = document.getElementById("colorize").checked;
+
+          const aspect = 0.45; // char height/width ratio
+          const height = Math.round(
+            width * (currentImage.height / currentImage.width) * aspect,
+          );
+
+          canvas.width = width;
+          canvas.height = height;
+          ctx.filter = `contrast(${contrast}) brightness(${brightness})`;
+          ctx.drawImage(currentImage, 0, 0, width, height);
+
+          const data = ctx.getImageData(0, 0, width, height);
+          let ascii = "";
+          const pre = document.getElementById("ascii-output");
+
+          if (colorize) {
+            pre.innerHTML = "";
+            for (let y = 0; y < height; y++) {
+              for (let x = 0; x < width; x++) {
+                const i = (y * width + x) * 4;
+                let r = data.data[i],
+                  g = data.data[i + 1],
+                  b = data.data[i + 2];
+                let lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                if (invert) lum = 255 - lum;
+                const charIdx = Math.floor((lum / 255) * (charset.length - 1));
+                const ch = charset[charIdx];
+                const span = document.createElement("span");
+                span.style.color = `rgb(${r},${g},${b})`;
+                span.textContent = ch;
+                pre.appendChild(span);
+                ascii += ch;
+              }
+              pre.appendChild(document.createTextNode("\n"));
+              ascii += "\n";
+            }
+          } else {
+            for (let y = 0; y < height; y++) {
+              for (let x = 0; x < width; x++) {
+                const i = (y * width + x) * 4;
+                let lum =
+                  0.299 * data.data[i] +
+                  0.587 * data.data[i + 1] +
+                  0.114 * data.data[i + 2];
+                if (invert) lum = 255 - lum;
+                const charIdx = Math.floor((lum / 255) * (charset.length - 1));
+                ascii += charset[charIdx];
+              }
+              ascii += "\n";
+            }
+            pre.textContent = ascii;
+            pre.style.color = "";
+          }
+
+          lastAscii = ascii;
+          document.getElementById("placeholder").style.display = "none";
+          updateStats(ascii, "IMAGE→ASCII");
+          hideLoading();
+        });
+      }
+
+      // ── AI Generation ────────────────────────────────────────────────
+      async function generateWithAI() {
+        const prompt = document.getElementById("ai-prompt").value.trim();
+        if (!prompt) {
+          alert("Please describe what you want to generate");
+          return;
+        }
+
+        showLoading("QUERYING AI...");
+
+        const width = parseInt(document.getElementById("ai-width").value);
+        const style = document.getElementById("ai-style").value;
+        const invert = document.getElementById("invert").checked;
+
+        const styleGuides = {
+          detailed:
+            "Use dense, complex characters. Fill the space with intricate details.",
+          minimal:
+            "Use sparse characters with lots of whitespace. Clean and elegant.",
+          portrait: "Create a clear recognizable face/portrait with shading.",
+          landscape: "Wide panoramic scene with depth and horizon.",
+          logo: "Bold, symmetric symbol or logo design. Strong outlines.",
+        };
+
+        const systemPrompt = `You are an expert ASCII artist. Generate ASCII art based on the user's description.
+            Rules:
+            - Output ONLY the ASCII art, no explanation, no markdown fences, no preamble
+            - Width: exactly ${width} characters per line
+            - Use characters from: ${invert ? "reverse (dark bg): use @#%&*+=-. for light areas, space for dark" : "@#%&*+=-.,:;' !\"^``~_|() for shading"}
+            - Style: ${styleGuides[style]}
+            - Make it visually recognizable and artistic
+            - Use proper shading with varied character density`;
+
+        try {
+          const response = await fetch(
+            "https://api.anthropic.com/v1/messages",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 4096,
+                system: systemPrompt,
+                messages: [
+                  { role: "user", content: `Create ASCII art of: ${prompt}` },
+                ],
+              }),
+            },
+          );
+
+          if (!response.ok) throw new Error(`API error: ${response.status}`);
+          const data = await response.json();
+          const ascii = data.content.map((b) => b.text || "").join("");
+
+          const pre = document.getElementById("ascii-output");
+          pre.textContent = ascii;
+          pre.style.color = "";
+          lastAscii = ascii;
+
+          document.getElementById("placeholder").style.display = "none";
+          updateStats(ascii, "AI GENERATED");
+          hideLoading();
+        } catch (err) {
+          hideLoading();
+          alert("Generation failed: " + err.message);
+        }
+      }
+
+      // ── Debounced render ─────────────────────────────────────────────
+      function debouncedRender() {
+        if (activeTab !== "image" || !currentImage) return;
+        clearTimeout(renderTimeout);
+        renderTimeout = setTimeout(renderAscii, 250);
+      }
+
+      // ── Zoom ─────────────────────────────────────────────────────────
+      function zoom(dir) {
+        const sizes = [4, 5, 6, 7, 8, 9, 10, 12, 14, 16];
+        let idx = sizes.indexOf(currentFontSize);
+        idx = Math.max(0, Math.min(sizes.length - 1, idx + dir));
+        currentFontSize = sizes[idx];
+        document.getElementById("ascii-output").style.fontSize =
+          currentFontSize + "px";
+        document.getElementById("zoom-level").textContent =
+          currentFontSize + "px";
+      }
+
+      // ── Loading ───────────────────────────────────────────────────────
+      function showLoading(msg) {
+        document.getElementById("loader-msg").textContent = msg;
+        document.getElementById("loading").classList.add("show");
+      }
+      function hideLoading() {
+        document.getElementById("loading").classList.remove("show");
+      }
+
+      // ── Stats ─────────────────────────────────────────────────────────
+      function updateStats(ascii, mode) {
+        const lines = ascii.split("\n").filter((l) => l.length > 0);
+        document.getElementById("stat-chars").textContent = ascii
+          .replace(/\n/g, "")
+          .length.toLocaleString();
+        document.getElementById("stat-lines").textContent = lines.length;
+        document.getElementById("stat-cols").textContent =
+          lines[0]?.length || 0;
+        document.getElementById("stat-mode").textContent = mode;
+      }
+
+      // ── Copy ──────────────────────────────────────────────────────────
+      function copyOutput() {
+        if (!lastAscii) return;
+        navigator.clipboard.writeText(lastAscii).then(() => {
+          const btn = event.target;
+          btn.textContent = "[ COPIED! ]";
+          setTimeout(() => (btn.textContent = "[ COPY ]"), 1500);
+        });
+      }
+
+      // ── Download TXT ──────────────────────────────────────────────────
+      function downloadTxt() {
+        if (!lastAscii) return;
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(
+          new Blob([lastAscii], { type: "text/plain" }),
+        );
+        a.download = "ascii-art.txt";
+        a.click();
+      }
+
+      // ── Download PNG ──────────────────────────────────────────────────
+      function downloadPng() {
+        if (!lastAscii) return;
+        const lines = lastAscii.split("\n");
+        const fs = 14;
+        const lineH = Math.floor(fs * 1.1);
+        const maxW = Math.max(...lines.map((l) => l.length));
+        const cw = Math.ceil(fs * 0.6);
+        const offscreen = document.createElement("canvas");
+        offscreen.width = maxW * cw + 40;
+        offscreen.height = lines.length * lineH + 40;
+        const ctx = offscreen.getContext("2d");
+        ctx.fillStyle = "#010a03";
+        ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+        ctx.fillStyle = "#00ff41";
+        ctx.font = `${fs}px 'Share Tech Mono', monospace`;
+        lines.forEach((line, i) =>
+          ctx.fillText(line, 20, 20 + (i + 1) * lineH),
+        );
+        const a = document.createElement("a");
+        a.href = offscreen.toDataURL("image/png");
+        a.download = "ascii-art.png";
+        a.click();
+      }
+
+      // ── Random demo ───────────────────────────────────────────────────
+      const DEMOS = [
+        `         .              .
+             '       .  '  .       '
+               .  *        *  .
+          *         SPACE         *
+        .   *   .       .   *   .
+              *   .   .   *
+           *           *       *
+        .     .  *  .     .  *  .
+           *     .     *     .
+        *    .       .    *    .   *`,
+
+        ` 
+         /\\_____/\\\
+        /  o     o  \\
+       ( ==  ' '  == )
+        )           (
+       (  |  . .|  )
+      (   ( (.  .) )   )
+       \`-.__________.-'
+          |  |  |  |
+         (   )  (   )
+         |___|  |___|`,
+
+        `   
+           __|__
+        _-( o o )-_
+      ( \\  'v'  / )
+        |\\  '--'  /|
+        | \\ ---- / |
+        |  \\ -- /  |
+        \\   \\--/   /
+         \\   \\/   /
+          '-.__.-'`,
+
+        `
+           ████████╗███████╗██████╗ ███╗   ███╗
+           ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║
+              ██║   █████╗  ██████╔╝██╔████╔██║
+              ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║
+              ██║   ███████╗██║  ██║██║ ╚═╝ ██║
+              ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝`,
+      ];
+
+      function randomExample() {
+        const demo = DEMOS[Math.floor(Math.random() * DEMOS.length)];
+        const pre = document.getElementById("ascii-output");
+        pre.textContent = demo;
+        pre.style.color = "";
+        lastAscii = demo;
+        document.getElementById("placeholder").style.display = "none";
+        updateStats(demo, "DEMO");
+      }
+    </script>
+  </body>
+</html>

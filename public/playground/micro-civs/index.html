@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Micro-Civilizations — Agent-Based MVP</title>
+    <style>
+      :root {
+        --bg: #0f1724;
+        --panel: #0b1220;
+        --muted: #9aa7b2;
+        --accent: #6ee7b7;
+        --glass: rgba(255, 255, 255, 0.03);
+        font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: linear-gradient(180deg, #071021 0%, #0b1724 100%);
+        color: #e6eef6;
+      }
+      .wrap {
+        display: flex;
+        gap: 16px;
+        padding: 18px;
+        box-sizing: border-box;
+        height: 100%;
+      }
+      canvas {
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.02),
+          transparent
+        );
+        border-radius: 8px;
+        box-shadow: 0 6px 24px rgba(2, 6, 23, 0.6);
+      }
+      .left {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .right {
+        width: 320px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .panel {
+        background: var(--panel);
+        padding: 12px;
+        border-radius: 10px;
+        box-shadow: 0 4px 14px rgba(2, 6, 23, 0.6);
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      button {
+        background: var(--glass);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        padding: 8px 10px;
+        border-radius: 8px;
+        color: var(--muted);
+        cursor: pointer;
+      }
+      button:hover {
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.06);
+      }
+      .stat {
+        font-size: 13px;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.02);
+      }
+      .stat:last-child {
+        border-bottom: 0;
+      }
+      .small {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .title {
+        font-weight: 700;
+        color: #eaf7f0;
+        margin-bottom: 6px;
+      }
+      .hint {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+      .footer {
+        margin-top: auto;
+        font-size: 12px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .slider {
+        width: 100%;
+      }
+      #tooltip {
+        position: fixed;
+        pointer-events: none;
+        padding: 6px 8px;
+        border-radius: 6px;
+        background: rgba(6, 8, 12, 0.9);
+        color: #cfe9da;
+        font-size: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        z-index: 999;
+      }
+      .dna {
+        font-family: monospace;
+        font-size: 12px;
+        color: #fff;
+      }
+      .legend {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .legend .pill {
+        padding: 6px 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.03);
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="left">
+        <canvas id="game" width="960" height="640"></canvas>
+      </div>
+
+      <div class="right">
+        <div class="panel">
+          <div class="title">Micro-Civilizations — Agent-Based MVP</div>
+          <div class="controls">
+            <button id="startBtn">Start</button>
+            <button id="stepBtn">Step</button>
+            <button id="clearBtn">Clear</button>
+            <button id="mutateBtn">Mutate All</button>
+            <button id="spawnRandBtn">Spawn Random</button>
+          </div>
+
+          <div style="height: 8px"></div>
+
+          <div class="small">Grid: <span id="gridSizeLabel">48 × 32</span></div>
+          <input
+            id="gridSlider"
+            class="slider"
+            type="range"
+            min="24"
+            max="96"
+            value="48" />
+
+          <div style="height: 8px"></div>
+
+          <div class="stat">
+            <div>Tick</div>
+            <div id="tick">0</div>
+          </div>
+          <div class="stat">
+            <div>Agents</div>
+            <div id="agentCount">0</div>
+          </div>
+          <div class="stat">
+            <div>Avg Aggression</div>
+            <div id="avgAgg">0</div>
+          </div>
+          <div class="stat">
+            <div>Avg Cooperation</div>
+            <div id="avgCoop">0</div>
+          </div>
+          <div class="stat">
+            <div>Avg Fertility</div>
+            <div id="avgFert">0</div>
+          </div>
+
+          <div style="height: 6px"></div>
+
+          <div class="small title">Legend</div>
+          <div class="legend">
+            <div class="pill">Aggressive → red/orange</div>
+            <div class="pill">Cooperative → teal/blue</div>
+            <div class="pill">Explorer → purple</div>
+            <div class="pill">Fertile → yellow</div>
+          </div>
+
+          <div class="hint">
+            Click on the canvas to spawn a new tribe. Hover to see genome. Try
+            Mutate All to shake things up.
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="title small">Controls</div>
+          <div class="small" style="margin-bottom: 8px">
+            <strong>Start/Pause</strong> — run simulation. <br />
+            <strong>Step</strong> — advance a single tick. <br />
+            <strong>Mutate All</strong> — small random mutations to every living
+            tribe. <br />
+            <strong>Spawn Random</strong> — create few random tribes.
+          </div>
+
+          <div class="title small">Agent Genome</div>
+          <div class="small">
+            <code class="dna"
+              >{ aggression, cooperation, fertility, exploration }</code
+            >
+            — each 0.0–1.0. Color is derived from values.
+          </div>
+        </div>
+
+        <div class="panel footer small">
+          Built for prototyping — tweak values and experiment. (Agent-based,
+          stochastic.)
+        </div>
+      </div>
+    </div>
+
+    <div id="tooltip" style="display: none"></div>
+
+    <script>
+      /*
+Micro-Civilizations — Agent-Based MVP
+Single-file prototype.
+
+Features:
+- Agent-based (each tribe = agent)
+- Genome: aggression, cooperation, fertility, exploration (0..1)
+- Agents act each tick: try to move, reproduce, attack, or cooperate
+- Click to spawn; Start/Pause; Step; Mutate All
+*/
+
+      // ---- Config ----
+      let cols = 48,
+        rows = 32;
+      const CELL_SIZE = 16;
+      const TICK_INTERVAL_MS = 120; // approximate update speed (will use RAF + timer)
+      const MUTATION_RATE = 0.08; // per gene small chance on reproduction or global mutate
+      const MOVE_COST = 0.0; // can use energy later
+      const MAX_AGE = 800; // agents older than this die
+      const INITIAL_RANDOM_SPAWN = 12;
+
+      // ---- State ----
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      let running = false;
+      let lastTickTime = 0;
+      let tickCount = 0;
+      let agents = []; // list of living agents
+      let grid = []; // grid of agent ids or null
+      let agentIdSeq = 1;
+      let queuedSteps = 0;
+
+      // Resize based on cols/rows
+      function resizeCanvas() {
+        canvas.width = cols * CELL_SIZE;
+        canvas.height = rows * CELL_SIZE;
+        document.getElementById(
+          "gridSizeLabel"
+        ).textContent = `${cols} × ${rows}`;
+      }
+      resizeCanvas();
+
+      // ---- Utilities ----
+      function rand() {
+        return Math.random();
+      }
+      function choose(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+      function clamp(v, min, max) {
+        return Math.max(min, Math.min(max, v));
+      }
+      function colorFromGenome(g) {
+        // Map genome to a color: mix components
+        // Aggression -> red, Cooperation -> teal, Exploration -> purple, Fertility -> yellow
+        const r = Math.round(
+          170 * g.aggression + 30 * g.exploration + 40 * g.cooperation
+        );
+        const gcol = Math.round(
+          170 * g.cooperation + 60 * g.fertility + 20 * g.exploration
+        );
+        const b = Math.round(160 * g.exploration + 40 * g.cooperation);
+        // lighten based on fertility
+        const mix = Math.round(80 * g.fertility);
+        return `rgb(${clamp(r + mix, 10, 255)}, ${clamp(
+          gcol + mix,
+          10,
+          255
+        )}, ${clamp(b + mix, 10, 255)})`;
+      }
+      function genomeToString(g) {
+        // short DNA string
+        return `A${Math.round(g.aggression * 100)}-C${Math.round(
+          g.cooperation * 100
+        )}-F${Math.round(g.fertility * 100)}-E${Math.round(
+          g.exploration * 100
+        )}`;
+      }
+
+      // ---- Grid Management ----
+      function initGrid() {
+        grid = new Array(rows);
+        for (let y = 0; y < rows; y++) {
+          grid[y] = new Array(cols).fill(null);
+        }
+      }
+      initGrid();
+
+      function inBounds(x, y) {
+        return x >= 0 && y >= 0 && x < cols && y < rows;
+      }
+      function neighbors4(x, y) {
+        const res = [];
+        [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ].forEach(([dx, dy]) => {
+          const nx = x + dx,
+            ny = y + dy;
+          if (inBounds(nx, ny)) res.push([nx, ny]);
+        });
+        return res;
+      }
+      function neighbors8(x, y) {
+        const res = [];
+        for (let dx = -1; dx <= 1; dx++)
+          for (let dy = -1; dy <= 1; dy++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = x + dx,
+              ny = y + dy;
+            if (inBounds(nx, ny)) res.push([nx, ny]);
+          }
+        return res;
+      }
+
+      // ---- Agent Management ----
+      function createAgent(x, y, genome = null, ownerName = null) {
+        if (!inBounds(x, y)) return null;
+        if (grid[y][x] !== null) return null; // space occupied
+        const id = agentIdSeq++;
+        const g = genome || {
+          aggression: Math.random(),
+          cooperation: Math.random(),
+          fertility: Math.random(),
+          exploration: Math.random(),
+        };
+        const agent = {
+          id,
+          x,
+          y,
+          genome: g,
+          color: colorFromGenome(g),
+          age: 0,
+          strength: 1 + g.cooperation * 2, // derived stat
+          name: ownerName || `Tribe#${id}`,
+          lineage: id,
+        };
+        agents.push(agent);
+        grid[y][x] = id;
+        return agent;
+      }
+
+      function removeAgent(agent) {
+        const idx = agents.findIndex((a) => a.id === agent.id);
+        if (idx !== -1) agents.splice(idx, 1);
+        if (inBounds(agent.x, agent.y) && grid[agent.y][agent.x] === agent.id) {
+          grid[agent.y][agent.x] = null;
+        }
+      }
+
+      function findAgentById(id) {
+        return agents.find((a) => a.id === id) || null;
+      }
+
+      // ---- Actions per tick ----
+      function agentAct(agent) {
+        // Increase age
+        agent.age++;
+        if (agent.age > MAX_AGE || rand() < 0.001) {
+          // small random death
+          removeAgent(agent);
+          return;
+        }
+        // Recompute derived
+        agent.strength = 1 + agent.genome.cooperation * 2;
+
+        // 1) Decide target action (move, reproduce, attack, cooperate)
+        // Higher exploration -> prefer move; higher fertility -> reproduction priority; aggression -> attack
+        const weights = {
+          move: 0.3 + agent.genome.exploration * 0.6,
+          reproduce: 0.2 + agent.genome.fertility * 0.6,
+          attack: 0.15 + agent.genome.aggression * 0.7,
+          cooperate: 0.1 + agent.genome.cooperation * 0.6,
+        };
+        // normalize
+        const tot =
+          weights.move + weights.reproduce + weights.attack + weights.cooperate;
+        for (let k in weights) weights[k] /= tot;
+        // pick
+        const r = rand();
+        let cum = 0,
+          choice = "move";
+        for (let k of ["move", "reproduce", "attack", "cooperate"]) {
+          cum += weights[k];
+          if (r <= cum) {
+            choice = k;
+            break;
+          }
+        }
+
+        const neigh8 = neighbors8(agent.x, agent.y);
+        const emptyNeighbors = neigh8.filter(
+          ([nx, ny]) => grid[ny][nx] === null
+        );
+        const occupiedNeighbors = neigh8
+          .filter(([nx, ny]) => grid[ny][nx] !== null)
+          .map(([nx, ny]) => findAgentById(grid[ny][nx]))
+          .filter((a) => a !== null);
+
+        // Move: try to move into empty neighbor (weighted by exploration)
+        if (choice === "move") {
+          if (emptyNeighbors.length > 0 && rand() < 0.9) {
+            // choose empty neighbor biased by exploration
+            const idx = Math.floor(
+              Math.pow(rand(), 1 - agent.genome.exploration) *
+                emptyNeighbors.length
+            );
+            const [nx, ny] = emptyNeighbors[idx];
+            // move
+            grid[agent.y][agent.x] = null;
+            agent.x = nx;
+            agent.y = ny;
+            grid[ny][nx] = agent.id;
+            return;
+          }
+        }
+
+        // Reproduce: if empty neighbor and chance
+        if (choice === "reproduce") {
+          if (
+            emptyNeighbors.length > 0 &&
+            rand() < agent.genome.fertility * 0.9
+          ) {
+            const [nx, ny] = choose(emptyNeighbors);
+            // child genome = crossover (simple) + mutation
+            const childGenome = {
+              aggression: mixGene(agent.genome.aggression, null),
+              cooperation: mixGene(agent.genome.cooperation, null),
+              fertility: mixGene(agent.genome.fertility, null),
+              exploration: mixGene(agent.genome.exploration, null),
+            };
+            createAgent(nx, ny, childGenome, agent.name + "'s child");
+            return;
+          }
+        }
+
+        // Attack: try to attack weaker neighbor
+        if (choice === "attack") {
+          if (
+            occupiedNeighbors.length > 0 &&
+            rand() < agent.genome.aggression * 0.9
+          ) {
+            // pick random neighbor
+            const target = choose(occupiedNeighbors);
+            if (target.id === agent.id) return;
+            // resolution: compare aggression * strength and cooperation of target
+            const att =
+              agent.genome.aggression * agent.strength * (1 + rand() * 0.5);
+            const def =
+              target.genome.cooperation * target.strength * (1 + rand() * 0.5);
+            if (att > def) {
+              // attacker wins: kill target and maybe move into their cell
+              removeAgent(target);
+              // move into space 40% chance
+              if (rand() < 0.4) {
+                grid[agent.y][agent.x] = null;
+                agent.x = target.x;
+                agent.y = target.y;
+                grid[agent.y][agent.x] = agent.id;
+              }
+            } else {
+              // defender survives and maybe counter-kill attacker (small chance)
+              if (rand() < 0.15) {
+                removeAgent(agent);
+              } else {
+                // both survive but maybe both get minor mutation
+                if (rand() < 0.1) mutateGenome(agent.genome, 0.04);
+                if (rand() < 0.1) mutateGenome(target.genome, 0.04);
+                target.color = colorFromGenome(target.genome);
+              }
+            }
+            return;
+          }
+        }
+
+        // Cooperate: if friendly neighbor exists with similar genome, merge/ally
+        if (choice === "cooperate") {
+          if (
+            occupiedNeighbors.length > 0 &&
+            rand() < agent.genome.cooperation * 0.9
+          ) {
+            // look for neighbor with compatible (low aggression difference)
+            const candidates = occupiedNeighbors.filter(
+              (t) =>
+                Math.abs(t.genome.aggression - agent.genome.aggression) < 0.4
+            );
+            if (candidates.length > 0) {
+              const partner = choose(candidates);
+              // merging: create child in empty neighbor if possible, or enhance partner's cooperation
+              if (emptyNeighbors.length > 0 && rand() < 0.6) {
+                // child genome as mix
+                const childGenome = {
+                  aggression: mixGene(
+                    agent.genome.aggression,
+                    partner.genome.aggression
+                  ),
+                  cooperation: mixGene(
+                    agent.genome.cooperation,
+                    partner.genome.cooperation
+                  ),
+                  fertility: mixGene(
+                    agent.genome.fertility,
+                    partner.genome.fertility
+                  ),
+                  exploration: mixGene(
+                    agent.genome.exploration,
+                    partner.genome.exploration
+                  ),
+                };
+                const [nx, ny] = choose(emptyNeighbors);
+                createAgent(
+                  nx,
+                  ny,
+                  childGenome,
+                  agent.name + "-" + partner.name + " child"
+                );
+              } else {
+                // increase cooperation of partner a bit
+                partner.genome.cooperation = clamp(
+                  partner.genome.cooperation + 0.02 * agent.genome.cooperation,
+                  0,
+                  1
+                );
+                partner.color = colorFromGenome(partner.genome);
+              }
+            }
+            return;
+          }
+        }
+
+        // fallback: random small mutate
+        if (rand() < 0.01) {
+          mutateGenome(agent.genome, 0.02);
+          agent.color = colorFromGenome(agent.genome);
+        }
+      }
+
+      // gene mixing helper (simple average + mutation)
+      function mixGene(a, b) {
+        if (b === null || typeof b === "undefined") {
+          // reproduce single parent: slight random variation
+          let v = a + (rand() - 0.5) * 0.12;
+          if (rand() < MUTATION_RATE) v += (rand() - 0.5) * 0.25;
+          return clamp(v, 0, 1);
+        } else {
+          // crossover average + small diff
+          let v = (a + b) / 2 + (rand() - 0.5) * 0.08;
+          if (rand() < MUTATION_RATE) v += (rand() - 0.5) * 0.25;
+          return clamp(v, 0, 1);
+        }
+      }
+
+      function mutateGenome(g, prob = MUTATION_RATE) {
+        if (rand() < prob)
+          g.aggression = clamp(g.aggression + (rand() - 0.5) * 0.2, 0, 1);
+        if (rand() < prob)
+          g.cooperation = clamp(g.cooperation + (rand() - 0.5) * 0.2, 0, 1);
+        if (rand() < prob)
+          g.fertility = clamp(g.fertility + (rand() - 0.5) * 0.2, 0, 1);
+        if (rand() < prob)
+          g.exploration = clamp(g.exploration + (rand() - 0.5) * 0.2, 0, 1);
+      }
+
+      // ---- Simulation Loop ----
+      function stepSimulation() {
+        // copy list to avoid modification while iterating
+        const snapshot = agents.slice();
+        // shuffle for fairness
+        for (let i = snapshot.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [snapshot[i], snapshot[j]] = [snapshot[j], snapshot[i]];
+        }
+        snapshot.forEach((agent) => {
+          // ensure agent still exists (it could be removed)
+          if (findAgentById(agent.id)) agentAct(agent);
+        });
+        tickCount++;
+        updateStats();
+      }
+
+      function updateStats() {
+        document.getElementById("tick").textContent = tickCount;
+        document.getElementById("agentCount").textContent = agents.length;
+        if (agents.length === 0) {
+          document.getElementById("avgAgg").textContent = "—";
+          document.getElementById("avgCoop").textContent = "—";
+          document.getElementById("avgFert").textContent = "—";
+          return;
+        }
+        const avgAgg =
+          agents.reduce((s, a) => s + a.genome.aggression, 0) / agents.length;
+        const avgCoop =
+          agents.reduce((s, a) => s + a.genome.cooperation, 0) / agents.length;
+        const avgFert =
+          agents.reduce((s, a) => s + a.genome.fertility, 0) / agents.length;
+        document.getElementById("avgAgg").textContent = avgAgg.toFixed(2);
+        document.getElementById("avgCoop").textContent = avgCoop.toFixed(2);
+        document.getElementById("avgFert").textContent = avgFert.toFixed(2);
+      }
+
+      // ---- Rendering ----
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // background grid
+        ctx.fillStyle = "#071826";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // draw cells
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            const id = grid[y][x];
+            if (id !== null) {
+              const a = findAgentById(id);
+              if (a) {
+                // draw a filled rect with agent color and a small border
+                ctx.fillStyle = a.color;
+                ctx.fillRect(
+                  x * CELL_SIZE + 1,
+                  y * CELL_SIZE + 1,
+                  CELL_SIZE - 2,
+                  CELL_SIZE - 2
+                );
+                // draw a tiny marker for age/strength
+                const br = Math.min(4, 1 + Math.floor(a.age / 120));
+                ctx.fillStyle = "rgba(0,0,0,0.12)";
+                ctx.fillRect(
+                  x * CELL_SIZE + CELL_SIZE - br - 1,
+                  y * CELL_SIZE + 1,
+                  br,
+                  br
+                );
+              }
+            } else {
+              // empty
+              ctx.fillStyle = "rgba(255,255,255,0.01)";
+              ctx.fillRect(
+                x * CELL_SIZE + 1,
+                y * CELL_SIZE + 1,
+                CELL_SIZE - 2,
+                CELL_SIZE - 2
+              );
+            }
+          }
+        }
+        // grid lines subtle
+        ctx.strokeStyle = "rgba(255,255,255,0.02)";
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= cols; x++) {
+          ctx.beginPath();
+          ctx.moveTo(x * CELL_SIZE + 0.5, 0);
+          ctx.lineTo(x * CELL_SIZE + 0.5, rows * CELL_SIZE);
+          ctx.stroke();
+        }
+        for (let y = 0; y <= rows; y++) {
+          ctx.beginPath();
+          ctx.moveTo(0, y * CELL_SIZE + 0.5);
+          ctx.lineTo(cols * CELL_SIZE, y * CELL_SIZE + 0.5);
+          ctx.stroke();
+        }
+      }
+
+      // ---- Main RAF loop with tick timer ----
+      let accumulator = 0;
+      let lastRAF = performance.now();
+      function raf(now) {
+        const dt = now - lastRAF;
+        lastRAF = now;
+        accumulator += dt;
+        // run ticks at fixed interval while running (or if queuedSteps > 0)
+        while (
+          (running && accumulator >= TICK_INTERVAL_MS) ||
+          (queuedSteps > 0 && accumulator >= 0)
+        ) {
+          accumulator -= TICK_INTERVAL_MS;
+          if (queuedSteps > 0) {
+            queuedSteps--;
+            stepSimulation();
+          } else if (running) stepSimulation();
+        }
+        draw();
+        requestAnimationFrame(raf);
+      }
+      requestAnimationFrame(raf);
+
+      // ---- Interaction: canvas click, hover ----
+      const tooltip = document.getElementById("tooltip");
+      canvas.addEventListener("mousemove", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        const gx = Math.floor(cx / CELL_SIZE);
+        const gy = Math.floor(cy / CELL_SIZE);
+        if (!inBounds(gx, gy)) {
+          tooltip.style.display = "none";
+          return;
+        }
+        const id = grid[gy][gx];
+        if (id !== null) {
+          const a = findAgentById(id);
+          if (a) {
+            tooltip.style.display = "block";
+            tooltip.style.left = e.pageX + 12 + "px";
+            tooltip.style.top = e.pageY + 12 + "px";
+            tooltip.innerHTML = `<div style="font-weight:600">${a.name}</div>
+        <div class="dna">${genomeToString(a.genome)}</div>
+        <div style="font-size:12px;color:var(--muted)">Age: ${
+          a.age
+        } — Strength: ${a.strength.toFixed(2)}</div>
+        `;
+            return;
+          }
+        }
+        tooltip.style.display = "none";
+      });
+      canvas.addEventListener(
+        "mouseleave",
+        () => (tooltip.style.display = "none")
+      );
+
+      canvas.addEventListener("click", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        const gx = Math.floor(cx / CELL_SIZE);
+        const gy = Math.floor(cy / CELL_SIZE);
+        // spawn an agent with a slight bias depending on mouse button / modifiers
+        const genome = {
+          aggression: Math.random(),
+          cooperation: Math.random(),
+          fertility: Math.random(),
+          exploration: Math.random(),
+        };
+        // if shift pressed - spawn more and slightly higher fertility
+        if (e.shiftKey) {
+          for (let i = 0; i < 3; i++) {
+            const rx = clamp(
+              gx + Math.floor(Math.random() * 3 - 1),
+              0,
+              cols - 1
+            );
+            const ry = clamp(
+              gy + Math.floor(Math.random() * 3 - 1),
+              0,
+              rows - 1
+            );
+            const g2 = {
+              ...genome,
+              fertility: clamp(genome.fertility + Math.random() * 0.3, 0, 1),
+            };
+            createAgent(rx, ry, g2);
+          }
+        } else {
+          createAgent(gx, gy, genome);
+        }
+        updateStats();
+      });
+
+      // ---- UI Buttons ----
+      document.getElementById("startBtn").addEventListener("click", () => {
+        running = !running;
+        document.getElementById("startBtn").textContent = running
+          ? "Pause"
+          : "Start";
+      });
+      document.getElementById("stepBtn").addEventListener("click", () => {
+        queuedSteps++;
+      });
+      document.getElementById("clearBtn").addEventListener("click", () => {
+        agents.slice().forEach((a) => removeAgent(a));
+        tickCount = 0;
+        updateStats();
+      });
+      document.getElementById("mutateBtn").addEventListener("click", () => {
+        agents.forEach((a) => {
+          mutateGenome(a.genome, 0.12);
+          a.color = colorFromGenome(a.genome);
+        });
+      });
+      document.getElementById("spawnRandBtn").addEventListener("click", () => {
+        for (let i = 0; i < INITIAL_RANDOM_SPAWN; i++) {
+          const x = Math.floor(Math.random() * cols);
+          const y = Math.floor(Math.random() * rows);
+          // random biased genome
+          createAgent(x, y, {
+            aggression: Math.random(),
+            cooperation: Math.random(),
+            fertility: Math.random(),
+            exploration: Math.random(),
+          });
+        }
+        updateStats();
+      });
+
+      // grid size slider
+      const gridSlider = document.getElementById("gridSlider");
+      gridSlider.addEventListener("input", (e) => {
+        const v = parseInt(e.target.value, 10);
+        cols = v;
+        rows = Math.max(16, Math.round(v * (2 / 3))); // maintain ratio
+        // recreate
+        initGrid();
+        // re-spawn existing agents randomly (preserve count)
+        const currentAgents = agents.slice();
+        agents = [];
+        agentIdSeq = 1;
+        for (let i = 0; i < currentAgents.length; i++) {
+          const nx = Math.floor(Math.random() * cols);
+          const ny = Math.floor(Math.random() * rows);
+          createAgent(nx, ny, currentAgents[i].genome);
+        }
+        resizeCanvas();
+        draw();
+      });
+
+      // ---- Bootstrap with a few agents ----
+      function bootstrap() {
+        agents = [];
+        initGrid();
+        for (let i = 0; i < INITIAL_RANDOM_SPAWN; i++) {
+          const x = Math.floor(Math.random() * cols);
+          const y = Math.floor(Math.random() * rows);
+          createAgent(x, y, {
+            aggression: Math.random(),
+            cooperation: Math.random(),
+            fertility: Math.random(),
+            exploration: Math.random(),
+          });
+        }
+        tickCount = 0;
+        updateStats();
+      }
+      bootstrap();
+
+      // ---- Helper: seed some clusters to see emergent behavior ----
+      function seedClusters() {
+        // create a cooperative cluster
+        const midx = Math.floor(cols * 0.25);
+        const midy = Math.floor(rows * 0.4);
+        for (let dx = -2; dx <= 2; dx++) {
+          for (let dy = -2; dy <= 2; dy++) {
+            const x = clamp(midx + dx, 0, cols - 1),
+              y = clamp(midy + dy, 0, rows - 1);
+            createAgent(x, y, {
+              aggression: 0.12 + Math.random() * 0.08,
+              cooperation: 0.7 + Math.random() * 0.2,
+              fertility: 0.45 + Math.random() * 0.2,
+              exploration: 0.25 + Math.random() * 0.2,
+            });
+          }
+        }
+        // create an aggressive cluster
+        const ax = Math.floor(cols * 0.7);
+        const ay = Math.floor(rows * 0.6);
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const x = clamp(ax + dx, 0, cols - 1),
+              y = clamp(ay + dy, 0, rows - 1);
+            createAgent(x, y, {
+              aggression: 0.75 + Math.random() * 0.2,
+              cooperation: 0.08 + Math.random() * 0.08,
+              fertility: 0.45 + Math.random() * 0.2,
+              exploration: 0.25 + Math.random() * 0.2,
+            });
+          }
+        }
+        updateStats();
+      }
+      seedClusters();
+    </script>
+  </body>
+</html>

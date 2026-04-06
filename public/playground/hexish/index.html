@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layered Hex Grid</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0f172a;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="hexCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('hexCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const hexSize = 35;
+        const gridRadius = 10;
+        let mousePos = { x: -1000, y: -1000 };
+        let selectedHex = null;
+
+        const directions = [
+            { q: 1, r: 0 }, { q: 1, r: -1 }, { q: 0, r: -1 },
+            { q: -1, r: 0 }, { q: -1, r: 1 }, { q: 0, r: 1 }
+        ];
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+        window.dispatchEvent(new Event('resize'));
+
+        window.addEventListener('mousemove', (e) => {
+            mousePos.x = e.clientX - canvas.width / 2;
+            mousePos.y = e.clientY - canvas.height / 2;
+        });
+
+        window.addEventListener('click', () => {
+            const hex = pixelToHex(mousePos.x, mousePos.y);
+            if (getDist(hex.q, hex.r) <= gridRadius) selectedHex = hex;
+            else selectedHex = null;
+        });
+
+        function pixelToHex(px, py) {
+            let q = (Math.sqrt(3) / 3 * px - 1 / 3 * py) / hexSize;
+            let r = (2 / 3 * py) / hexSize;
+            return hexRound(q, r);
+        }
+
+        function hexRound(q, r) {
+            let s = -q - r;
+            let rq = Math.round(q), rr = Math.round(r), rs = Math.round(s);
+            let qDiff = Math.abs(rq - q), rDiff = Math.abs(rr - r), sDiff = Math.abs(rs - s);
+            if (qDiff > rDiff && qDiff > sDiff) rq = -rr - rs;
+            else if (rDiff > sDiff) rr = -rq - rs;
+            return { q: rq, r: rr };
+        }
+
+        function hexToPixel(q, r) {
+            return {
+                x: hexSize * (Math.sqrt(3) * q + Math.sqrt(3) / 2 * r),
+                y: hexSize * (3 / 2 * r)
+            };
+        }
+
+        function getDist(q, r) {
+            return (Math.abs(q) + Math.abs(r) + Math.abs(-q - r)) / 2;
+        }
+
+        function isNeighbor(q1, r1, q2, r2) {
+            if (!selectedHex) return false;
+            return directions.some(d => (q1 === q2 + d.q && r1 === r2 + d.r));
+        }
+
+        function getPath(q, r) {
+            const pos = hexToPixel(q, r);
+            const path = new Path2D();
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i + (Math.PI / 6);
+                const px = pos.x + hexSize * Math.cos(angle);
+                const py = pos.y + hexSize * Math.sin(angle);
+                if (i === 0) path.moveTo(px, py);
+                else path.lineTo(px, py);
+            }
+            path.closePath();
+            return path;
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+
+            const hovered = pixelToHex(mousePos.x, mousePos.y);
+            const highPriority = []; // Store hexes that need a top-layer draw
+
+            // PASS 1: Draw the base grid and fills
+            for (let q = -gridRadius; q <= gridRadius; q++) {
+                let r1 = Math.max(-gridRadius, -q - gridRadius);
+                let r2 = Math.min(gridRadius, -q + gridRadius);
+                for (let r = r1; r <= r2; r++) {
+                    const path = getPath(q, r);
+                    const isSelected = selectedHex && q === selectedHex.q && r === selectedHex.r;
+                    const isNB = selectedHex && isNeighbor(q, r, selectedHex.q, selectedHex.r);
+                    const isHover = (q === hovered.q && r === hovered.r);
+
+                    // Draw Base
+                    ctx.strokeStyle = '#334155';
+                    ctx.lineWidth = 1;
+                    ctx.stroke(path);
+
+                    if (isSelected || isNB || isHover) {
+                        // Store for second pass
+                        highPriority.push({ q, r, path, isSelected, isNB, isHover });
+
+                        // Fill immediately so background doesn't show through
+                        if (isSelected) ctx.fillStyle = '#38bdf8';
+                        else if (isNB) ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
+                        else if (isHover) ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                        ctx.fill(path);
+                    }
+                }
+            }
+
+            // PASS 2: Draw highlighting strokes ON TOP
+            highPriority.sort((a, b) => a.isSelected ? 1 : -1).forEach(hex => {
+                if (hex.isSelected) {
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 3;
+                } else if (hex.isNB) {
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 2;
+                } else if (hex.isHover) {
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1;
+                }
+                ctx.stroke(hex.path);
+            });
+
+            ctx.restore();
+            requestAnimationFrame(render);
+        }
+
+        render();
+    </script>
+</body>
+
+</html>

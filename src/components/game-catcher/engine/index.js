@@ -49,6 +49,11 @@ export class GameEngine {
     cancelAnimationFrame(this.requestAnimationFrameId);
   }
 
+  close() {
+    this.stop();
+    this.audio.close();
+  }
+
   restart() {
     this.#init();
     this.start();

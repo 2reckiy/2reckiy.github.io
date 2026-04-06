@@ -3,6 +3,7 @@ export class AudioManager {
     this.audioCtx = null;
     this.masterGain = null;
     this.unlocked = false;
+    this.closed = false;
     this.musicVolume = 0.3;
 
     this.sounds = {
@@ -16,12 +17,13 @@ export class AudioManager {
   }
 
   unlockAudioContext() {
-    if (!this.unlocked) {
+    if (!this.unlocked || this.closed) {
       this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       this.masterGain = this.audioCtx.createGain();
       this.masterGain.connect(this.audioCtx.destination);
       this.masterGain.gain.value = 0.2;
       this.unlocked = true;
+      this.closed = false;
     }
   }
 
@@ -46,6 +48,8 @@ export class AudioManager {
 
   play(name) {
     if (this.sounds[name]) {
+      this.unlockAudioContext();
+
       this.sounds[name]();
     }
   }
@@ -116,5 +120,10 @@ export class AudioManager {
     if (this.audioCtx.state === "suspended") {
       this.audioCtx.resume();
     }
+  }
+
+  close() {
+    this.audioCtx?.close();
+    this.closed = true;
   }
 }

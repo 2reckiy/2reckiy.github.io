@@ -1,0 +1,1236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>VEINBREAKER — Prototype v0.1</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        cursor: crosshair;
+        user-select: none;
+      }
+
+      /* ── Overlay screens ────────────────────────────────────── */
+      .screen {
+        position: fixed;
+        inset: 0;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(4, 5, 12, 0.93);
+        font-family: "Courier New", Courier, monospace;
+        color: #94a3b8;
+        pointer-events: all;
+        gap: 0;
+      }
+      .screen.active {
+        display: flex;
+      }
+
+      .screen h1 {
+        font-size: clamp(2rem, 6vw, 4rem);
+        letter-spacing: 0.35em;
+        text-transform: uppercase;
+        margin-bottom: 0.4rem;
+      }
+      .screen .sub {
+        font-size: 0.78rem;
+        letter-spacing: 0.22em;
+        color: #334155;
+        margin-bottom: 2.2rem;
+      }
+
+      /* start screen */
+      #screen-start h1 {
+        color: #34d399;
+      }
+      #screen-start .sub {
+        color: #1e4a36;
+      }
+
+      /* game-over / win screen */
+      #screen-end h1.lose {
+        color: #f87171;
+      }
+      #screen-end h1.win {
+        color: #34d399;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: auto auto;
+        gap: 0.35rem 2.5rem;
+        font-size: 0.88rem;
+        margin-bottom: 2rem;
+      }
+      .stats-grid .lbl {
+        color: #475569;
+      }
+      .stats-grid .val {
+        color: #fde047;
+        text-align: right;
+      }
+
+      .controls-hint {
+        font-size: 0.78rem;
+        color: #334155;
+        line-height: 2.2;
+        text-align: center;
+        margin-bottom: 2rem;
+      }
+      .controls-hint span {
+        color: #64748b;
+      }
+
+      .btn {
+        padding: 0.65rem 2.8rem;
+        background: transparent;
+        border: 1px solid #1d4ed8;
+        color: #93c5fd;
+        font-family: inherit;
+        font-size: 0.9rem;
+        letter-spacing: 0.25em;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          border-color 0.15s,
+          color 0.15s;
+      }
+      .btn:hover {
+        background: #1e40af22;
+        border-color: #3b82f6;
+        color: #bfdbfe;
+      }
+
+      /* persistent small hint */
+      #play-hint {
+        position: fixed;
+        bottom: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        pointer-events: none;
+        font-family: "Courier New", monospace;
+        font-size: 9px;
+        color: #ffffff18;
+        letter-spacing: 0.18em;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+
+    <!-- START SCREEN -->
+    <div id="screen-start" class="screen active">
+      <h1>VEINBREAKER</h1>
+      <p class="sub">drill deep &nbsp;·&nbsp; break out</p>
+      <div class="controls-hint">
+        <span>HOLD LMB</span> &nbsp;—&nbsp; thrust toward cursor<br />
+        <span>CURSOR</span> &nbsp;—&nbsp; aim direction<br />
+        <span>SPEED</span> &nbsp;—&nbsp; required to smash minerals<br />
+        <span>FUEL</span> &nbsp;—&nbsp; consumed by thrusting &amp; mining
+      </div>
+      <button class="btn" id="btn-start">[ START DRILLING ]</button>
+    </div>
+
+    <!-- END SCREEN (game over / win) -->
+    <div id="screen-end" class="screen">
+      <h1 id="end-title">FUEL DEPLETED</h1>
+      <p class="sub" id="end-sub">run out of fuel</p>
+      <div class="stats-grid">
+        <span class="lbl">SCORE</span> <span class="val" id="e-score">0</span>
+        <span class="lbl">MAX DEPTH</span>
+        <span class="val" id="e-depth">0 tiles</span>
+        <span class="lbl">MINERALS MINED</span
+        ><span class="val" id="e-mined">0</span>
+      </div>
+      <button class="btn" id="btn-restart">[ DRILL AGAIN ]</button>
+    </div>
+
+    <div id="play-hint">
+      HOLD LMB → THRUST &nbsp;|&nbsp; CURSOR → AIM &nbsp;|&nbsp; REACH DEPTH 120
+      TO BREAK OUT
+    </div>
+
+    <script>
+      // ═══════════════════════════════════════════════════════════════════
+      //
+      //   VEINBREAKER — Prototype v0.1
+      //
+      //   Architecture designed for React + PixiJS migration:
+      //     · Renderer  → swap Canvas2D calls for PixiJS Container updates
+      //     · GameEngine → mount in React useEffect / useRef
+      //     · CONFIG     → expose via React context or props
+      //     · World/Player/Camera — pure logic, zero rendering coupling
+      //
+      // ═══════════════════════════════════════════════════════════════════
+
+      // ───────────────────────────────────────────────────────────────────
+      //  CONFIG  ·  All game parameters in one data-driven object
+      //             Change values here to tune the whole game.
+      // ───────────────────────────────────────────────────────────────────
+      const CONFIG = {
+        world: {
+          tileSize: 22, // px per tile side
+          chunkSize: 16, // tiles per chunk side
+          clearRadius: 5, // tile-radius of empty spawn zone
+          baseDensity: 0.48, // mineral probability at dist=0
+          densityGrowth: 0.005, // +density per tile of distance
+          maxDensity: 0.9,
+        },
+
+        player: {
+          maxStamina: 3,
+          thrust: 1500, // px/s²  acceleration while thrusting
+          maxSpeed: 360, // px/s
+          dragThrust: 0.964, // velocity ×= this^(dt×60) while thrusting
+          dragCoast: 0.78, // velocity ×= this^(dt×60) while coasting  (quick stop)
+          drillRadius: 1.4, // tile-units radius for simultaneous mining
+          minSpeedToMine: 72, // px/s threshold to damage minerals
+          staminaCostBase: 0.17, // stamina cost = hardness × this, per tile destroyed
+          passiveDrainPerTick: 0.011, // stamina lost per tick (×60 = per second) while thrusting
+          winDistance: 120000, // tiles from origin to trigger WIN
+          // PHASE 2 STUB: autoAdvance: false — miner drifts forward slowly without LMB
+          autoAdvance: false,
+          autoAdvanceSpeed: 40, // px/s passive forward speed when enabled
+        },
+
+        // Mineral definitions — ordered by rarity / depth
+        // id, label, color, glow, hardness (HP/cost scale), value (score), weight (spawn prob), minDist (tiles)
+        minerals: [
+          {
+            id: "stone",
+            label: "Stone",
+            color: "#3f3f46",
+            glow: "#a1a1aa",
+            hardness: 1,
+            value: 1,
+            weight: 0.7,
+            minDist: 0,
+          },
+          {
+            id: "coal",
+            label: "Coal",
+            color: "#1c1917",
+            glow: "#78716c",
+            hardness: 1.5,
+            value: 3,
+            weight: 0.55,
+            minDist: 4,
+          },
+          {
+            id: "copper",
+            label: "Copper",
+            color: "#7c2d12",
+            glow: "#fb923c",
+            hardness: 3,
+            value: 8,
+            weight: 0.3,
+            minDist: 10,
+          },
+          {
+            id: "iron",
+            label: "Iron",
+            color: "#3d3935",
+            glow: "#d6d3d1",
+            hardness: 5,
+            value: 15,
+            weight: 0.2,
+            minDist: 18,
+          },
+          {
+            id: "silver",
+            label: "Silver",
+            color: "#3b4a5a",
+            glow: "#cbd5e1",
+            hardness: 8,
+            value: 35,
+            weight: 0.1,
+            minDist: 30,
+          },
+          {
+            id: "gold",
+            label: "Gold",
+            color: "#78350f",
+            glow: "#fde047",
+            hardness: 12,
+            value: 70,
+            weight: 0.06,
+            minDist: 45,
+          },
+          {
+            id: "crystal",
+            label: "Crystal",
+            color: "#0c3a5a",
+            glow: "#38bdf8",
+            hardness: 18,
+            value: 130,
+            weight: 0.025,
+            minDist: 65,
+          },
+          {
+            id: "void",
+            label: "Void Ore",
+            color: "#3b0764",
+            glow: "#c084fc",
+            hardness: 28,
+            value: 350,
+            weight: 0.01,
+            minDist: 90,
+          },
+        ],
+
+        camera: {
+          // Exponential smoothing — 0=instant snap, 1=frozen
+          // value is the fraction of error KEPT per 1/60s tick
+          smoothing: 0.86,
+        },
+
+        particles: {
+          perMineral: 9,
+          speed: 115,
+          speedSpread: 0.6, // ± fraction of speed
+          lifetime: 0.55, // seconds
+          lifetimeSpread: 0.45,
+          sizeBase: 2.6, // px at zoom=1
+          gravity: 42, // downward px/s²
+        },
+      };
+
+      // ───────────────────────────────────────────────────────────────────
+      //  InputManager  ·  Thin wrapper around DOM events
+      //  Migration note: replace addEventListener with PixiJS/React events
+      // ───────────────────────────────────────────────────────────────────
+      class InputManager {
+        constructor(el) {
+          this.el = el;
+          this.mx = 0; // mouse screen X
+          this.my = 0; // mouse screen Y
+          this.lmb = false; // left button held
+
+          this._handlers = {
+            mousemove: (e) => {
+              const r = el.getBoundingClientRect();
+              this.mx = e.clientX - r.left;
+              this.my = e.clientY - r.top;
+            },
+            mousedown: (e) => {
+              if (e.button === 0) this.lmb = true;
+            },
+            mouseup: (e) => {
+              if (e.button === 0) this.lmb = false;
+            },
+            mouseleave: () => {
+              this.lmb = false;
+            },
+            contextmenu: (e) => e.preventDefault(),
+          };
+        }
+
+        bind() {
+          for (const [k, fn] of Object.entries(this._handlers))
+            this.el.addEventListener(k, fn);
+        }
+        unbind() {
+          for (const [k, fn] of Object.entries(this._handlers))
+            this.el.removeEventListener(k, fn);
+        }
+      }
+
+      // ───────────────────────────────────────────────────────────────────
+      //  Cell  ·  One mineral tile in the world grid
+      // ───────────────────────────────────────────────────────────────────
+      class Cell {
+        constructor(mineral) {
+          this.mineral = mineral; // reference to CONFIG.minerals entry
+          this.hp = mineral.hardness; // current health
+        }
+      }
+
+      // ───────────────────────────────────────────────────────────────────
+      //  World  ·  Infinite chunk-based mineral grid
+      //  Migration note: same logic; swap rendering for PixiJS TilingSprite
+      // ───────────────────────────────────────────────────────────────────
+      class World {
+        constructor(cfg) {
+          this.cfg = cfg;
+          this.cells = new Map(); // stringKey("gx,gy") → Cell
+          this._chunks = new Set(); // stringKey("cx,cy") → generated
+          this.totalMined = 0;
+        }
+
+        // ── Deterministic integer hash → [0, 1) ──────────────────────
+        _hash(x, y) {
+          let h =
+            (Math.imul(x | 0, 0x9e3779b9) ^ Math.imul(y | 0, 0x6c62272e)) >>> 0;
+          h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+          h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+          return ((h ^ (h >>> 16)) >>> 0) / 0x100000000;
+        }
+
+        // ── Pick mineral type for a given distance & random value ────
+        _pickMineral(dist, rand) {
+          const avail = this.cfg.minerals.filter((m) => m.minDist <= dist);
+          if (!avail.length) return null;
+
+          // Newly-unlocked minerals get a temporary boost near their threshold
+          let total = 0;
+          const ws = avail.map((m) => {
+            const fresh = Math.max(0, 1.5 - (dist - m.minDist) / 16);
+            const w = m.weight * (1 + fresh);
+            total += w;
+            return w;
+          });
+
+          let r = rand * total;
+          for (let i = 0; i < avail.length; i++) {
+            r -= ws[i];
+            if (r <= 0) return avail[i];
+          }
+          return avail[avail.length - 1];
+        }
+
+        // ── Generate a chunk if not yet done ─────────────────────────
+        _genChunk(cx, cy) {
+          const key = `${cx},${cy}`;
+          if (this._chunks.has(key)) return;
+          this._chunks.add(key);
+
+          const {
+            chunkSize,
+            clearRadius,
+            baseDensity,
+            densityGrowth,
+            maxDensity,
+          } = this.cfg.world;
+
+          for (let lx = 0; lx < chunkSize; lx++) {
+            for (let ly = 0; ly < chunkSize; ly++) {
+              const gx = cx * chunkSize + lx;
+              const gy = cy * chunkSize + ly;
+              const dist = Math.hypot(gx, gy); // tile-units from origin
+
+              if (dist < clearRadius) continue; // clear spawn zone
+
+              const density = Math.min(
+                maxDensity,
+                baseDensity + dist * densityGrowth,
+              );
+              if (this._hash(gx, gy) >= density) continue; // empty space
+
+              const mineral = this._pickMineral(
+                dist,
+                this._hash(gx + 9371, gy + 4567),
+              );
+              if (mineral) this.cells.set(`${gx},${gy}`, new Cell(mineral));
+            }
+          }
+        }
+
+        // ── Ensure all chunks within viewRadius px of (wx,wy) exist ──
+        ensureAround(wx, wy, viewRadius = 1200) {
+          const { tileSize, chunkSize } = this.cfg.world;
+          const gx = Math.floor(wx / tileSize);
+          const gy = Math.floor(wy / tileSize);
+          const cx = Math.floor(gx / chunkSize);
+          const cy = Math.floor(gy / chunkSize);
+          const cr = Math.ceil(viewRadius / (chunkSize * tileSize)) + 1;
+          for (let dx = -cr; dx <= cr; dx++)
+            for (let dy = -cr; dy <= cr; dy++) this._genChunk(cx + dx, cy + dy);
+        }
+
+        getCell(gx, gy) {
+          return this.cells.get(`${gx},${gy}`) ?? null;
+        }
+        removeCell(gx, gy) {
+          if (this.cells.delete(`${gx},${gy}`)) this.totalMined++;
+        }
+      }
+
+      // ───────────────────────────────────────────────────────────────────
+      //  ParticleSystem  ·  Debris effects on mineral destruction
+      //  Migration note: swap fillRect for PixiJS ParticleContainer
+      // ───────────────────────────────────────────────────────────────────
+      class ParticleSystem {
+        constructor(cfg) {
+          this.cfg = cfg;
+          this.list = [];
+        }
+
+        emit(wx, wy, color, count) {
+          const pc = this.cfg.particles;
+          for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const sp =
+              pc.speed *
+              (1 - pc.speedSpread / 2 + Math.random() * pc.speedSpread);
+            const lt =
+              pc.lifetime *
+              (1 - pc.lifetimeSpread / 2 + Math.random() * pc.lifetimeSpread);
+            this.list.push({
+              x: wx,
+              y: wy,
+              vx: Math.cos(angle) * sp,
+              vy: Math.sin(angle) * sp,
+              color,
+              lt,
+              maxLt: lt,
+              sz: pc.sizeBase * (0.5 + Math.random()),
+            });
+          }
+        }
+
+        update(dt) {
+          const g = this.cfg.particles.gravity;
+          this.list = this.list.filter((p) => {
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.vy += g * dt;
+            p.lt -= dt;
+            return p.lt > 0;
+          });
+        }
+
+        render(ctx, cam) {
+          for (const p of this.list) {
+            const [sx, sy] = cam.toScreen(p.x, p.y);
+            const a = p.lt / p.maxLt;
+            const s = p.sz * cam.zoom;
+            ctx.globalAlpha = a * a; // quadratic fade-out
+            ctx.fillStyle = p.color;
+            ctx.fillRect(sx - s / 2, sy - s / 2, s, s);
+          }
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // ───────────────────────────────────────────────────────────────────
+      //  Player  ·  Miner entity — pure logic, no rendering
+      //  Migration note: update() stays identical; replace renderer calls
+      // ───────────────────────────────────────────────────────────────────
+      class Player {
+        constructor(cfg) {
+          this.cfg = cfg;
+          const pc = cfg.player;
+
+          // World-space position & velocity
+          this.x = 0;
+          this.y = 0;
+          this.vx = 0;
+          this.vy = 0;
+
+          this.angle = 0; // facing direction (radians)
+          this.speed = 0; // current speed magnitude (px/s)
+          this.isThrusting = false;
+
+          this.stamina = pc.maxStamina;
+          this.score = 0;
+          this.maxDepth = 0;
+          this.mineralCounts = {}; // { id: count } for stats
+
+          // PHASE 2 STUB: autoAdvance state
+          this._autoAngle = 0;
+        }
+
+        get distFromCenter() {
+          return Math.hypot(this.x, this.y) / this.cfg.world.tileSize;
+        }
+
+        update(dt, input, world, cam, particles) {
+          const pc = this.cfg.player;
+          const ts = this.cfg.world.tileSize;
+
+          // ── Direction toward mouse ──────────────────────────────
+          const [mx, my] = cam.screenToWorld(input.mx, input.my);
+          const toCursorDist = Math.hypot(mx - this.x, my - this.y);
+          if (toCursorDist > 10)
+            this.angle = Math.atan2(my - this.y, mx - this.x);
+
+          // ── Thrust ─────────────────────────────────────────────
+          this.isThrusting = input.lmb && this.stamina > 0 && toCursorDist > 22;
+          if (this.isThrusting) {
+            this.vx += Math.cos(this.angle) * pc.thrust * dt;
+            this.vy += Math.sin(this.angle) * pc.thrust * dt;
+          }
+
+          // PHASE 2 STUB: auto-advance at low speed
+          if (
+            pc.autoAdvance &&
+            !this.isThrusting &&
+            this.speed < pc.autoAdvanceSpeed
+          ) {
+            this.vx += Math.cos(this._autoAngle) * pc.thrust * 0.1 * dt;
+            this.vy += Math.sin(this._autoAngle) * pc.thrust * 0.1 * dt;
+          }
+
+          // ── Speed cap ──────────────────────────────────────────
+          this.speed = Math.hypot(this.vx, this.vy);
+          if (this.speed > pc.maxSpeed) {
+            const scale = pc.maxSpeed / this.speed;
+            this.vx *= scale;
+            this.vy *= scale;
+            this.speed = pc.maxSpeed;
+          }
+
+          // ── Drag (frame-rate independent: value^(dt*60)) ───────
+          const drag = Math.pow(
+            this.isThrusting ? pc.dragThrust : pc.dragCoast,
+            dt * 60,
+          );
+          this.vx *= drag;
+          this.vy *= drag;
+
+          // ── Integrate position ─────────────────────────────────
+          this.x += this.vx * dt;
+          this.y += this.vy * dt;
+
+          // ── Mine surrounding tiles (area mining) ───────────────
+          if (this.speed >= pc.minSpeedToMine) {
+            this._mine(world, particles);
+          }
+
+          // ── Passive stamina drain while thrusting ──────────────
+          if (this.isThrusting) {
+            this.stamina -= pc.passiveDrainPerTick * dt * 60;
+          }
+          this.stamina = Math.max(0, this.stamina);
+
+          // ── Track deepest reach ────────────────────────────────
+          const dep = Math.round(this.distFromCenter);
+          if (dep > this.maxDepth) this.maxDepth = dep;
+        }
+
+        // ── Destroy all tiles within drillRadius of player center ──
+        _mine(world, particles) {
+          const pc = this.cfg.player;
+          const ts = this.cfg.world.tileSize;
+          const r = pc.drillRadius * ts;
+
+          // Bounding box of drill circle
+          const gx0 = Math.floor((this.x - r) / ts) - 1;
+          const gx1 = Math.ceil((this.x + r) / ts) + 1;
+          const gy0 = Math.floor((this.y - r) / ts) - 1;
+          const gy1 = Math.ceil((this.y + r) / ts) + 1;
+
+          for (let gx = gx0; gx <= gx1; gx++) {
+            for (let gy = gy0; gy <= gy1; gy++) {
+              // Distance from player center to tile center
+              const tcx = (gx + 0.5) * ts;
+              const tcy = (gy + 0.5) * ts;
+              if (Math.hypot(tcx - this.x, tcy - this.y) > r) continue;
+
+              const cell = world.getCell(gx, gy);
+              if (!cell) continue;
+
+              // Stamina cost scales with mineral hardness
+              this.stamina -= cell.mineral.hardness * pc.staminaCostBase;
+              this.score += cell.mineral.value;
+              this.mineralCounts[cell.mineral.id] =
+                (this.mineralCounts[cell.mineral.id] || 0) + 1;
+
+              particles.emit(
+                tcx,
+                tcy,
+                cell.mineral.glow,
+                this.cfg.particles.perMineral,
+              );
+              world.removeCell(gx, gy);
+            }
+          }
+          this.stamina = Math.max(0, this.stamina);
+        }
+      }
+
+      // ───────────────────────────────────────────────────────────────────
+      //  Camera  ·  Smooth follow + coordinate transforms
+      //  Migration note: same logic; PixiJS uses stage.pivot / position
+      // ───────────────────────────────────────────────────────────────────
+      class Camera {
+        constructor(canvas) {
+          this.x = 0;
+          this.y = 0;
+          this.zoom = 1;
+          this.w = canvas.width;
+          this.h = canvas.height;
+        }
+
+        // Exponential smoothing — framerate independent
+        follow(target, dt, smoothing) {
+          const f = 1 - Math.pow(smoothing, dt * 60);
+          this.x += (target.x - this.x) * f;
+          this.y += (target.y - this.y) * f;
+        }
+
+        resize(w, h) {
+          this.w = w;
+          this.h = h;
+        }
+
+        toScreen(wx, wy) {
+          return [
+            (wx - this.x) * this.zoom + this.w / 2,
+            (wy - this.y) * this.zoom + this.h / 2,
+          ];
+        }
+
+        screenToWorld(sx, sy) {
+          return [
+            (sx - this.w / 2) / this.zoom + this.x,
+            (sy - this.h / 2) / this.zoom + this.y,
+          ];
+        }
+      }
+
+      // ───────────────────────────────────────────────────────────────────
+      //  Renderer  ·  Canvas2D drawing — all visual code lives here
+      //  Migration note: replace each method body with PixiJS equivalents
+      //    · renderWorld    → update TilingSprite / Container children
+      //    · renderPlayer   → update Sprite transform & shader
+      //    · renderHUD      → swap to React overlay or PixiJS Text
+      //    · renderParticles → ParticleContainer.children
+      // ───────────────────────────────────────────────────────────────────
+      class Renderer {
+        constructor(canvas, cfg) {
+          this.canvas = canvas;
+          this.ctx = canvas.getContext("2d");
+          this.cfg = cfg;
+
+          // Pre-baked star field (normalized positions)
+          this._stars = Array.from({ length: 180 }, () => ({
+            px: Math.random(),
+            py: Math.random(),
+            r: 0.4 + Math.random() * 1.3,
+            a: 0.07 + Math.random() * 0.28,
+          }));
+        }
+
+        resize(w, h) {
+          this.canvas.width = w;
+          this.canvas.height = h;
+        }
+
+        clear() {
+          this.ctx.fillStyle = "#04050c";
+          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+
+        // ── Parallax stars + world-aligned grid ──────────────────────
+        renderBackground(cam) {
+          const ctx = this.ctx;
+          const W = this.canvas.width;
+          const H = this.canvas.height;
+
+          // Stars with slow parallax (factor 0.04 → very distant)
+          ctx.fillStyle = "#ffffff";
+          for (const s of this._stars) {
+            const sx = (((s.px * W - cam.x * 0.04) % W) + W) % W;
+            const sy = (((s.py * H - cam.y * 0.04) % H) + H) % H;
+            ctx.globalAlpha = s.a;
+            ctx.beginPath();
+            ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+
+          // World-aligned faint grid lines
+          const ts = this.cfg.world.tileSize;
+          const tsPx = ts * cam.zoom;
+
+          // First grid line visible on screen (world-aligned)
+          const worldLeft = cam.x - cam.w / 2 / cam.zoom;
+          const worldTop = cam.y - cam.h / 2 / cam.zoom;
+          const startX =
+            (Math.floor(worldLeft / ts) * ts - cam.x) * cam.zoom + cam.w / 2;
+          const startY =
+            (Math.floor(worldTop / ts) * ts - cam.y) * cam.zoom + cam.h / 2;
+
+          ctx.strokeStyle = "#ffffff06";
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          for (let x = startX; x < W + tsPx; x += tsPx) {
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, H);
+          }
+          for (let y = startY; y < H + tsPx; y += tsPx) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(W, y);
+          }
+          ctx.stroke();
+        }
+
+        // ── Spawn beacon at world origin ─────────────────────────────
+        renderOriginMarker(cam) {
+          const ctx = this.ctx;
+          const [sx, sy] = cam.toScreen(0, 0);
+          const r =
+            this.cfg.world.clearRadius * this.cfg.world.tileSize * cam.zoom;
+
+          // Skip if entirely off-screen
+          if (
+            sx < -r - 20 ||
+            sx > cam.w + r + 20 ||
+            sy < -r - 20 ||
+            sy > cam.h + r + 20
+          )
+            return;
+
+          // Dashed circle at clear-radius boundary
+          ctx.beginPath();
+          ctx.arc(sx, sy, r, 0, Math.PI * 2);
+          ctx.strokeStyle = "#34d39920";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 7]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Center dot
+          ctx.fillStyle = "#34d39955";
+          ctx.beginPath();
+          ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Label
+          ctx.fillStyle = "#34d39933";
+          ctx.font = '8px "Courier New"';
+          ctx.textAlign = "center";
+          ctx.fillText("SPAWN", sx, sy + r + 13);
+          ctx.textAlign = "left";
+        }
+
+        // ── Mineral tiles ─────────────────────────────────────────────
+        renderWorld(world, cam) {
+          const ctx = this.ctx;
+          const ts = this.cfg.world.tileSize;
+          const tsPx = ts * cam.zoom;
+          const gap = Math.max(0.5, tsPx * 0.06); // inter-tile gap
+
+          // Visible tile range
+          const hw = cam.w / 2 / cam.zoom;
+          const hh = cam.h / 2 / cam.zoom;
+          const gx0 = Math.floor((cam.x - hw) / ts) - 1;
+          const gx1 = Math.ceil((cam.x + hw) / ts) + 1;
+          const gy0 = Math.floor((cam.y - hh) / ts) - 1;
+          const gy1 = Math.ceil((cam.y + hh) / ts) + 1;
+
+          for (let gx = gx0; gx <= gx1; gx++) {
+            for (let gy = gy0; gy <= gy1; gy++) {
+              const cell = world.getCell(gx, gy);
+              if (!cell) continue;
+
+              const m = cell.mineral;
+              const sx = (gx * ts - cam.x) * cam.zoom + cam.w / 2;
+              const sy = (gy * ts - cam.y) * cam.zoom + cam.h / 2;
+
+              // Glow on harder / rarer minerals
+              if (m.hardness >= 8) {
+                ctx.shadowBlur = tsPx * 0.75;
+                ctx.shadowColor = m.glow;
+              }
+
+              ctx.fillStyle = m.color;
+              ctx.fillRect(sx + gap, sy + gap, tsPx - gap * 2, tsPx - gap * 2);
+              ctx.shadowBlur = 0;
+
+              // Small gem highlight dot on rare minerals (hardness ≥ 5)
+              if (m.hardness >= 5 && tsPx > 10) {
+                const ds = Math.max(1.5, tsPx * 0.13);
+                ctx.globalAlpha = 0.6;
+                ctx.fillStyle = m.glow;
+                ctx.fillRect(sx + gap + 1.5, sy + gap + 1.5, ds, ds);
+                ctx.globalAlpha = 1;
+              }
+            }
+          }
+        }
+
+        // ── Player ship ───────────────────────────────────────────────
+        renderPlayer(player, cam) {
+          const ctx = this.ctx;
+          const [sx, sy] = cam.toScreen(player.x, player.y);
+          const sz = Math.max(8, 11 * cam.zoom);
+
+          ctx.save();
+          ctx.translate(sx, sy);
+          ctx.rotate(player.angle);
+
+          // Thruster flame (flickering ellipse behind ship)
+          if (player.isThrusting) {
+            const flicker = 0.82 + Math.random() * 0.36;
+            const fl = ctx.createRadialGradient(
+              -sz * 0.85,
+              0,
+              0,
+              -sz * 0.85,
+              0,
+              sz * 2.1 * flicker,
+            );
+            fl.addColorStop(0, "#ff9500cc");
+            fl.addColorStop(0.35, "#ff550066");
+            fl.addColorStop(1, "#ff000000");
+            ctx.fillStyle = fl;
+            ctx.beginPath();
+            ctx.ellipse(
+              -sz * 0.85,
+              0,
+              sz * 2.1 * flicker,
+              sz * 0.52,
+              0,
+              0,
+              Math.PI * 2,
+            );
+            ctx.fill();
+          }
+
+          // Ship body glow
+          ctx.shadowBlur = sz * 1.1;
+          ctx.shadowColor = "#7dd3fc";
+
+          // Hull — chevron shape
+          ctx.fillStyle = "#dbeafe";
+          ctx.beginPath();
+          ctx.moveTo(sz * 1.0, 0);
+          ctx.lineTo(-sz * 0.52, -sz * 0.5);
+          ctx.lineTo(-sz * 0.2, 0);
+          ctx.lineTo(-sz * 0.52, sz * 0.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Drill tip (gold) with glow
+          ctx.shadowBlur = sz * 0.75;
+          ctx.shadowColor = "#fde047";
+          ctx.fillStyle = "#fbbf24";
+          ctx.beginPath();
+          ctx.moveTo(sz * 0.88, -sz * 0.17);
+          ctx.lineTo(sz * 1.38, 0);
+          ctx.lineTo(sz * 0.88, sz * 0.17);
+          ctx.closePath();
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          ctx.restore();
+
+          // Drill radius indicator (dashed circle, visible at mining speed)
+          if (player.speed > this.cfg.player.minSpeedToMine * 0.55) {
+            const r =
+              this.cfg.player.drillRadius * this.cfg.world.tileSize * cam.zoom;
+            const alpha = Math.min(
+              1,
+              (player.speed - this.cfg.player.minSpeedToMine * 0.55) / 40,
+            );
+            ctx.beginPath();
+            ctx.arc(sx, sy, r, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(251,191,36,${0.22 * alpha})`;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+        }
+
+        // ── HUD — Fuel, Score, Depth, Breakout progress ───────────────
+        renderHUD(player) {
+          const ctx = this.ctx;
+          const W = this.canvas.width;
+          const H = this.canvas.height;
+          const pc = this.cfg.player;
+          const ratio = player.stamina / pc.maxStamina;
+
+          // ─ Fuel bar (bottom-left) ─
+          const barW = Math.min(220, W * 0.2);
+          const barH = 11;
+          const bx = 22;
+          const by = H - 42;
+
+          ctx.fillStyle = "#ffffff07";
+          ctx.fillRect(bx, by, barW, barH);
+
+          const fuelColor =
+            ratio < 0.2 ? "#ef4444" : ratio < 0.45 ? "#f59e0b" : "#34d399";
+          ctx.fillStyle = fuelColor;
+          ctx.fillRect(bx, by, barW * ratio, barH);
+
+          ctx.strokeStyle = "#ffffff15";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(bx, by, barW, barH);
+
+          ctx.fillStyle = "#475569";
+          ctx.font = '10px "Courier New"';
+          ctx.fillText("FUEL", bx, by - 6);
+
+          ctx.fillStyle = fuelColor;
+          ctx.fillText(
+            `${Math.ceil(player.stamina)} / ${pc.maxStamina}`,
+            bx + barW + 8,
+            by + 8,
+          );
+
+          // ─ Critical warning pulse ─
+          if (ratio < 0.2) {
+            const pulse = 0.3 + 0.28 * Math.sin(performance.now() * 0.007);
+            ctx.fillStyle = `rgba(239,68,68,${pulse})`;
+            ctx.font = 'bold 12px "Courier New"';
+            ctx.fillText("⚠ FUEL CRITICAL", bx, by - 21);
+          }
+
+          // ─ Score (top-right) ─
+          ctx.textAlign = "right";
+          ctx.fillStyle = "#fde047";
+          ctx.font = 'bold 18px "Courier New"';
+          ctx.fillText(`◆ ${player.score}`, W - 22, 30);
+
+          // ─ Depth (top-right) ─
+          ctx.fillStyle = "#475569";
+          ctx.font = '11px "Courier New"';
+          ctx.fillText(
+            `DEPTH  ${Math.round(player.distFromCenter)}`,
+            W - 22,
+            48,
+          );
+
+          // ─ Speed readout ─
+          const spd = Math.round(player.speed);
+          const canMine = spd >= pc.minSpeedToMine;
+          ctx.fillStyle = canMine ? "#22d3ee66" : "#1e293b";
+          ctx.font = '10px "Courier New"';
+          ctx.fillText(
+            `▶ ${spd} u/s${canMine ? " [DRILLING]" : ""}`,
+            W - 22,
+            64,
+          );
+
+          ctx.textAlign = "left";
+
+          // ─ Breakout progress bar (bottom-center) ─
+          const pct = Math.min(1, player.distFromCenter / pc.winDistance);
+          const pbW = Math.min(180, W * 0.16);
+          const pbx = W / 2 - pbW / 2;
+          const pby = H - 42;
+
+          ctx.fillStyle = "#ffffff05";
+          ctx.fillRect(pbx, pby, pbW, barH);
+
+          const bkColor =
+            pct > 0.8 ? "#34d399" : pct > 0.5 ? "#38bdf8" : "#1e40af";
+          ctx.fillStyle = bkColor;
+          ctx.fillRect(pbx, pby, pbW * pct, barH);
+
+          ctx.strokeStyle = "#ffffff0f";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(pbx, pby, pbW, barH);
+
+          ctx.fillStyle = pct > 0.7 ? "#34d399aa" : "#1e3a5f";
+          ctx.font = '9px "Courier New"';
+          ctx.textAlign = "center";
+          ctx.fillText(`BREAKOUT ${Math.round(pct * 100)}%`, W / 2, pby - 5);
+          ctx.textAlign = "left";
+        }
+      }
+
+      // ───────────────────────────────────────────────────────────────────
+      //  GameEngine  ·  Main orchestrator + game loop
+      //  Migration note: mount in React useEffect; expose subsystems as refs
+      // ───────────────────────────────────────────────────────────────────
+      class GameEngine {
+        constructor(cfg) {
+          this.cfg = cfg;
+          this.running = false;
+          this._raf = null;
+          this._lastTs = 0;
+
+          // Subsystems (null until init())
+          this.canvas = null;
+          this.input = null;
+          this.camera = null;
+          this.world = null;
+          this.player = null;
+          this.particles = null;
+          this.renderer = null;
+
+          this._onResize = this._onResize.bind(this);
+        }
+
+        // ── Build all subsystems ─────────────────────────────────────
+        init() {
+          this.canvas = document.getElementById("c");
+          this.canvas.width = window.innerWidth;
+          this.canvas.height = window.innerHeight;
+
+          this.input = new InputManager(this.canvas);
+          this.camera = new Camera(this.canvas);
+          this.world = new World(this.cfg);
+          this.player = new Player(this.cfg);
+          this.particles = new ParticleSystem(this.cfg);
+          this.renderer = new Renderer(this.canvas, this.cfg);
+
+          this.input.bind();
+          window.addEventListener("resize", this._onResize);
+
+          // Generate terrain around spawn
+          const vr = Math.hypot(window.innerWidth, window.innerHeight) * 0.9;
+          this.world.ensureAround(0, 0, vr);
+        }
+
+        start() {
+          this.running = true;
+          this._lastTs = 0;
+          this._raf = requestAnimationFrame((ts) => this._loop(ts));
+        }
+
+        stop() {
+          this.running = false;
+          if (this._raf) {
+            cancelAnimationFrame(this._raf);
+            this._raf = null;
+          }
+        }
+
+        // ── Tear down (unbind events) ────────────────────────────────
+        destroy() {
+          this.stop();
+          this.input?.unbind();
+          window.removeEventListener("resize", this._onResize);
+        }
+
+        // ── Full reset without destroying subsystem references ───────
+        restart() {
+          this.stop();
+          this.world = new World(this.cfg);
+          this.player = new Player(this.cfg);
+          this.particles = new ParticleSystem(this.cfg);
+          this.camera = new Camera(this.canvas);
+
+          const vr = Math.hypot(this.canvas.width, this.canvas.height) * 0.9;
+          this.world.ensureAround(0, 0, vr);
+
+          this._lastTs = 0;
+          this.running = true;
+          this._raf = requestAnimationFrame((ts) => this._loop(ts));
+        }
+
+        // ── Main loop ────────────────────────────────────────────────
+        _loop(ts) {
+          if (!this.running) return;
+
+          // Cap dt to avoid spiral-of-death on tab-switch / slow frames
+          const dt = this._lastTs
+            ? Math.min((ts - this._lastTs) / 1000, 0.05)
+            : 0.016;
+          this._lastTs = ts;
+
+          this._update(dt);
+          this._render();
+
+          // End conditions
+          if (this.player.stamina <= 0) {
+            this._endGame(false);
+            return;
+          }
+          if (this.player.distFromCenter >= this.cfg.player.winDistance) {
+            this._endGame(true);
+            return;
+          }
+
+          this._raf = requestAnimationFrame((ts) => this._loop(ts));
+        }
+
+        _update(dt) {
+          const vr = Math.hypot(this.canvas.width, this.canvas.height) * 0.9;
+          this.world.ensureAround(this.player.x, this.player.y, vr);
+
+          this.player.update(
+            dt,
+            this.input,
+            this.world,
+            this.camera,
+            this.particles,
+          );
+          this.camera.follow(this.player, dt, this.cfg.camera.smoothing);
+          this.particles.update(dt);
+        }
+
+        _render() {
+          this.renderer.clear();
+          this.renderer.renderBackground(this.camera);
+          this.renderer.renderOriginMarker(this.camera);
+          this.renderer.renderWorld(this.world, this.camera);
+          this.particles.render(this.renderer.ctx, this.camera);
+          this.renderer.renderPlayer(this.player, this.camera);
+          this.renderer.renderHUD(this.player);
+        }
+
+        // ── Show end screen ──────────────────────────────────────────
+        _endGame(won) {
+          this.stop();
+          document.getElementById("e-score").textContent = this.player.score;
+          document.getElementById("e-depth").textContent =
+            this.player.maxDepth + " tiles";
+          document.getElementById("e-mined").textContent =
+            this.world.totalMined;
+
+          const title = document.getElementById("end-title");
+          const sub = document.getElementById("end-sub");
+          if (won) {
+            title.textContent = "BREAKOUT!";
+            title.className = "win";
+            sub.textContent = "you escaped the vein";
+          } else {
+            title.textContent = "FUEL DEPLETED";
+            title.className = "lose";
+            sub.textContent = "run out of fuel";
+          }
+          document.getElementById("screen-end").classList.add("active");
+        }
+
+        _onResize() {
+          this.canvas.width = window.innerWidth;
+          this.canvas.height = window.innerHeight;
+          this.camera.resize(this.canvas.width, this.canvas.height);
+        }
+      }
+
+      // ───────────────────────────────────────────────────────────────────
+      //  Bootstrap
+      // ───────────────────────────────────────────────────────────────────
+      const game = new GameEngine(CONFIG);
+      game.init();
+
+      // Render background on start screen (makes it feel alive)
+      (function bgPreview() {
+        game.renderer.clear();
+        game.renderer.renderBackground(game.camera);
+        if (
+          document.getElementById("screen-start").classList.contains("active")
+        ) {
+          requestAnimationFrame(bgPreview);
+        }
+      })();
+
+      document.getElementById("btn-start").addEventListener("click", () => {
+        document.getElementById("screen-start").classList.remove("active");
+        game.start();
+      });
+
+      document.getElementById("btn-restart").addEventListener("click", () => {
+        document.getElementById("screen-end").classList.remove("active");
+        game.restart();
+      });
+    </script>
+  </body>
+</html>

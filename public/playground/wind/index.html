@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wind Visualization</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050a0f;
+            /* Deep dark blue */
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height, particles;
+        const particleCount = 1200;
+        const fieldScale = 0.005; // Control the "curliness" of the wind
+        const step = 2; // Movement speed
+
+        class Particle {
+            constructor() {
+                this.init();
+            }
+
+            init() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.oldX = this.x;
+                this.oldY = this.y;
+                this.life = Math.random() * 100 + 50;
+                this.hue = 180 + Math.random() * 40; // Soft blues/cyans
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.strokeStyle = `hsla(${this.hue}, 70%, 60%, 0.3)`;
+                ctx.lineWidth = 1;
+                ctx.moveTo(this.oldX, this.oldY);
+                ctx.lineTo(this.x, this.y);
+                ctx.stroke();
+            }
+
+            update(time) {
+                this.oldX = this.x;
+                this.oldY = this.y;
+
+                // Simplified Noise: using Sine/Cosine to simulate wind gusts
+                // In a pro version, you'd use a Simplex Noise library here
+                const angle = Math.sin(this.x * fieldScale) + Math.cos(this.y * fieldScale) + (time * 0.0005);
+
+                this.x += Math.cos(angle * Math.PI * 2) * step;
+                this.y += Math.sin(angle * Math.PI * 2) * step;
+
+                this.life--;
+
+                // Wrap around screen or reset if dead
+                if (this.life <= 0 || this.x < 0 || this.x > width || this.y < 0 || this.y > height) {
+                    this.init();
+                }
+            }
+        }
+
+        function init() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            particles = [];
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function animate(time) {
+            ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.fillRect(0, 0, width, height); // Fade effect
+            for (i = 0; i < 100; i++) {
+                ctx.strokeStyle = `hsla(200, 50%, 80%, ${Math.random()})`;
+                ctx.beginPath();
+                // The "Wind" math: y is baseline, x moves across, sin creates the wave
+                ctx.moveTo(x = Math.random() * width, y = Math.random() * height);
+                ctx.lineTo(x + Math.cos(y * 0.01) * 50, y + Math.sin(x * 0.01) * 10);
+                ctx.stroke();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', init);
+
+        init();
+        animate(0);
+    </script>
+</body>
+
+</html>

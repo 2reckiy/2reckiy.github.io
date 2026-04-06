@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Bullet Heaven Prototype</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #0d0d0d;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+
+    <script>
+      /* =========================
+   CANVAS
+========================= */
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
+
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      /* =========================
+   PLAYER
+========================= */
+      const player = {
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        r: 12,
+
+        speed: 260,
+        accel: 12,
+        stopRadius: 6,
+
+        vx: 0,
+        vy: 0,
+        tx: null,
+        ty: null,
+
+        fireRate: 0.25,
+        fireTimer: 0,
+      };
+
+      /* =========================
+   GAME OBJECTS
+========================= */
+      const enemies = [];
+      const bullets = [];
+      const xpOrbs = [];
+
+      /* =========================
+   INPUT
+========================= */
+      canvas.addEventListener("click", (e) => {
+        const r = canvas.getBoundingClientRect();
+        player.tx = e.clientX - r.left;
+        player.ty = e.clientY - r.top;
+      });
+
+      /* =========================
+   SPAWNERS
+========================= */
+      function spawnEnemy() {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.max(canvas.width, canvas.height) * 0.6;
+
+        enemies.push({
+          x: player.x + Math.cos(angle) * dist,
+          y: player.y + Math.sin(angle) * dist,
+          r: 10,
+          hp: 3,
+          speed: 60,
+        });
+      }
+
+      /* =========================
+   SYSTEMS
+========================= */
+      function updatePlayer(dt) {
+        if (player.tx !== null) {
+          const dx = player.tx - player.x;
+          const dy = player.ty - player.y;
+          const d = Math.hypot(dx, dy);
+
+          if (d < player.stopRadius) {
+            player.vx *= 0.8;
+            player.vy *= 0.8;
+            if (Math.hypot(player.vx, player.vy) < 5) {
+              player.vx = player.vy = 0;
+              player.tx = player.ty = null;
+            }
+          } else {
+            const dirX = dx / d;
+            const dirY = dy / d;
+            const slow = Math.min(d / 120, 1);
+
+            const dvx = dirX * player.speed * slow;
+            const dvy = dirY * player.speed * slow;
+
+            player.vx += (dvx - player.vx) * player.accel * dt;
+            player.vy += (dvy - player.vy) * player.accel * dt;
+          }
+        }
+
+        player.x += player.vx * dt;
+        player.y += player.vy * dt;
+      }
+
+      function updateEnemies(dt) {
+        for (const e of enemies) {
+          const dx = player.x - e.x;
+          const dy = player.y - e.y;
+          const d = Math.hypot(dx, dy);
+          e.x += (dx / d) * e.speed * dt;
+          e.y += (dy / d) * e.speed * dt;
+        }
+      }
+
+      function autoFire(dt) {
+        player.fireTimer -= dt;
+        if (player.fireTimer > 0) return;
+
+        let nearest = null;
+        let minDist = Infinity;
+
+        for (const e of enemies) {
+          const d = Math.hypot(e.x - player.x, e.y - player.y);
+          if (d < minDist) {
+            minDist = d;
+            nearest = e;
+          }
+        }
+
+        if (!nearest) return;
+
+        const dx = nearest.x - player.x;
+        const dy = nearest.y - player.y;
+        const d = Math.hypot(dx, dy);
+
+        bullets.push({
+          x: player.x,
+          y: player.y,
+          vx: (dx / d) * 420,
+          vy: (dy / d) * 420,
+          life: 1.2,
+        });
+
+        player.fireTimer = player.fireRate;
+      }
+
+      function updateBullets(dt) {
+        for (let i = bullets.length - 1; i >= 0; i--) {
+          const b = bullets[i];
+          b.x += b.vx * dt;
+          b.y += b.vy * dt;
+          b.life -= dt;
+
+          for (let j = enemies.length - 1; j >= 0; j--) {
+            const e = enemies[j];
+            if (Math.hypot(b.x - e.x, b.y - e.y) < e.r) {
+              e.hp--;
+              bullets.splice(i, 1);
+              if (e.hp <= 0) {
+                enemies.splice(j, 1);
+                xpOrbs.push({ x: e.x, y: e.y });
+              }
+              break;
+            }
+          }
+
+          if (b.life <= 0) bullets.splice(i, 1);
+        }
+      }
+
+      function updateXP(dt) {
+        for (let i = xpOrbs.length - 1; i >= 0; i--) {
+          const o = xpOrbs[i];
+          const dx = player.x - o.x;
+          const dy = player.y - o.y;
+          const d = Math.hypot(dx, dy);
+
+          if (d < 12) {
+            xpOrbs.splice(i, 1);
+            continue;
+          }
+
+          if (d < 120) {
+            o.x += (dx / d) * 180 * dt;
+            o.y += (dy / d) * 180 * dt;
+          }
+        }
+      }
+
+      /* =========================
+   RENDER
+========================= */
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // XP
+        ctx.fillStyle = "#44f";
+        for (const o of xpOrbs) {
+          ctx.beginPath();
+          ctx.arc(o.x, o.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Bullets
+        ctx.fillStyle = "#ffd54f";
+        for (const b of bullets) {
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Enemies
+        ctx.fillStyle = "#e53935";
+        for (const e of enemies) {
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Player
+        ctx.fillStyle = "#4caf50";
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      /* =========================
+   LOOP
+========================= */
+      let last = performance.now();
+      let spawnTimer = 0;
+
+      function loop(now) {
+        const dt = (now - last) / 1000;
+        last = now;
+
+        spawnTimer -= dt;
+        if (spawnTimer <= 0) {
+          spawnEnemy();
+          spawnTimer = 0.8;
+        }
+
+        updatePlayer(dt);
+        updateEnemies(dt);
+        autoFire(dt);
+        updateBullets(dt);
+        updateXP(dt);
+        draw();
+
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    </script>
+  </body>
+</html>

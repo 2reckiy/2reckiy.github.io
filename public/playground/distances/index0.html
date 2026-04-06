@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Canvas Drop & Distance Prototype</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: system-ui, Segoe UI, Roboto, Arial;
+      }
+      #app {
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+      #sidebar {
+        width: 260px;
+        padding: 12px;
+        background: #0f1724;
+        color: #e6eef8;
+        box-shadow: 2px 0 12px rgba(2, 6, 23, 0.6);
+      }
+      #sidebar h2 {
+        margin: 6px 0 12px;
+        font-size: 16px;
+      }
+      #sidebar button {
+        display: inline-block;
+        margin: 6px 6px 6px 0;
+        padding: 8px 10px;
+        border: 0;
+        border-radius: 8px;
+        background: #23304a;
+        color: white;
+        cursor: pointer;
+      }
+      #sidebar input[type="file"] {
+        display: none;
+      }
+      #canvasWrap {
+        flex: 1;
+        position: relative;
+        background: linear-gradient(180deg, #0b1220, #07101a);
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #hud {
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.35);
+        padding: 8px;
+        border-radius: 8px;
+        font-size: 13px;
+      }
+      #instructions {
+        position: absolute;
+        right: 12px;
+        top: 12px;
+        color: #0b1220;
+        background: #e6eef8;
+        padding: 8px;
+        border-radius: 8px;
+        font-size: 13px;
+        max-width: 320px;
+      }
+      .object-list {
+        font-size: 13px;
+        margin-top: 8px;
+        max-height: 240px;
+        overflow: auto;
+      }
+      .tiny {
+        font-size: 12px;
+        color: #a9b6c9;
+      }
+      .dropHint {
+        margin-top: 10px;
+        padding: 8px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        font-size: 13px;
+      }
+      footer {
+        position: absolute;
+        left: 12px;
+        bottom: 12px;
+        color: #9fb1d0;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="sidebar">
+        <h2>Prototype Controls</h2>
+        <div>
+          <button id="addCircle">Add Circle</button>
+          <button id="addSquare">Add Square</button>
+          <button id="clearBtn">Clear All</button>
+        </div>
+        <div style="margin-top: 8px">
+          <button id="exportBtn">Export JSON</button>
+          <button id="importBtn">Import JSON</button>
+          <input id="importFile" type="file" accept="application/json" />
+        </div>
+        <div style="margin-top: 10px">
+          <label class="tiny">Pixel scale:</label>
+          <input
+            id="pixelScale"
+            type="number"
+            value="1"
+            step="0.01"
+            style="
+              width: 100%;
+              margin-top: 6px;
+              padding: 6px;
+              border-radius: 6px;
+              border: 0;
+            " />
+        </div>
+
+        <div class="dropHint">
+          Drag image files from your computer onto the canvas to create image
+          objects.
+        </div>
+
+        <h2 style="margin-top: 12px">Objects</h2>
+        <div id="objectList" class="object-list tiny"></div>
+
+        <div style="margin-top: 8px" class="tiny">
+          Selection: click to select. Hold <b>Shift</b> to multi-select. When
+          exactly <b>2</b> objects are selected, distance is shown and line is
+          drawn. Press <b>Delete</b> to remove selected objects.
+        </div>
+      </div>
+
+      <div id="canvasWrap">
+        <canvas id="c"></canvas>
+        <div id="hud">
+          Selected: <span id="selCount">0</span> &nbsp;|&nbsp; Distance:
+          <span id="distance">—</span>
+        </div>
+        <div id="instructions">
+          <b>How to use</b>
+          <ul style="margin: 6px 0 0; padding-left: 18px">
+            <li>
+              Click <b>Add Circle</b> or <b>Add Square</b> to place objects at
+              center
+            </li>
+            <li>Drag objects to move them</li>
+            <li>Drop image files onto the canvas to add image objects</li>
+            <li>Select two objects to measure distance (pixels)</li>
+            <li>Export/Import JSON to save/load scene</li>
+          </ul>
+        </div>
+        <footer>Prototype — click & drag to interact</footer>
+      </div>
+    </div>
+
+    <script>
+      // Single-file canvas drop + distance prototype
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
+      let DPR = window.devicePixelRatio || 1;
+      function resize() {
+        DPR = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(canvas.clientWidth * DPR);
+        canvas.height = Math.floor(canvas.clientHeight * DPR);
+      }
+      window.addEventListener("resize", () => {
+        resize();
+        draw();
+      });
+      resize();
+
+      // State
+      let objects = []; // {id,type,x,y,w,h,r,fill,image}
+      let drag = { obj: null, offsetX: 0, offsetY: 0 };
+      let selected = new Set();
+      const hudSel = document.getElementById("selCount");
+      const hudDist = document.getElementById("distance");
+      const objectListEl = document.getElementById("objectList");
+      const pixelScaleInput = document.getElementById("pixelScale");
+
+      // Utils
+      function uid() {
+        return Math.random().toString(36).slice(2, 9);
+      }
+      function clearSelection() {
+        selected.clear();
+        updateHUD();
+      }
+      function toCanvasCoords(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: (clientX - rect.left) * (canvas.width / rect.width),
+          y: (clientY - rect.top) * (canvas.height / rect.height),
+        };
+      }
+      function dist(a, b) {
+        const dx = a.x - b.x,
+          dy = a.y - b.y;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      // Drawing
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // background grid
+        const step = 40 * DPR;
+        ctx.save();
+        ctx.fillStyle = "#07101a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "rgba(255,255,255,0.02)";
+        ctx.lineWidth = 1;
+        for (let x = 0; x < canvas.width; x += step) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, canvas.height);
+          ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += step) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(canvas.width, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // Draw objects
+        for (const o of objects) {
+          ctx.save();
+          ctx.translate(o.x, o.y);
+          if (o.type === "image" && o.image) {
+            const iw = o.w,
+              ih = o.h;
+            ctx.drawImage(o.image, -iw / 2, -ih / 2, iw, ih);
+          } else if (o.type === "circle") {
+            ctx.beginPath();
+            ctx.arc(0, 0, o.r, 0, Math.PI * 2);
+            ctx.fillStyle = o.fill;
+            ctx.fill();
+          } else if (o.type === "square") {
+            ctx.beginPath();
+            ctx.rect(-o.w / 2, -o.h / 2, o.w, o.h);
+            ctx.fillStyle = o.fill;
+            ctx.fill();
+          }
+          // Outline if selected
+          if (selected.has(o.id)) {
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "rgba(255,210,75,0.95)";
+            if (o.type === "circle") {
+              ctx.beginPath();
+              ctx.arc(0, 0, o.r + 4, 0, Math.PI * 2);
+              ctx.stroke();
+            } else {
+              ctx.beginPath();
+              ctx.rect(-o.w / 2 - 4, -o.h / 2 - 4, o.w + 8, o.h + 8);
+              ctx.stroke();
+            }
+          }
+          // ID label
+          ctx.font = `${12 * DPR}px sans-serif`;
+          ctx.fillStyle = "rgba(255,255,255,0.9)";
+          ctx.textAlign = "center";
+          ctx.fillText(o.id, 0, o.type === "circle" ? o.r + 18 : o.h / 2 + 16);
+          ctx.restore();
+        }
+
+        // If exactly two selected, draw distance line
+        if (selected.size === 2) {
+          const ids = Array.from(selected);
+          const a = objects.find((x) => x.id === ids[0]);
+          const b = objects.find((x) => x.id === ids[1]);
+          if (a && b) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.lineWidth = 2 * DPR;
+            ctx.strokeStyle = "rgba(255,255,255,0.95)";
+            ctx.stroke();
+            // midpoint label
+            const mx = (a.x + b.x) / 2,
+              my = (a.y + b.y) / 2;
+            const pixels = Math.round(dist(a, b) / DPR);
+            const scale = parseFloat(pixelScaleInput.value) || 1;
+            const units = (pixels * scale).toFixed(2);
+            ctx.fillStyle = "rgba(10,14,20,0.9)";
+            ctx.fillRect(mx - 48 * DPR, my - 18 * DPR, 96 * DPR, 22 * DPR);
+            ctx.fillStyle = "white";
+            ctx.font = `${12 * DPR}px sans-serif`;
+            ctx.textAlign = "center";
+            ctx.fillText(`${units} px (raw ${pixels}px)`, mx, my + 6 * DPR);
+            ctx.restore();
+          }
+        }
+      }
+
+      // Create objects
+      function createCircle(x, y, r = 30 * DPR) {
+        const o = { id: uid(), type: "circle", x, y, r, fill: "#2ea3ff" };
+        objects.push(o);
+        updateObjectList();
+        draw();
+        return o;
+      }
+      function createSquare(x, y, w = 60 * DPR) {
+        const o = { id: uid(), type: "square", x, y, w, h: w, fill: "#8be26b" };
+        objects.push(o);
+        updateObjectList();
+        draw();
+        return o;
+      }
+      function createImage(x, y, img) {
+        const scale = DPR > 1 ? 1.0 : 1.0;
+        const maxDim = 160 * DPR;
+        const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = img.width * ratio * scale;
+        const h = img.height * ratio * scale;
+        const o = { id: uid(), type: "image", x, y, w, h, image: img };
+        objects.push(o);
+        updateObjectList();
+        draw();
+        return o;
+      }
+
+      // Helpers for hit testing
+      function hitTest(px, py) {
+        // iterate from top
+        for (let i = objects.length - 1; i >= 0; i--) {
+          const o = objects[i];
+          if (o.type === "circle") {
+            const d = Math.hypot(px - o.x, py - o.y);
+            if (d <= o.r + 4 * DPR) return o;
+          } else if (o.type === "square") {
+            if (
+              px >= o.x - o.w / 2 &&
+              px <= o.x + o.w / 2 &&
+              py >= o.y - o.h / 2 &&
+              py <= o.y + o.h / 2
+            )
+              return o;
+          } else if (o.type === "image") {
+            if (
+              px >= o.x - o.w / 2 &&
+              px <= o.x + o.w / 2 &&
+              py >= o.y - o.h / 2 &&
+              py <= o.y + o.h / 2
+            )
+              return o;
+          }
+        }
+        return null;
+      }
+
+      // Mouse interaction
+      canvas.addEventListener("mousedown", (ev) => {
+        const p = toCanvasCoords(ev.clientX, ev.clientY);
+        const o = hitTest(p.x, p.y);
+        if (o) {
+          // start dragging
+          drag.obj = o;
+          drag.offsetX = p.x - o.x;
+          drag.offsetY = p.y - o.y;
+          // selection handling
+          if (ev.shiftKey) {
+            if (selected.has(o.id)) selected.delete(o.id);
+            else selected.add(o.id);
+          } else {
+            if (!selected.has(o.id) || selected.size > 1) {
+              selected.clear();
+              selected.add(o.id);
+            }
+          }
+          updateHUD();
+          draw();
+        } else {
+          // clicked empty space -> clear selection (unless shift)
+          if (!ev.shiftKey) clearSelection();
+        }
+      });
+
+      window.addEventListener("mousemove", (ev) => {
+        if (!drag.obj) return;
+        const p = toCanvasCoords(ev.clientX, ev.clientY);
+        drag.obj.x = p.x - drag.offsetX;
+        drag.obj.y = p.y - drag.offsetY;
+        updateObjectList();
+        draw();
+      });
+
+      window.addEventListener("mouseup", () => {
+        drag.obj = null;
+      });
+
+      // Keyboard
+      window.addEventListener("keydown", (ev) => {
+        if (ev.key === "Delete" || ev.key === "Backspace") {
+          // remove selected
+          if (selected.size > 0) {
+            objects = objects.filter((o) => !selected.has(o.id));
+            selected.clear();
+            updateHUD();
+            updateObjectList();
+            draw();
+          }
+        }
+      });
+
+      // UI buttons
+      document.getElementById("addCircle").addEventListener("click", () => {
+        createCircle(canvas.width / 2, canvas.height / 2);
+      });
+      document.getElementById("addSquare").addEventListener("click", () => {
+        createSquare(canvas.width / 2, canvas.height / 2);
+      });
+      document.getElementById("clearBtn").addEventListener("click", () => {
+        objects = [];
+        selected.clear();
+        updateObjectList();
+        draw();
+      });
+
+      // Export / Import
+      function exportJSON() {
+        const ser = objects.map((o) => {
+          const out = { id: o.id, type: o.type, x: o.x / DPR, y: o.y / DPR };
+          if (o.type === "circle") out.r = o.r / DPR;
+          if (o.type === "square") {
+            out.w = o.w / DPR;
+            out.h = o.h / DPR;
+          }
+          if (o.type === "image") {
+            out.w = o.w / DPR;
+            out.h = o.h / DPR;
+            out.data = o.image && o.image.src ? o.image.src : null;
+          }
+          return out;
+        });
+        const blob = new Blob([JSON.stringify({ objects: ser }, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "scene.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      document
+        .getElementById("exportBtn")
+        .addEventListener("click", exportJSON);
+
+      const importFile = document.getElementById("importFile");
+      document
+        .getElementById("importBtn")
+        .addEventListener("click", () => importFile.click());
+      importFile.addEventListener("change", (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const data = JSON.parse(reader.result);
+            loadFromJSON(data);
+          } catch (err) {
+            alert("Invalid JSON");
+          }
+        };
+        reader.readAsText(f);
+      });
+
+      function loadFromJSON(data) {
+        if (!data || !Array.isArray(data.objects)) return;
+        objects = [];
+        const pendingImages = [];
+        for (const o of data.objects) {
+          if (o.type === "circle")
+            objects.push({
+              id: o.id || uid(),
+              type: "circle",
+              x: o.x * DPR,
+              y: o.y * DPR,
+              r: (o.r || 30) * DPR,
+              fill: "#2ea3ff",
+            });
+          else if (o.type === "square")
+            objects.push({
+              id: o.id || uid(),
+              type: "square",
+              x: o.x * DPR,
+              y: o.y * DPR,
+              w: (o.w || 60) * DPR,
+              h: (o.h || 60) * DPR,
+              fill: "#8be26b",
+            });
+          else if (o.type === "image") {
+            if (o.data) {
+              const img = new Image();
+              img.onload = () => {
+                createImage(o.x * DPR, o.y * DPR, img);
+              };
+              img.src = o.data;
+              pendingImages.push(img);
+            } else {
+              objects.push({
+                id: o.id || uid(),
+                type: "image",
+                x: o.x * DPR,
+                y: o.y * DPR,
+                w: (o.w || 80) * DPR,
+                h: (o.h || 80) * DPR,
+                image: null,
+              });
+            }
+          }
+        }
+        updateObjectList();
+        draw();
+      }
+
+      // Object list UI
+      function updateObjectList() {
+        hudSel.textContent = selected.size;
+        objectListEl.innerHTML = "";
+        objects.forEach((o) => {
+          const el = document.createElement("div");
+          el.style.padding = "6px";
+          el.style.borderBottom = "1px solid rgba(255,255,255,0.03)";
+          el.style.cursor = "pointer";
+          el.textContent = `${o.id} — ${o.type} @ ${Math.round(
+            o.x / DPR
+          )}, ${Math.round(o.y / DPR)}`;
+          if (selected.has(o.id)) el.style.background = "rgba(255,210,75,0.06)";
+          el.addEventListener("click", () => {
+            if (event.shiftKey) {
+              if (selected.has(o.id)) selected.delete(o.id);
+              else selected.add(o.id);
+            } else {
+              selected.clear();
+              selected.add(o.id);
+            }
+            updateHUD();
+            draw();
+          });
+          objectListEl.appendChild(el);
+        });
+        // update distance display if two selected
+        if (selected.size === 2) {
+          const ids = Array.from(selected);
+          const a = objects.find((x) => x.id === ids[0]);
+          const b = objects.find((x) => x.id === ids[1]);
+          if (a && b) {
+            const pixels = Math.round(dist(a, b) / DPR);
+            hudDist.textContent = `${(
+              pixels * (parseFloat(pixelScaleInput.value) || 1)
+            ).toFixed(2)} px (raw ${pixels})`;
+          }
+        } else hudDist.textContent = "—";
+      }
+
+      function updateHUD() {
+        hudSel.textContent = selected.size;
+        updateObjectList();
+      }
+
+      // Drag & drop images onto canvas
+      canvas.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        canvas.style.cursor = "copy";
+      });
+      canvas.addEventListener("dragleave", (e) => {
+        canvas.style.cursor = "default";
+      });
+      canvas.addEventListener("drop", (e) => {
+        e.preventDefault();
+        canvas.style.cursor = "default";
+        const items = e.dataTransfer.files;
+        const rect = canvas.getBoundingClientRect();
+        const pos = toCanvasCoords(e.clientX, e.clientY);
+        if (items && items.length > 0) {
+          for (const f of items) {
+            if (f.type.startsWith("image/")) {
+              const reader = new FileReader();
+              reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => {
+                  createImage(pos.x, pos.y, img);
+                };
+                img.src = ev.target.result;
+              };
+              reader.readAsDataURL(f);
+            }
+          }
+        }
+      });
+
+      // Initial demo objects
+      createCircle(canvas.width / 2 - 120 * DPR, canvas.height / 2);
+      createCircle(canvas.width / 2 + 60 * DPR, canvas.height / 2 - 20 * DPR);
+      createSquare(canvas.width / 2 + 140 * DPR, canvas.height / 2 + 40 * DPR);
+
+      // Animation loop
+      (function loop() {
+        draw();
+        requestAnimationFrame(loop);
+      })();
+    </script>
+  </body>
+</html>

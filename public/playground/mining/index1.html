@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Pro-Miner: Scaling Phases</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #0a0a0a;
+        font-family: "Courier New", monospace;
+        color: #0f0;
+      }
+      canvas {
+        display: block;
+      }
+      #ui {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        pointer-events: none;
+        background: rgba(0, 20, 0, 0.9);
+        padding: 15px;
+        border: 1px solid #0f0;
+        width: 220px;
+      }
+      .res-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        margin-bottom: 2px;
+      }
+      #phase-notice {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #0f0;
+        color: #000;
+        padding: 20px;
+        font-weight: bold;
+        display: none;
+        z-index: 100;
+        border: 4px double #000;
+      }
+      .progress-bar {
+        width: 100%;
+        height: 8px;
+        border: 1px solid #0f0;
+        margin-top: 5px;
+      }
+      #mine-fill {
+        width: 0%;
+        height: 100%;
+        background: #0f0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="phase-notice">WORLD EXPANDING...</div>
+
+    <div id="ui">
+      <div
+        style="
+          border-bottom: 1px solid #0f0;
+          margin-bottom: 5px;
+          padding-bottom: 5px;
+        ">
+        PHASE: <span id="current-phase">1</span> (Grid:
+        <span id="grid-size">20x20</span>)
+      </div>
+      <div id="inventory-list"></div>
+      <hr style="border: 0; border-top: 1px solid #040" />
+      <div class="res-row">
+        <b>TOTAL VALUE:</b> $<span id="total-val">0</span>
+      </div>
+      <div id="mining-status" style="visibility: hidden">
+        MINING...
+        <div class="progress-bar"><div id="mine-fill"></div></div>
+      </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+      /** * DATA-DRIVEN SETTINGS
+       */
+      const CONFIG = {
+        tileSize: 40,
+        cameraDeadzone: 0.3,
+        phases: [
+          { id: 0, name: "Small Outpost", limit: 20, threshold: 100 }, // Expand after $100
+          { id: 1, name: "Industrial Zone", limit: 100, threshold: 5000 },
+          { id: 2, name: "Planetary Core", limit: 500, threshold: Infinity },
+        ],
+        rocks: {
+          soil: { color: "#3d2b1f", hardness: 5, value: 1 },
+          copper: { color: "#b87333", hardness: 30, value: 10 },
+          iron: { color: "#777777", hardness: 60, value: 25 },
+          gold: { color: "#ffd700", hardness: 150, value: 1000 },
+        },
+      };
+
+      class Miner {
+        constructor() {
+          this.x = 0;
+          this.y = 0;
+          this.miningPower = 25;
+          this.inventory = { soil: 0, copper: 0, iron: 0, gold: 0 };
+          this.state = "IDLE";
+          this.miningProgress = 0;
+          this.miningTarget = null;
+        }
+
+        get totalValue() {
+          return Object.keys(this.inventory).reduce((sum, key) => {
+            return sum + this.inventory[key] * CONFIG.rocks[key].value;
+          }, 0);
+        }
+      }
+
+      class World {
+        constructor() {
+          this.grid = new Map();
+        }
+
+        getTile(x, y) {
+          const key = `${x},${y}`;
+          if (!this.grid.has(key)) {
+            this.grid.set(key, this.generateTile(x, y));
+          }
+          return this.grid.get(key);
+        }
+
+        generateTile(x, y) {
+          const dist = Math.abs(x) + Math.abs(y);
+          let typeKey = "soil";
+
+          const roll = Math.random();
+          if (dist > 30 && roll < 0.05) typeKey = "gold";
+          else if (dist > 15 && roll < 0.1) typeKey = "iron";
+          else if (dist > 5 && roll < 0.15) typeKey = "copper";
+
+          return {
+            type: typeKey,
+            ...CONFIG.rocks[typeKey],
+            mined: x === 0 && y === 0,
+            explored: false,
+          };
+        }
+      }
+
+      class GameEngine {
+        constructor() {
+          this.canvas = document.getElementById("gameCanvas");
+          this.ctx = this.canvas.getContext("2d");
+          this.world = new World();
+          this.miner = new Miner();
+          this.phaseIndex = 0;
+
+          this.camX = 0;
+          this.camY = 0;
+          this.keys = {};
+          this.lastTime = 0;
+
+          window.addEventListener("keydown", (e) => (this.keys[e.code] = true));
+          window.addEventListener("keyup", (e) => (this.keys[e.code] = false));
+          window.addEventListener("resize", () => this.resize());
+
+          this.resize();
+          this.updateUI();
+          requestAnimationFrame((t) => this.loop(t));
+        }
+
+        resize() {
+          this.canvas.width = window.innerWidth;
+          this.canvas.height = window.innerHeight;
+        }
+
+        update(dt) {
+          if (this.miner.state === "MINING") {
+            this.processMining(dt);
+          } else {
+            this.handleMovement();
+          }
+          this.checkPhaseProgression();
+          this.updateFog();
+          this.updateCamera();
+        }
+
+        handleMovement() {
+          let dx = 0,
+            dy = 0;
+          if (this.keys["KeyW"]) dy = -1;
+          else if (this.keys["KeyS"]) dy = 1;
+          else if (this.keys["KeyA"]) dx = -1;
+          else if (this.keys["KeyD"]) dx = 1;
+
+          if (dx !== 0 || dy !== 0) {
+            const tx = this.miner.x + dx;
+            const ty = this.miner.y + dy;
+
+            // Check Phase Bounds
+            const limit = CONFIG.phases[this.phaseIndex].limit / 2;
+            if (Math.abs(tx) > limit || Math.abs(ty) > limit) return;
+
+            const tile = this.world.getTile(tx, ty);
+            if (tile.mined) {
+              this.miner.x = tx;
+              this.miner.y = ty;
+              this.keys = {};
+            } else {
+              this.miner.state = "MINING";
+              this.miner.miningTarget = { x: tx, y: ty, tile };
+              this.miner.miningProgress = 0;
+            }
+          }
+        }
+
+        processMining(dt) {
+          const target = this.miner.miningTarget;
+          this.miner.miningProgress += this.miner.miningPower * (dt / 1000);
+
+          document.getElementById("mining-status").style.visibility = "visible";
+          document.getElementById("mine-fill").style.width =
+            Math.min(
+              (this.miner.miningProgress / target.tile.hardness) * 100,
+              100,
+            ) + "%";
+
+          if (this.miner.miningProgress >= target.tile.hardness) {
+            target.tile.mined = true;
+            this.miner.inventory[target.tile.type]++;
+            this.miner.x = target.x;
+            this.miner.y = target.y;
+            this.miner.state = "IDLE";
+            document.getElementById("mining-status").style.visibility =
+              "hidden";
+            this.updateUI();
+          }
+        }
+
+        checkPhaseProgression() {
+          const currentPhase = CONFIG.phases[this.phaseIndex];
+          if (this.miner.totalValue >= currentPhase.threshold) {
+            this.phaseIndex++;
+            this.showPhaseAnim();
+            this.updateUI();
+          }
+        }
+
+        showPhaseAnim() {
+          const el = document.getElementById("phase-notice");
+          el.style.display = "block";
+          setTimeout(() => (el.style.display = "none"), 2000);
+        }
+
+        updateFog() {
+          const radius = 3;
+          for (let x = -radius; x <= radius; x++) {
+            for (let y = -radius; y <= radius; y++) {
+              this.world.getTile(this.miner.x + x, this.miner.y + y).explored =
+                true;
+            }
+          }
+        }
+
+        updateCamera() {
+          const ts = CONFIG.tileSize;
+          const pX = this.miner.x * ts,
+            pY = this.miner.y * ts;
+          const marginW = this.canvas.width * CONFIG.cameraDeadzone;
+          const marginH = this.canvas.height * CONFIG.cameraDeadzone;
+          const sX = pX - this.camX + this.canvas.width / 2;
+          const sY = pY - this.camY + this.canvas.height / 2;
+
+          if (sX < marginW) this.camX -= marginW - sX;
+          if (sX > this.canvas.width - marginW)
+            this.camX += sX - (this.canvas.width - marginW);
+          if (sY < marginH) this.camY -= marginH - sY;
+          if (sY > this.canvas.height - marginH)
+            this.camY += sY - (this.canvas.height - marginH);
+        }
+
+        draw() {
+          const { ctx, canvas, world } = this;
+          ctx.fillStyle = "#050505";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          const ts = CONFIG.tileSize;
+          const offsetX = canvas.width / 2 - this.camX;
+          const offsetY = canvas.height / 2 - this.camY;
+
+          // Draw Phase Boundary
+          const limit = CONFIG.phases[this.phaseIndex].limit * ts;
+          ctx.strokeStyle = "#030";
+          ctx.strokeRect(
+            -limit / 2 + offsetX,
+            -limit / 2 + offsetY,
+            limit,
+            limit,
+          );
+
+          // Visible Tiles
+          const startX = Math.floor((this.camX - canvas.width / 2) / ts);
+          const endX = Math.ceil((this.camX + canvas.width / 2) / ts);
+          const startY = Math.floor((this.camY - canvas.height / 2) / ts);
+          const endY = Math.ceil((this.camY + canvas.height / 2) / ts);
+
+          for (let x = startX; x <= endX; x++) {
+            for (let y = startY; y <= endY; y++) {
+              const tile = world.getTile(x, y);
+              if (!tile.explored) continue;
+              ctx.fillStyle = tile.mined ? "#1a1a1a" : tile.color;
+              ctx.fillRect(x * ts + offsetX, y * ts + offsetY, ts - 1, ts - 1);
+            }
+          }
+
+          // Miner
+          ctx.fillStyle = "#0f0";
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = "#0f0";
+          ctx.fillRect(
+            this.miner.x * ts + offsetX + 8,
+            this.miner.y * ts + offsetY + 8,
+            ts - 16,
+            ts - 16,
+          );
+          ctx.shadowBlur = 0;
+        }
+
+        updateUI() {
+          const inv = document.getElementById("inventory-list");
+          inv.innerHTML = "";
+          for (const [res, count] of Object.entries(this.miner.inventory)) {
+            inv.innerHTML += `<div class="res-row"><span>${res.toUpperCase()}</span> <span>${count}</span></div>`;
+          }
+          document.getElementById("total-val").innerText =
+            this.miner.totalValue;
+          document.getElementById("current-phase").innerText =
+            this.phaseIndex + 1;
+          const size = CONFIG.phases[this.phaseIndex].limit;
+          document.getElementById("grid-size").innerText = `${size}x${size}`;
+        }
+
+        loop(time) {
+          const dt = time - this.lastTime;
+          this.lastTime = time;
+          this.update(dt);
+          this.draw();
+          requestAnimationFrame((t) => this.loop(t));
+        }
+      }
+
+      const engine = new GameEngine();
+    </script>
+  </body>
+</html>

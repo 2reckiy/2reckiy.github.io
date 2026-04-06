@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isometric Ocean Engine</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #070b14;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #38bdf8;
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 4px solid #38bdf8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="ui"><b>ARCHIPELAGO GEN</b><br>Z-Level Water Enabled</div>
+    <canvas id="isoCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('isoCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const config = {
+            tileSize: 22,
+            blockH: 10,
+            gridSize: 28,
+            waterLevel: 3,
+            sunPos: { x: 1, y: -0.5, z: 2 }
+        };
+
+        const terrain = [];
+        const seed = Math.random();
+
+        function noise(x, y) {
+            let n = Math.sin(x * 12.9898 + y * 78.233 + seed) * 43758.5453;
+            return n - Math.floor(n);
+        }
+
+        function getZ(u, v) {
+            // Layered noise for "natural" height
+            let h = (noise(u * 0.1, v * 0.1) * 8) + (noise(u * 0.05, v * 0.05) * 12);
+            return Math.floor(h);
+        }
+
+        // Initialize Terrain
+        for (let u = -config.gridSize; u <= config.gridSize; u++) {
+            terrain[u] = [];
+            for (let v = -config.gridSize; v <= config.gridSize; v++) {
+                terrain[u][v] = getZ(u, v);
+            }
+        }
+
+        function project(u, v, z) {
+            return {
+                x: canvas.width / 2 + (u - v) * (config.tileSize * 0.866),
+                y: canvas.height / 2 + (u + v) * (config.tileSize * 0.5) - (z * config.blockH)
+            };
+        }
+
+        function getFaceColor(nx, ny, nz, z) {
+            const dot = (nx * config.sunPos.x + ny * config.sunPos.y + nz * config.sunPos.z) / 2;
+            const br = Math.max(0.1, Math.min(1, dot));
+
+            let h, s, l;
+            if (z <= config.waterLevel) { // Sand
+                h = 45; s = 40; l = 40 + (br * 30);
+            } else if (z < 10) { // Grass
+                h = 140; s = 35; l = 25 + (br * 25);
+            } else { // Rock/Snow
+                h = 200; s = 10; l = 50 + (br * 40);
+            }
+            return `hsl(${h}, ${s}%, ${l}%)`;
+        }
+
+        function drawCube(u, v, z, isWater = false) {
+            const h = config.blockH;
+            const p = [
+                project(u, v, z), project(u + 1, v, z), project(u + 1, v + 1, z), project(u, v + 1, z),
+                project(u, v, z + 1), project(u + 1, v, z + 1), project(u + 1, v + 1, z + 1), project(u, v + 1, z + 1)
+            ];
+
+            const drawFace = (indices, color) => {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.moveTo(p[indices[0]].x, p[indices[0]].y);
+                indices.forEach(i => ctx.lineTo(p[i].x, p[i].y));
+                ctx.fill();
+            };
+
+            if (isWater) {
+                drawFace([4, 5, 6, 7], 'rgba(0, 100, 255, 0.5)'); // Just the surface
+            } else {
+                drawFace([1, 2, 6, 5], getFaceColor(1, 0, 0, z)); // Right
+                drawFace([3, 2, 6, 7], getFaceColor(0, 1, 0, z)); // Left
+                drawFace([4, 5, 6, 7], getFaceColor(0, 0, 1, z)); // Top
+            }
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let sum = -config.gridSize * 2; sum <= config.gridSize * 2; sum++) {
+                for (let u = -config.gridSize; u <= config.gridSize; u++) {
+                    let v = sum - u;
+                    if (!terrain[u] || terrain[u][v] === undefined) continue;
+
+                    let maxZ = terrain[u][v];
+
+                    // Draw Land
+                    for (let z = 0; z <= maxZ; z++) {
+                        drawCube(u, v, z);
+                    }
+
+                    // Draw Water (if terrain is below water level)
+                    if (maxZ < config.waterLevel) {
+                        drawCube(u, v, config.waterLevel, true);
+                    }
+                }
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            render();
+        });
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        render();
+    </script>
+</body>
+
+</html>

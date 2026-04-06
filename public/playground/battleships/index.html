@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sea Battle: Real-Time Tactical</title>
+    <style>
+      :root {
+        --bg: #050a0f;
+        --panel: #101a25;
+        --accent: #00d4ff;
+        --player: #2ecc71;
+        --enemy: #e74c3c;
+        --text: #e0e6ed;
+      }
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+        overflow-x: hidden;
+      }
+
+      .stats-bar {
+        background: #161b22;
+        width: 100%;
+        padding: 15px;
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        border-bottom: 2px solid var(--accent);
+      }
+      .scrap {
+        color: #f2cc60;
+        font-weight: bold;
+        font-size: 1.2rem;
+      }
+
+      .battle-theater {
+        display: flex;
+        gap: 60px;
+        margin-top: 30px;
+        align-items: flex-start;
+      }
+      .board-label {
+        text-align: center;
+        margin-bottom: 10px;
+        font-size: 0.8rem;
+        letter-spacing: 2px;
+        color: var(--accent);
+      }
+
+      .grid {
+        display: flex;
+        flex-wrap: wrap;
+        background: #1b2735;
+        border: 2px solid #2c3e50;
+        position: relative;
+      }
+      .cell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #161b22;
+        border: 1px solid #2c3e50;
+        box-sizing: border-box;
+      }
+
+      /* State Visuals */
+      .cell.ship-p {
+        background: rgba(46, 204, 113, 0.15);
+        box-shadow: inset 0 0 10px var(--player);
+      }
+      .cell.hit {
+        background: rgba(231, 76, 60, 0.4);
+        animation: shake 0.2s;
+      }
+      .cell.miss {
+        background: #0d1117;
+      }
+      .cell.miss::after {
+        content: "";
+        width: 4px;
+        height: 4px;
+        background: #333;
+        border-radius: 50%;
+      }
+
+      @keyframes shake {
+        0% {
+          transform: translate(2px, 2px);
+        }
+        50% {
+          transform: translate(-2px, -2px);
+        }
+        100% {
+          transform: translate(0);
+        }
+      }
+
+      /* Progress Bars */
+      .reload-bar-container {
+        width: 100%;
+        height: 4px;
+        background: #000;
+        margin-top: 10px;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .reload-fill {
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        transition: width 0.1s linear;
+      }
+      .enemy-fill {
+        background: var(--enemy);
+      }
+
+      .controls {
+        margin-top: 30px;
+      }
+      button {
+        padding: 15px 40px;
+        background: var(--accent);
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+        border-radius: 4px;
+        color: #000;
+      }
+      button:disabled {
+        background: #222;
+        color: #555;
+      }
+
+      .log {
+        margin-top: 20px;
+        width: 500px;
+        height: 60px;
+        font-family: monospace;
+        font-size: 12px;
+        color: #888;
+        overflow-y: hidden;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stats-bar">
+      <div>SCRAP: <span id="scrap-val" class="scrap">0</span></div>
+      <div>GRID: <span id="grid-size-ui">3x3</span></div>
+      <div>RELOAD: <span id="reload-ui">2.0</span>s</div>
+    </div>
+
+    <div class="battle-theater">
+      <div>
+        <div class="board-label">COMMANDER</div>
+        <div id="player-grid" class="grid"></div>
+        <div class="reload-bar-container">
+          <div id="p-reload" class="reload-fill"></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="start-btn">ENGAGE TARGET</button>
+      </div>
+
+      <div>
+        <div class="board-label">OPPOSITION</div>
+        <div id="enemy-grid" class="grid"></div>
+        <div class="reload-bar-container">
+          <div id="e-reload" class="reload-fill enemy-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="log" class="log">Ready for engagement...</div>
+
+    <script>
+      class Board {
+        constructor(size, elId, isEnemy) {
+          this.size = size;
+          this.el = document.getElementById(elId);
+          this.isEnemy = isEnemy;
+          this.cells = size * size;
+          this.shipIndices = new Set();
+          this.hitIndices = new Set();
+          this.missIndices = new Set();
+          this.render();
+        }
+
+        render() {
+          const cSize = 40;
+          this.el.style.width = `${this.size * cSize}px`;
+          this.el.innerHTML = "";
+          for (let i = 0; i < this.cells; i++) {
+            const c = document.createElement("div");
+            c.className = "cell";
+            c.style.width = c.style.height = `${cSize}px`;
+            this.el.appendChild(c);
+          }
+        }
+
+        placeShip() {
+          const idx = Math.floor(Math.random() * this.cells);
+          this.shipIndices.add(idx);
+          if (!this.isEnemy) this.el.children[idx].classList.add("ship-p");
+        }
+
+        receiveFire() {
+          // Find all valid unshot targets
+          const available = [];
+          for (let i = 0; i < this.cells; i++) {
+            if (!this.hitIndices.has(i) && !this.missIndices.has(i))
+              available.push(i);
+          }
+          if (available.length === 0) return null;
+
+          const target =
+            available[Math.floor(Math.random() * available.length)];
+          if (this.shipIndices.has(target)) {
+            this.hitIndices.add(target);
+            this.el.children[target].classList.add("hit");
+            return "hit";
+          } else {
+            this.missIndices.add(target);
+            this.el.children[target].classList.add("miss");
+            return "miss";
+          }
+        }
+      }
+
+      class Game {
+        constructor() {
+          this.scrap = 0;
+          this.gridSize = 3;
+          this.playerReloadMax = 2000; // ms
+          this.enemyReloadMax = 2500; // ms
+
+          this.pTimer = 0;
+          this.eTimer = 0;
+          this.active = false;
+          this.lastTime = 0;
+
+          this.init();
+          document.getElementById("start-btn").onclick = () => this.start();
+        }
+
+        init() {
+          this.pBoard = new Board(this.gridSize, "player-grid", false);
+          this.eBoard = new Board(this.gridSize, "enemy-grid", true);
+          this.pBoard.placeShip();
+          this.eBoard.placeShip();
+          this.pTimer = 0;
+          this.eTimer = 0;
+          this.updateUI();
+        }
+
+        updateUI() {
+          document.getElementById("scrap-val").innerText = this.scrap;
+          document.getElementById("grid-size-ui").innerText =
+            `${this.gridSize}x${this.gridSize}`;
+          document.getElementById("reload-ui").innerText = (
+            this.playerReloadMax / 1000
+          ).toFixed(1);
+        }
+
+        start() {
+          if (this.active) return;
+          this.active = true;
+          document.getElementById("start-btn").disabled = true;
+          this.lastTime = performance.now();
+          requestAnimationFrame((t) => this.loop(t));
+        }
+
+        loop(currentTime) {
+          if (!this.active) return;
+
+          const deltaTime = currentTime - this.lastTime;
+          this.lastTime = currentTime;
+
+          // Update Timers
+          this.pTimer += deltaTime;
+          this.eTimer += deltaTime;
+
+          // Player Shoots
+          if (this.pTimer >= this.playerReloadMax) {
+            this.pTimer = 0;
+            const res = this.eBoard.receiveFire();
+            if (res === "hit") this.win();
+          }
+
+          // Enemy Shoots
+          if (this.eTimer >= this.enemyReloadMax) {
+            this.eTimer = 0;
+            const res = this.pBoard.receiveFire();
+            if (res === "hit") this.lose();
+          }
+
+          // Update Visual Progress Bars
+          document.getElementById("p-reload").style.width =
+            `${(this.pTimer / this.playerReloadMax) * 100}%`;
+          document.getElementById("e-reload").style.width =
+            `${(this.eTimer / this.enemyReloadMax) * 100}%`;
+
+          requestAnimationFrame((t) => this.loop(t));
+        }
+
+        win() {
+          this.active = false;
+          this.scrap += 10;
+          document.getElementById("log").innerText =
+            "ENEMY SUNK! SCRAP RECOVERED.";
+          this.postBattle();
+        }
+
+        lose() {
+          this.active = false;
+          document.getElementById("log").innerText =
+            "FLEET DESTROYED. RETREATING...";
+          this.postBattle();
+        }
+
+        postBattle() {
+          setTimeout(() => {
+            // Simple Incremental Scaling: After 3 wins, grid expands
+            if (this.scrap % 30 === 0 && this.scrap > 0) {
+              this.gridSize++;
+              this.playerReloadMax *= 0.9; // Get faster
+            }
+            this.init();
+            document.getElementById("start-btn").disabled = false;
+          }, 2000);
+        }
+      }
+
+      new Game();
+    </script>
+  </body>
+</html>

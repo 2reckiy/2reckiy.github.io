@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A* Heuristic Maze Solver</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #020205; font-family: 'Courier New', monospace; }
+        canvas { display: block; }
+        #status {
+            position: absolute; top: 20px; left: 20px;
+            color: #00ffcc; background: rgba(0, 20, 20, 0.8);
+            padding: 10px 20px; border-radius: 5px; border: 1px solid #00ffcc;
+            pointer-events: none; box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="status">INITIATING...</div>
+    <canvas id="c"></canvas>
+
+    <script>
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+
+        let cols, rows;
+        let cellSize = 22;
+        let grid = [];
+        let stack = [];
+        let current;
+        let generating = true;
+        let solving = false;
+        
+        // A* / Heuristic Variables
+        let openSet = [];
+        let closedSet = new Set();
+        let parentMap = new Map();
+        let solutionPath = [];
+
+        function setup() {
+            cellSize = Math.max(10, Math.min(40, Math.floor(Math.min(window.innerWidth, window.innerHeight) / 20)));
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            cols = Math.floor(canvas.width / cellSize);
+            rows = Math.floor(canvas.height / cellSize);
+            grid = []; stack = []; openSet = []; closedSet.clear(); 
+            parentMap.clear(); solutionPath = [];
+            generating = true; solving = false;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    grid.push(new Cell(c, r));
+                }
+            }
+            current = grid[0];
+            document.getElementById('status').innerText = "SYSTEM: CARVING LABYRINTH";
+        }
+
+        // Manhattan distance heuristic
+        function heuristic(a, b) {
+            return Math.abs(a.c - b.c) + Math.abs(a.r - b.r);
+        }
+
+        class Cell {
+            constructor(c, r) {
+                this.c = c; this.r = r;
+                this.walls = [true, true, true, true];
+                this.visited = false;
+                this.f = 0; this.g = 0; this.h = 0;
+            }
+            index(c, r) {
+                if (c < 0 || r < 0 || c >= cols || r >= rows) return -1;
+                return c + r * cols;
+            }
+            getUnvisitedNeighbors() {
+                let neighbors = [];
+                let dir = [[0,-1],[1,0],[0,1],[-1,0]];
+                for (let d of dir) {
+                    let n = grid[this.index(this.c + d[0], this.r + d[1])];
+                    if (n && !n.visited) neighbors.push(n);
+                }
+                return neighbors.length > 0 ? neighbors[Math.floor(Math.random()*neighbors.length)] : undefined;
+            }
+        }
+
+        function removeWalls(a, b) {
+            let x = a.c - b.c;
+            if (x === 1) { a.walls[3] = false; b.walls[1] = false; }
+            else if (x === -1) { a.walls[1] = false; b.walls[3] = false; }
+            let y = a.r - b.r;
+            if (y === 1) { a.walls[0] = false; b.walls[2] = false; }
+            else if (y === -1) { a.walls[2] = false; b.walls[0] = false; }
+        }
+
+        function draw() {
+            ctx.fillStyle = "#020205";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (generating) {
+                for(let i=0; i<8; i++) {
+                    current.visited = true;
+                    let next = current.getUnvisitedNeighbors();
+                    if (next) {
+                        next.visited = true;
+                        stack.push(current);
+                        removeWalls(current, next);
+                        current = next;
+                    } else if (stack.length > 0) {
+                        current = stack.pop();
+                    } else {
+                        generating = false;
+                        solving = true;
+                        openSet.push(grid[0]);
+                        document.getElementById('status').innerText = "SYSTEM: A* HEURISTIC SOLVE";
+                    }
+                }
+            }
+
+            if (solving && solutionPath.length === 0) {
+                if (openSet.length > 0) {
+                    // Find node in openSet with lowest f-score (A* Logic)
+                    let winner = 0;
+                    for (let i = 0; i < openSet.length; i++) {
+                        if (openSet[i].f < openSet[winner].f) winner = i;
+                    }
+                    let currentSolve = openSet[winner];
+
+                    if (currentSolve === grid[grid.length - 1]) {
+                        let temp = currentSolve;
+                        while(temp) {
+                            solutionPath.push(temp);
+                            temp = parentMap.get(temp);
+                        }
+                        document.getElementById('status').innerText = "SYSTEM: OPTIMAL PATH SECURED";
+                        setTimeout(setup, 3000);
+                    }
+
+                    openSet.splice(winner, 1);
+                    closedSet.add(currentSolve);
+
+                    let dir = [[0,-1,0],[1,0,1],[0,1,2],[-1,0,3]];
+                    for (let d of dir) {
+                        let neighbor = grid[currentSolve.index(currentSolve.c + d[0], currentSolve.r + d[1])];
+                        if (neighbor && !currentSolve.walls[d[2]] && !closedSet.has(neighbor)) {
+                            let tempG = currentSolve.g + 1;
+                            if (openSet.includes(neighbor)) {
+                                if (tempG < neighbor.g) neighbor.g = tempG;
+                            } else {
+                                neighbor.g = tempG;
+                                openSet.push(neighbor);
+                            }
+                            neighbor.h = heuristic(neighbor, grid[grid.length-1]);
+                            neighbor.f = neighbor.g + neighbor.h;
+                            parentMap.set(neighbor, currentSolve);
+                        }
+                    }
+                }
+            }
+
+            // Draw Cells
+            grid.forEach(cell => {
+                let x = cell.c * cellSize;
+                let y = cell.r * cellSize;
+                ctx.strokeStyle = "#111122";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                if (cell.walls[0]) { ctx.moveTo(x, y); ctx.lineTo(x+cellSize, y); }
+                if (cell.walls[1]) { ctx.moveTo(x+cellSize, y); ctx.lineTo(x+cellSize, y+cellSize); }
+                if (cell.walls[2]) { ctx.moveTo(x+cellSize, y+cellSize); ctx.lineTo(x, y+cellSize); }
+                if (cell.walls[3]) { ctx.moveTo(x, y+cellSize); ctx.lineTo(x, y); }
+                ctx.stroke();
+                
+                if (closedSet.has(cell)) {
+                    ctx.fillStyle = "rgba(0, 100, 255, 0.1)";
+                    ctx.fillRect(x, y, cellSize, cellSize);
+                }
+            });
+
+            // Draw Open Set (frontier)
+            openSet.forEach(cell => {
+                ctx.fillStyle = "rgba(0, 255, 204, 0.3)";
+                ctx.fillRect(cell.c * cellSize, cell.r * cellSize, cellSize, cellSize);
+            });
+
+            if (solutionPath.length > 0) {
+                ctx.strokeStyle = "#00ffcc";
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "#00ffcc";
+                ctx.beginPath();
+                solutionPath.forEach((c, i) => {
+                    let px = c.c * cellSize + cellSize/2;
+                    let py = c.r * cellSize + cellSize/2;
+                    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                });
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            if (generating) {
+                ctx.fillStyle = "#ff0066";
+                ctx.fillRect(current.c * cellSize + 2, current.r * cellSize + 2, cellSize - 4, cellSize - 4);
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('resize', setup);
+        setup();
+        draw();
+    </script>
+</body>
+</html>

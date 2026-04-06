@@ -13,8 +13,8 @@ import baba3 from "./assets/egg_6.png";
 import charaBot from "./assets/chara_1.png";
 import charaTop from "./assets/chara_2.png";
 import charaEmpty from "./assets/chara_3.png";
-import { Lifes } from './components/lifes/lifes';
-import { Settings } from './components/settings/settings';
+import { Lifes } from "./components/lifes/lifes";
+import { Settings } from "./components/settings/settings";
 
 const BG_RATIO = 0.411;
 const LIFES_COUNT = 3;
@@ -97,7 +97,7 @@ export const GameCatcher = () => {
           [bg, baba1, baba2, baba3, charaBot, charaTop, charaEmpty].map((src) => loadImage(src)),
         );
       } catch (error) {
-        console.log(error)
+        console.log(error);
       }
 
       engine = new GameEngine({
@@ -120,6 +120,10 @@ export const GameCatcher = () => {
     initGame();
 
     return () => {
+      engine.close();
+      engineRef.current = null;
+      engine = null;
+
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("resize", handleResize);
     };

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Archery Game</title>
+    <style>
+      /* General body styling */
+      body {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh; /* Full viewport height */
+        margin: 0;
+        background-color: #f0f0f0; /* Light background */
+        font-family: "Inter", sans-serif; /* Modern font */
+        color: #333; /* Dark text color */
+      }
+
+      /* Container for the entire game UI */
+      .game-container {
+        background-color: #fff; /* White background for the container */
+        border-radius: 15px; /* Rounded corners */
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px; /* Space between elements */
+        max-width: 90%; /* Responsive width, takes up to 90% of screen */
+        width: 800px; /* Max width for larger screens */
+      }
+
+      /* Canvas styling */
+      canvas {
+        background-color: #aaddff; /* Sky blue background */
+        border: 2px solid #555; /* Border around the game area */
+        display: block; /* Remove extra space below canvas */
+        border-radius: 10px; /* Rounded corners for canvas */
+        width: 100%; /* Make canvas responsive to its container */
+        max-width: 760px; /* Max width for canvas */
+        height: 400px; /* Fixed height for the game area */
+      }
+
+      /* Controls section styling */
+      .controls {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        width: 100%;
+      }
+
+      /* Individual control group (label + slider) */
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        justify-content: center; /* Center controls horizontally */
+      }
+
+      /* Slider styling */
+      input[type="range"] {
+        -webkit-appearance: none; /* Remove default styling for Chrome/Safari */
+        width: 60%; /* Width of the slider track */
+        height: 10px;
+        background: #ddd; /* Track color */
+        border-radius: 5px;
+        outline: none;
+        opacity: 0.7; /* Slightly transparent when not hovered */
+        transition: opacity 0.2s; /* Smooth transition for opacity */
+      }
+
+      input[type="range"]:hover {
+        opacity: 1; /* Fully opaque on hover */
+      }
+
+      /* Slider thumb styling (Chrome/Safari) */
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%; /* Circular thumb */
+        background: #4caf50; /* Green thumb */
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      }
+
+      /* Slider thumb styling (Firefox) */
+      input[type="range"]::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #4caf50;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      }
+
+      /* Button styling */
+      button {
+        background-color: #007bff; /* Blue button */
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 8px; /* Rounded corners */
+        cursor: pointer;
+        font-size: 1.1em;
+        transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth transitions */
+        box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3); /* Button shadow */
+      }
+
+      button:hover {
+        background-color: #0056b3; /* Darker blue on hover */
+        transform: translateY(-2px); /* Slight lift effect */
+      }
+
+      button:active {
+        transform: translateY(0); /* Press down effect */
+        box-shadow: 0 2px 5px rgba(0, 123, 255, 0.5); /* Smaller shadow on active */
+      }
+
+      /* Game information display (score, angle) */
+      .game-info {
+        display: flex;
+        justify-content: space-between; /* Space out score and angle */
+        width: 100%;
+        padding: 0 10px;
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #555;
+      }
+
+      /* Message display styling */
+      .message {
+        margin-top: 10px;
+        font-size: 1.3em;
+        color: #d9534f; /* Red for messages */
+        font-weight: bold;
+        text-align: center;
+        min-height: 30px; /* Reserve space to prevent layout shifts */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="game-container">
+      <h1>Archery Challenge</h1>
+      <canvas id="gameCanvas" width="760" height="400"></canvas>
+      <div class="game-info">
+        <div id="scoreDisplay">Score: 0</div>
+        <div id="angleDisplay">Angle: 45°</div>
+      </div>
+      <div class="controls">
+        <div class="control-group">
+          <label for="angleSlider">Bow Angle:</label>
+          <input type="range" id="angleSlider" min="15" max="75" value="45" />
+        </div>
+        <button id="shootButton">Shoot Arrow</button>
+      </div>
+      <div id="messageDisplay" class="message"></div>
+    </div>
+
+    <script>
+      // Get canvas and its 2D rendering context
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+
+      // --- Game Variables ---
+      let bowAngle = 45; // Initial angle in degrees (from horizontal, upwards)
+      const initialArrowSpeed = 10.2; // Initial speed of the arrow in pixels per frame
+      const gravity = 0.5; // Gravity effect on the arrow
+      let arrowX, arrowY; // Current position of the arrow
+      let arrowVelocityX, arrowVelocityY; // Velocity components of the arrow
+      let isShooting = false; // Flag to check if an arrow is in flight
+      let score = 0; // Player's score
+      let targetX, targetY; // Position of the target
+      const targetHitRadius = 10; // Radius for hitting the bullseye (yellow)
+      let message = ""; // Message displayed to the user
+
+      // Fixed position for the bow
+      const bowX = 50;
+      const bowY = canvas.height - 80;
+
+      // --- DOM Elements ---
+      const angleSlider = document.getElementById("angleSlider");
+      const shootButton = document.getElementById("shootButton");
+      const scoreDisplay = document.getElementById("scoreDisplay");
+      const angleDisplay = document.getElementById("angleDisplay");
+      const messageDisplay = document.getElementById("messageDisplay");
+
+      // --- Game Initialization ---
+      function initGame() {
+        score = 0; // Reset score
+        updateScoreDisplay(); // Update score display
+        resetArrow(); // Reset arrow position and state
+        placeTargetRandomly(); // Place target at a new random position
+        message = "Adjust angle and shoot!"; // Initial message
+        updateMessageDisplay(); // Update message display
+        gameLoop(); // Start the main game loop
+      }
+
+      // Resets the arrow to its initial position near the bow
+      function resetArrow() {
+        arrowX = bowX; // Starting X position (relative to bow)
+        arrowY = bowY; // Starting Y position (relative to bow)
+        arrowVelocityX = 0;
+        arrowVelocityY = 0;
+        isShooting = false; // Arrow is no longer in flight
+      }
+
+      // Places the target at a random position on the right side of the canvas
+      function placeTargetRandomly() {
+        // Target X: between 300px from left and 200px from right edge
+        targetX = Math.random() * (canvas.width - 200 - 300) + 300;
+        // Target Y: above the ground, not too high
+        targetY = canvas.height - 100 - Math.random() * (canvas.height - 200);
+        // Ensure target is not too close to the bottom
+        if (targetY > canvas.height - 120) {
+          // 120 is roughly target height + pole base
+          targetY = canvas.height - 120;
+        }
+      }
+
+      // --- Drawing Functions ---
+
+      // Draws the ground
+      function drawGround() {
+        ctx.fillStyle = "#8B4513"; // Brown color
+        ctx.fillRect(0, canvas.height - 50, canvas.width, 50); // Rectangle for ground
+      }
+
+      // Draws the bow
+      function drawBow() {
+        ctx.save(); // Save current canvas state
+        // Use fixed bowX and bowY for translation
+        ctx.translate(bowX, bowY);
+        ctx.rotate((-bowAngle * Math.PI) / 180); // Rotate by the current bow angle (negative for upwards)
+
+        // Draw bow handle and limbs
+        ctx.beginPath();
+        ctx.moveTo(0, 0); // Center of the bow
+        ctx.lineTo(-40, -10); // Bow handle
+        ctx.lineTo(-60, -50); // Upper limb
+        ctx.lineTo(-60, 50); // Lower limb
+        ctx.lineTo(-40, 10); // Bow handle
+        ctx.closePath();
+        ctx.fillStyle = "#5C4033"; // Dark brown for bow wood
+        ctx.fill();
+        ctx.strokeStyle = "#333"; // Stroke for bow outline
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Draw arrow nock (where the arrow rests on the string)
+        ctx.beginPath();
+        ctx.arc(0, 0, 5, 0, Math.PI * 2); // Small circle
+        ctx.fillStyle = "white";
+        ctx.fill();
+
+        ctx.restore(); // Restore canvas state
+      }
+
+      // Draws the arrow, either at the bow or in flight
+      function drawArrow() {
+        ctx.save(); // Save current canvas state
+
+        if (!isShooting) {
+          // If not shooting, draw arrow attached to the bow
+          ctx.translate(bowX, bowY); // Arrow starts at bow's fixed position
+          ctx.rotate((-bowAngle * Math.PI) / 180); // Rotate with the bow
+        } else {
+          // If shooting, draw arrow at its current position and rotation based on velocity
+          ctx.translate(arrowX, arrowY);
+          const arrowRotation = Math.atan2(arrowVelocityY, arrowVelocityX); // Angle based on current velocity
+          ctx.rotate(arrowRotation);
+        }
+
+        // Arrow shaft
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(50, 0); // Arrow length
+        ctx.strokeStyle = "#666"; // Grey shaft
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Arrowhead
+        ctx.beginPath();
+        ctx.moveTo(50, 0);
+        ctx.lineTo(45, -5);
+        ctx.lineTo(45, 5);
+        ctx.closePath();
+        ctx.fillStyle = "#333"; // Dark grey arrowhead
+        ctx.fill();
+
+        ctx.restore(); // Restore canvas state
+      }
+
+      // Draws the target
+      function drawTarget() {
+        ctx.save(); // Save current canvas state
+        ctx.translate(targetX, targetY); // Move origin to target's center
+
+        // Target pole
+        ctx.fillStyle = "#8B4513"; // Brown for the pole
+        ctx.fillRect(-5, 0, 10, 100 + 20); // Pole (height 100 for board + 20 for base connection)
+        ctx.fillRect(-15, 120, 30, 10); // Base of the pole
+
+        // Target board (concentric circles)
+        // Outer ring (white)
+        ctx.beginPath();
+        ctx.arc(0, 0, 30, 0, Math.PI * 2);
+        ctx.fillStyle = "white";
+        ctx.fill();
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Middle ring (red)
+        ctx.beginPath();
+        ctx.arc(0, 0, 20, 0, Math.PI * 2);
+        ctx.fillStyle = "red";
+        ctx.fill();
+
+        // Bullseye (yellow)
+        ctx.beginPath();
+        ctx.arc(0, 0, 10, 0, Math.PI * 2);
+        ctx.fillStyle = "yellow";
+        ctx.fill();
+
+        ctx.restore(); // Restore canvas state
+      }
+
+      // Main drawing function that clears and redraws all elements
+      function drawAll() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the entire canvas
+        drawGround();
+        drawBow();
+        drawTarget();
+        drawArrow();
+        // Score and message are now handled by HTML elements, no need to draw on canvas
+      }
+
+      // --- Game Logic ---
+
+      // Updates the arrow's position and checks for collisions
+      function updateArrowPosition() {
+        if (!isShooting) return; // Only update if arrow is in flight
+
+        arrowX += arrowVelocityX; // Update X position
+        arrowY += arrowVelocityY; // Update Y position
+        arrowVelocityY += gravity; // Apply gravity to Y velocity
+
+        // Calculate distance from arrow tip to target center
+        const distance = Math.sqrt(
+          Math.pow(arrowX - targetX, 2) + Math.pow(arrowY - targetY, 2)
+        );
+
+        // Collision detection with target rings
+        if (distance < targetHitRadius) {
+          // Hit bullseye (yellow)
+          score += 10;
+          message = "BULLSEYE! +10 points!";
+          updateScoreDisplay();
+          updateMessageDisplay();
+          resetArrow();
+          placeTargetRandomly(); // Place a new target
+        } else if (distance < 20) {
+          // Inner ring (red)
+          score += 5;
+          message = "HIT! +5 points!";
+          updateScoreDisplay();
+          updateMessageDisplay();
+          resetArrow();
+          placeTargetRandomly();
+        } else if (distance < 30) {
+          // Outer ring (white)
+          score += 1;
+          message = "HIT! +1 point!";
+          updateScoreDisplay();
+          updateMessageDisplay();
+          resetArrow();
+          placeTargetRandomly();
+        }
+
+        // Check if arrow went off screen or hit the ground
+        // Arrow hits ground (canvas.height - 50 is ground level)
+        // Or goes beyond canvas width/height
+        if (
+          arrowY > canvas.height - 50 ||
+          arrowX > canvas.width ||
+          arrowX < 0 ||
+          arrowY < 0
+        ) {
+          if (isShooting) {
+            // Only show miss message if it was actually shooting
+            message = "Missed! Try again.";
+            updateMessageDisplay();
+          }
+          resetArrow(); // Reset arrow
+          placeTargetRandomly(); // Place a new target
+        }
+      }
+
+      // Initiates the arrow shot
+      function shootArrow() {
+        if (isShooting) return; // Prevent shooting if an arrow is already in flight
+
+        isShooting = true;
+        // Convert angle from degrees to radians for Math.cos/sin
+        // Negative angle because 0 degrees is right, positive is down, we want positive up
+        const angleInRadians = (-bowAngle * Math.PI) / 180;
+
+        // Calculate initial velocity components based on angle and speed
+        arrowVelocityX = initialArrowSpeed * Math.cos(angleInRadians);
+        arrowVelocityY = initialArrowSpeed * Math.sin(angleInRadians);
+
+        message = "Arrow in flight...";
+        updateMessageDisplay();
+      }
+
+      // --- Update Display Functions (for HTML elements) ---
+      function updateScoreDisplay() {
+        scoreDisplay.textContent = `Score: ${score}`;
+      }
+
+      function updateAngleDisplay() {
+        angleDisplay.textContent = `Angle: ${bowAngle}°`;
+      }
+
+      function updateMessageDisplay() {
+        messageDisplay.textContent = message;
+      }
+
+      // --- Main Game Loop ---
+      function gameLoop() {
+        updateArrowPosition(); // Update arrow's state
+        drawAll(); // Redraw all game elements
+        requestAnimationFrame(gameLoop); // Request next frame for smooth animation
+      }
+
+      // --- Event Listeners ---
+      // Listen for changes on the angle slider
+      angleSlider.addEventListener("input", (event) => {
+        bowAngle = parseInt(event.target.value); // Update bow angle from slider value
+        updateAngleDisplay(); // Update angle text display
+        // If arrow is not shooting, redraw to show immediate bow angle change
+        if (!isShooting) {
+          drawAll();
+        }
+      });
+
+      // Listen for click on the shoot button
+      shootButton.addEventListener("click", shootArrow);
+
+      // --- Initialize Game on Window Load ---
+      window.onload = function () {
+        initGame(); // Start the game
+        updateAngleDisplay(); // Set initial angle display text
+      };
+    </script>
+  </body>
+</html>

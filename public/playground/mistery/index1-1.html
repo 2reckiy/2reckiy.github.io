@@ -1,0 +1,141 @@
+mistery/index.html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mystery Minimal Game</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #111;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <script>
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      let dots = [];
+      let connections = [];
+      const CONNECT_DIST = 100;
+
+      // Dot click creation
+      canvas.addEventListener("click", (e) => {
+        dots.push({
+          x: e.clientX,
+          y: e.clientY,
+          baseX: e.clientX,
+          baseY: e.clientY,
+          connected: false,
+          vx: 0,
+          vy: 0,
+        });
+      });
+
+      // Distance helper
+      function distance(a, b) {
+        return Math.hypot(a.x - b.x, a.y - b.y);
+      }
+
+      // Update logic
+      function update() {
+        const maxDeviation = 2; // random jitter
+        const tension = 0.02; // attraction strength
+
+        // Move dots slightly around base position
+        dots.forEach((dot) => {
+          dot.vx += (Math.random() - 0.5) * 0.1; // small jitter
+          dot.vy += (Math.random() - 0.5) * 0.1;
+
+          // Pull toward base position
+          dot.vx += (dot.baseX - dot.x) * 0.01;
+          dot.vy += (dot.baseY - dot.y) * 0.01;
+
+          // Apply velocity
+          dot.x += dot.vx;
+          dot.y += dot.vy;
+
+          // Damp velocity to avoid drifting
+          dot.vx *= 0.9;
+          dot.vy *= 0.9;
+        });
+
+        // Find new connections
+        for (let i = 0; i < dots.length; i++) {
+          const a = dots[i];
+          if (a.connected) continue;
+          for (let j = i + 1; j < dots.length; j++) {
+            const b = dots[j];
+            if (b.connected) continue;
+            if (distance(a, b) < CONNECT_DIST) {
+              connections.push([a, b]);
+              a.connected = true;
+              b.connected = true;
+              break; // stop searching for this dot
+            }
+          }
+        }
+
+        // Apply subtle attraction for connected dots
+        connections.forEach((pair) => {
+          const [a, b] = pair;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          a.vx += dx * tension;
+          a.vy += dy * tension;
+          b.vx -= dx * tension;
+          b.vy -= dy * tension;
+        });
+      }
+
+      // Draw everything
+      function draw() {
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw connections
+        ctx.strokeStyle = "#0ff";
+        ctx.lineWidth = 2;
+        connections.forEach((pair) => {
+          const [a, b] = pair;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        });
+
+        // Draw dots
+        ctx.fillStyle = "#fff";
+        dots.forEach((dot) => {
+          ctx.beginPath();
+          ctx.arc(dot.x, dot.y, 5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      // Main loop
+      function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+      }
+      loop();
+
+      // Resize
+      window.addEventListener("resize", () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      });
+    </script>
+  </body>
+</html>

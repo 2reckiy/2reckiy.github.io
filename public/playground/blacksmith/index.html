@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimalist Smithy</title>
+    <style>
+        :root {
+            --bg: #fdf6e3;
+            --text: #586e75;
+            --accent: #b58900;
+            --border: #93a1a1;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            max-width: 800px;
+            margin: auto;
+        }
+
+        h1,
+        h2 {
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 5px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            border: 1px solid var(--border);
+            padding: 15px;
+            border-radius: 4px;
+            background: #fff;
+        }
+
+        .stats {
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        button {
+            background: var(--text);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #eee;
+            margin-top: 10px;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+        }
+
+        .market-up {
+            color: green;
+            font-size: 0.8em;
+        }
+
+        .market-down {
+            color: red;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>The Smithy</h1>
+    <div class="stats">
+        Gold: <span id="gold">50</span> | Level: <span id="level">1</span> | XP: <span id="xp">0</span>/100
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>Market: Buy Materials</h2>
+            <div id="shop-list"></div>
+        </div>
+
+        <div class="card">
+            <h2>The Forge</h2>
+            <div id="recipe-list"></div>
+            <div id="forge-status">
+                <p id="active-task">Idle</p>
+                <div class="progress-bar">
+                    <div id="forge-fill" class="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Inventory</h2>
+            <div id="inventory-list"></div>
+        </div>
+
+        <div class="card">
+            <h2>Staffing</h2>
+            <div id="staff-list"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA ---
+        let state = {
+            gold: 50, level: 1, xp: 0, nextLevelXp: 100,
+            resources: { iron: 0, wood: 0 },
+            inventory: [],
+            isCrafting: false,
+            marketModifiers: { iron: 1, wood: 1, weapons: 1 },
+            assistants: 0
+        };
+
+        const RESOURCES = {
+            iron: { name: "Iron Ore", basePrice: 10 },
+            wood: { name: "Hardwood", basePrice: 5 }
+        };
+
+        const RECIPES = [
+            { id: 'dagger', name: "Iron Dagger", level: 1, cost: { iron: 2 }, time: 3000, xp: 20, baseValue: 40 },
+            { id: 'sword', name: "Broadsword", level: 2, cost: { iron: 5, wood: 1 }, time: 7000, xp: 50, baseValue: 120 },
+            { id: 'shield', name: "Wooden Shield", level: 1, cost: { wood: 4 }, time: 5000, xp: 30, baseValue: 70 }
+        ];
+
+        // --- LOGIC ---
+        function updateUI() {
+            document.getElementById('gold').innerText = Math.floor(state.gold);
+            document.getElementById('level').innerText = state.level;
+            document.getElementById('xp').innerText = state.xp;
+
+            // Render Shop
+            let shopHTML = '';
+            for (let r in RESOURCES) {
+                let price = Math.ceil(RESOURCES[r].basePrice * state.marketModifiers[r]);
+                shopHTML += `<p>${RESOURCES[r].name}: ${price}g (${state.resources[r]}) 
+                <button onclick="buyResource('${r}', ${price})">Buy</button></p>`;
+            }
+            document.getElementById('shop-list').innerHTML = shopHTML;
+
+            // Render Recipes
+            let recipeHTML = '';
+            RECIPES.forEach(item => {
+                if (state.level >= item.level) {
+                    recipeHTML += `<p>${item.name} <button onclick="startCrafting('${item.id}')" ${state.isCrafting ? 'disabled' : ''}>Forge</button><br>
+                <small>Costs: ${JSON.stringify(item.cost)}</small></p>`;
+                }
+            });
+            document.getElementById('recipe-list').innerHTML = recipeHTML;
+
+            // Render Inventory
+            let invHTML = '';
+            state.inventory.forEach((item, index) => {
+                let sellPrice = Math.floor(item.baseValue * state.marketModifiers.weapons);
+                invHTML += `<p>${item.name} (${item.quality}) 
+                <button onclick="sellItem(${index}, ${sellPrice})">Sell for ${sellPrice}g</button></p>`;
+            });
+            document.getElementById('inventory-list').innerHTML = invHTML;
+        }
+
+        function buyResource(id, price) {
+            if (state.gold >= price) {
+                state.gold -= price;
+                state.resources[id]++;
+                updateUI();
+            }
+        }
+
+        function startCrafting(recipeId) {
+            const recipe = RECIPES.find(r => r.id === recipeId);
+
+            // Check resources
+            for (let res in recipe.cost) {
+                if (state.resources[res] < recipe.cost[res]) return alert("Not enough resources!");
+            }
+
+            // Consume resources
+            for (let res in recipe.cost) {
+                state.resources[res] -= recipe.cost[res];
+            }
+
+            state.isCrafting = true;
+            document.getElementById('active-task').innerText = `Forging ${recipe.name}...`;
+            updateUI();
+
+            let start = null;
+            const duration = recipe.time / (1 + (state.level * 0.2)); // Level speeds up crafting
+
+            function animate(timestamp) {
+                if (!start) start = timestamp;
+                let progress = timestamp - start;
+                let percent = Math.min((progress / duration) * 100, 100);
+                document.getElementById('forge-fill').style.width = percent + "%";
+
+                if (progress < duration) {
+                    requestAnimationFrame(animate);
+                } else {
+                    finishCrafting(recipe);
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function finishCrafting(recipe) {
+            state.isCrafting = false;
+            document.getElementById('forge-fill').style.width = "0%";
+            document.getElementById('active-task').innerText = "Idle";
+
+            // Quality Logic
+            const qualities = ["Common", "Fine", "Masterwork"];
+            const quality = qualities[Math.floor(Math.random() * Math.min(state.level, 3))];
+
+            state.inventory.push({ ...recipe, quality: quality });
+            addXp(recipe.xp);
+            updateUI();
+        }
+
+        function sellItem(index, price) {
+            state.gold += price;
+            state.inventory.splice(index, 1);
+            updateUI();
+        }
+
+        function addXp(amount) {
+            state.xp += amount;
+            if (state.xp >= state.nextLevelXp) {
+                state.level++;
+                state.xp = 0;
+                state.nextLevelXp *= 1.5;
+                alert("Level Up! You can now work faster and craft better items.");
+            }
+        }
+
+        // Market Fluctuations every 10 seconds
+        setInterval(() => {
+            state.marketModifiers.iron = 0.5 + Math.random();
+            state.marketModifiers.weapons = 0.8 + Math.random() * 0.5;
+            updateUI();
+        }, 10000);
+
+        // Initial Render
+        updateUI();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>High-Perf Pixel Pool</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #050505;
+        font-family: "Courier New", monospace;
+      }
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+      }
+      #ui {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        color: #00f2ff;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 12px;
+        border: 1px solid #00f2ff;
+        pointer-events: none;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ui">
+      CLICKS: <span id="clicks">0</span><br />
+      TOTAL VOLUME: <span id="v-total">0</span><br />
+      POOL DIMS: <span id="v-dim">0x0</span>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+      // --- GLOBAL CONFIGURATION ---
+      const PIXEL = 10;
+      const MIN_SPREAD_HEIGHT = 1;
+
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      let width, height; // Grid units
+
+      /**
+       * POOL CLASS
+       * Handles volume-to-dimension math and rendering logic.
+       */
+      class Pool {
+        constructor() {
+          this.totalVolume = 0;
+          this.jitterOffsets = [];
+          this.resize();
+        }
+
+        resize() {
+          this.jitterOffsets = new Array(width).fill(0);
+        }
+
+        addVolume(amount) {
+          this.totalVolume += amount;
+        }
+
+        getDimensions() {
+          let pW, pH;
+          // Calculate potential width based on area conservation: Area = W * H
+          let spreadWidth = this.totalVolume / PIXEL / MIN_SPREAD_HEIGHT;
+
+          if (spreadWidth < width) {
+            pW = spreadWidth;
+            pH = MIN_SPREAD_HEIGHT;
+          } else {
+            pW = width;
+            pH = this.totalVolume / PIXEL / width;
+          }
+          return { w: pW, h: pH };
+        }
+
+        updateJitter() {
+          for (let i = 0; i < this.jitterOffsets.length; i++) {
+            this.jitterOffsets[i] *= 0.88; // Damping
+            if (i > 0)
+              this.jitterOffsets[i - 1] +=
+                (this.jitterOffsets[i] - this.jitterOffsets[i - 1]) * 0.15;
+            if (i < width - 1)
+              this.jitterOffsets[i + 1] +=
+                (this.jitterOffsets[i] - this.jitterOffsets[i + 1]) * 0.15;
+          }
+        }
+
+        applyImpulse(gx, power) {
+          if (this.jitterOffsets[gx] !== undefined)
+            this.jitterOffsets[gx] = power;
+        }
+
+        draw() {
+          if (this.totalVolume <= 0) return;
+
+          const dim = this.getDimensions();
+          const startX = (width - dim.w) / 2;
+          const endX = startX + dim.w;
+
+          ctx.beginPath();
+          ctx.moveTo(startX * PIXEL, (height) * PIXEL); // Bottom left
+
+          // Top surface with Jitter
+          for (let i = 0; i <= dim.w; i++) {
+            const gx = Math.floor(startX + i);
+            const j = this.jitterOffsets[gx] || 0;
+            ctx.lineTo((startX + i) * PIXEL, (height - dim.h + j) * PIXEL);
+          }
+
+          ctx.lineTo(endX * PIXEL, (height) * PIXEL); // Bottom right
+          ctx.closePath();
+
+          // Fill Body
+          ctx.fillStyle = "#00f2ff  ";
+          ctx.fill();
+
+          // Draw Surface Highlight (Single Stroke)
+          // ctx.strokeStyle = "#00f2ff";
+          // ctx.lineWidth = 1;
+          // ctx.stroke();
+
+          // Update UI
+          document.getElementById("v-total").innerText = Math.floor(
+            this.totalVolume,
+          );
+          document.getElementById("v-dim").innerText =
+            `${Math.floor(dim.w)}x${dim.h.toFixed(1)}`;
+        }
+      }
+
+      /**
+       * DROP CLASS
+       * Each drop defines its own size and value.
+       */
+      class Drop {
+        constructor(mouseX) {
+          this.size = 1 * PIXEL;
+          this.value = this.size * this.size;
+          this.gx = Math.floor(mouseX / PIXEL);
+          this.gy = 0;
+          this.velocity = 1;
+        }
+
+        update(pool, splashes) {
+          this.velocity += 0.2;
+          this.gy += this.velocity;
+
+          const dim = pool.getDimensions();
+          const surfaceY = height - dim.h;
+
+          if (this.gy >= surfaceY) {
+            pool.addVolume(this.value);
+            pool.applyImpulse(this.gx, 2);
+            splashes.create(this.gx, surfaceY);
+            return false;
+          }
+          return true;
+        }
+
+        draw() {
+          ctx.fillStyle = "#00f2ff";
+          ctx.fillRect(
+            this.gx * PIXEL,
+            Math.floor(this.gy) * PIXEL,
+            this.size,
+            this.size,
+          );
+        }
+      }
+
+      /**
+       * SPLASH MANAGER
+       */
+      class SplashManager {
+        constructor() {
+          this.particles = [];
+        }
+        create(gx, gy) {
+          for (let i = 0; i < 4; i++) {
+            this.particles.push({
+              x: gx,
+              y: gy,
+              vx: (Math.random() - 0.5) * 2,
+              vy: -Math.random() * 2,
+              life: 1.0,
+            });
+          }
+        }
+        draw() {
+          this.particles = this.particles.filter((p) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.1;
+            p.life -= 0.05;
+            ctx.fillStyle = `rgba(0, 242, 255, ${p.life})`;
+            ctx.fillRect(
+              Math.floor(p.x) * PIXEL,
+              Math.floor(p.y) * PIXEL,
+              PIXEL,
+              PIXEL,
+            );
+            return p.life > 0;
+          });
+        }
+      }
+
+      // --- SYSTEM BOOT ---
+      let pool, splashes;
+      let drops = [];
+      let clicks = 0;
+
+      function init() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        width = Math.ceil(canvas.width / PIXEL);
+        height = Math.ceil(canvas.height / PIXEL);
+
+        if (!pool) pool = new Pool();
+        else pool.resize();
+
+        if (!splashes) splashes = new SplashManager();
+      }
+
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drops = drops.filter((d) => {
+          const active = d.update(pool, splashes);
+          d.draw();
+          return active;
+        });
+
+        pool.updateJitter();
+        pool.draw();
+
+        splashes.draw();
+        requestAnimationFrame(animate);
+      }
+
+      // --- INPUTS ---
+      window.addEventListener("mousedown", (e) => {
+        clicks++;
+        drops.push(new Drop(e.clientX));
+        document.getElementById("clicks").innerText = clicks;
+      });
+      window.addEventListener("resize", init);
+
+      init();
+      animate();
+
+      // setInterval(() => {
+      //   const x =
+      //     window.innerWidth * 0.3 + Math.random() * window.innerWidth * 0.4;
+      //   drops.push(new Drop(x));
+      // }, 1000);
+    </script>
+  </body>
+</html>

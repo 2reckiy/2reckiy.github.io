@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head></head>
+
+  <body style="margin: 0; padding: 0">
+    <div
+      id="inav"
+      style="
+        position: fixed;
+        z-index: 9999999;
+      "
+    >
+      <input id="iid" /><button onclick="changeIndex()">GO</button>
+      <span id="curId"></span>
+    </div>
+    <iframe
+      id="myIframe"
+      src="about:blank"
+      name="targetframe"
+      allowTransparency="true"
+      scrolling="no"
+      frameborder="0"
+      style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        z-index: 999999;
+      "
+    >
+    </iframe>
+
+    <script>
+      // window.location.href = "index1.html";
+
+      let id = "";
+      const curIdElement = document.getElementById("curId");
+      curIdElement.innerHTML = `index: ${id}`;
+
+      function go(id) {
+        if (id) {
+          const iframeElement = document.getElementById("myIframe");
+          iframeElement.src = `index${id}.html`;
+
+          curIdElement.innerHTML = `index: ${id}`;
+        } else {
+          alert("Please select a valid URL.");
+        }
+      }
+
+      function changeIndex() {
+        // 1. Get the select element by its ID
+        const selector = document.getElementById("iid");
+
+        go(selector.value);
+      }
+    </script>
+  </body>
+</html>

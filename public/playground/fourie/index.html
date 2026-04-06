@@ -1,0 +1,1144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fourier Series — Harmonic Convergence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@300;400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f5f0e8;
+        --ink: #1a1a2e;
+        --ink-faint: #1a1a2e22;
+        --ink-mid: #1a1a2e66;
+        --red: #8b1a1a;
+        --blue: #1a3a6b;
+        --gold: #b8860b;
+        --green: #2d5a27;
+        --panel-bg: #ede8dc;
+        --border: #1a1a2e33;
+        --font-serif: "EB Garamond", Georgia, serif;
+        --font-mono: "JetBrains Mono", monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--paper);
+        font-family: var(--font-serif);
+        color: var(--ink);
+      }
+
+      /* Graph-paper background */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        background-image:
+          linear-gradient(var(--ink-faint) 1px, transparent 1px),
+          linear-gradient(90deg, var(--ink-faint) 1px, transparent 1px);
+        background-size: 32px 32px;
+      }
+
+      #layout {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: 1fr 280px;
+        grid-template-rows: 48px 1fr 140px;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      /* ── Header ── */
+      #header {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--paper);
+      }
+      #header h1 {
+        font-size: 16px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+      }
+      #header h1 em {
+        font-style: italic;
+        color: var(--blue);
+      }
+      #header .meta {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--ink-mid);
+        letter-spacing: 0.04em;
+      }
+      #tick-display {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--red);
+      }
+
+      /* ── Canvas ── */
+      #canvas-wrap {
+        position: relative;
+        overflow: hidden;
+        border-right: 1px solid var(--border);
+      }
+      #main-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* ── Right Panel ── */
+      #right-panel {
+        display: flex;
+        flex-direction: column;
+        background: var(--panel-bg);
+        overflow-y: auto;
+        padding: 16px 14px;
+        gap: 14px;
+        border-right: none;
+      }
+      .panel-section {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 12px;
+      }
+      .panel-section:last-child {
+        border-bottom: none;
+      }
+      .panel-title {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        color: var(--ink-mid);
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+
+      /* Resource row */
+      .resource {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 4px;
+      }
+      .resource-name {
+        font-size: 13px;
+      }
+      .resource-val {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--blue);
+      }
+      .resource-rate {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--green);
+      }
+
+      /* Upgrade buttons */
+      .upgrade-btn {
+        width: 100%;
+        margin-bottom: 6px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        padding: 7px 10px;
+        text-align: left;
+        cursor: pointer;
+        font-family: var(--font-serif);
+        font-size: 12px;
+        color: var(--ink);
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+        position: relative;
+      }
+      .upgrade-btn:hover:not(:disabled) {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      .upgrade-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .upgrade-btn .btn-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+      .upgrade-btn .btn-name {
+        font-weight: 500;
+      }
+      .upgrade-btn .btn-cost {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--red);
+      }
+      .upgrade-btn:hover:not(:disabled) .btn-cost {
+        color: #f8a0a0;
+      }
+      .upgrade-btn .btn-desc {
+        font-size: 10px;
+        color: var(--ink-mid);
+        margin-top: 2px;
+        font-style: italic;
+      }
+      .upgrade-btn:hover:not(:disabled) .btn-desc {
+        color: #ccc;
+      }
+
+      /* Shapes list */
+      .shape-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        padding: 5px 8px;
+        border: 1px solid transparent;
+        transition: border-color 0.12s;
+      }
+      .shape-item:hover {
+        border-color: var(--border);
+      }
+      .shape-item.active {
+        border-color: var(--blue);
+        background: #dde4f0;
+      }
+      .shape-item.locked {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .shape-icon {
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+      }
+      .shape-info {
+        flex: 1;
+      }
+      .shape-name {
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .shape-progress-wrap {
+        height: 3px;
+        background: var(--ink-faint);
+        margin-top: 3px;
+      }
+      .shape-progress-bar {
+        height: 3px;
+        background: var(--blue);
+        transition: width 0.4s;
+      }
+      .shape-terms {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--ink-mid);
+      }
+
+      /* ── Bottom Bar ── */
+      #bottom-bar {
+        grid-column: 1 / -1;
+        border-top: 1px solid var(--border);
+        padding: 0 24px;
+        display: flex;
+        align-items: center;
+        gap: 32px;
+        background: var(--paper);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--ink-mid);
+      }
+      .stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .stat-label {
+        font-size: 9px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .stat-value {
+        font-size: 13px;
+        color: var(--ink);
+      }
+
+      /* Floating notification */
+      .float-notif {
+        position: fixed;
+        top: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--ink);
+        color: var(--paper);
+        font-family: var(--font-serif);
+        font-size: 13px;
+        padding: 8px 20px;
+        border: 1px solid var(--gold);
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+        z-index: 999;
+      }
+      .float-notif.show {
+        opacity: 1;
+      }
+
+      /* Scrollbar */
+      #right-panel::-webkit-scrollbar {
+        width: 4px;
+      }
+      #right-panel::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      #right-panel::-webkit-scrollbar-thumb {
+        background: var(--border);
+      }
+
+      .formula {
+        font-style: italic;
+        font-size: 12px;
+        color: var(--blue);
+        text-align: center;
+        margin: 4px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="layout">
+      <header id="header">
+        <h1>Harmonic Convergence — <em>Fourier Series Idle</em></h1>
+        <span class="meta">f(x) = a₀/2 + Σ [aₙcos(nωt) + bₙsin(nωt)]</span>
+        <span id="tick-display">t = 0.000</span>
+      </header>
+
+      <div id="canvas-wrap">
+        <canvas id="main-canvas"></canvas>
+      </div>
+
+      <aside id="right-panel">
+        <!-- Resources -->
+        <div class="panel-section">
+          <div class="panel-title">Resources</div>
+          <div class="resource">
+            <span class="resource-name">Harmonics ℏ</span>
+            <span
+              ><span class="resource-val" id="res-harmonics">0</span>
+              <span class="resource-rate" id="res-harmonics-rate"></span
+            ></span>
+          </div>
+          <div class="resource">
+            <span class="resource-name">Terms unlocked</span>
+            <span class="resource-val" id="res-terms">1</span>
+          </div>
+          <div class="resource">
+            <span class="resource-name">Shapes completed</span>
+            <span class="resource-val" id="res-shapes">0</span>
+          </div>
+        </div>
+
+        <!-- Upgrades -->
+        <div class="panel-section">
+          <div class="panel-title">Research</div>
+          <div id="upgrades-list"></div>
+        </div>
+
+        <!-- Shapes -->
+        <div class="panel-section">
+          <div class="panel-title">Target Shapes</div>
+          <div id="shapes-list"></div>
+        </div>
+
+        <div class="formula" id="formula-display">f(t) ≈ sin(t)</div>
+      </aside>
+
+      <footer id="bottom-bar">
+        <div class="stat-item">
+          <span class="stat-label">Accuracy</span
+          ><span class="stat-value" id="stat-accuracy">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Active Terms</span
+          ><span class="stat-value" id="stat-terms">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Epoch</span
+          ><span class="stat-value" id="stat-epoch">I</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total ℏ earned</span
+          ><span class="stat-value" id="stat-total-h">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Speed</span
+          ><span class="stat-value" id="stat-speed">1×</span>
+        </div>
+      </footer>
+    </div>
+
+    <div class="float-notif" id="notif"></div>
+
+    <script>
+      // ═══════════════════════════════════════════════════════════════
+      //  MATH UTILITIES
+      // ═══════════════════════════════════════════════════════════════
+      const MathUtils = {
+        lerp: (a, b, t) => a + (b - a) * t,
+        clamp: (v, lo, hi) => Math.max(lo, Math.min(hi, v)),
+
+        // Fourier coefficients for known shapes
+        // Returns array of {n, a, b} (cosine + sine coeff pairs)
+        getCoefficients(shapeId, maxTerms) {
+          const terms = [];
+          switch (shapeId) {
+            case "circle":
+              terms.push({ n: 1, a: 0, b: 1 });
+              break;
+            case "square":
+              for (let k = 0; k < maxTerms; k++) {
+                const n = 2 * k + 1; // odd harmonics only
+                terms.push({ n, a: 0, b: 4 / (Math.PI * n) });
+              }
+              break;
+            case "triangle":
+              for (let k = 0; k < maxTerms; k++) {
+                const n = 2 * k + 1;
+                const sign = k % 2 === 0 ? 1 : -1;
+                terms.push({
+                  n,
+                  a: 0,
+                  b: (sign * 8) / (Math.PI * Math.PI * n * n),
+                });
+              }
+              break;
+            case "sawtooth":
+              for (let k = 1; k <= maxTerms; k++) {
+                terms.push({
+                  n: k,
+                  a: 0,
+                  b: ((k % 2 === 0 ? -1 : 1) * 2) / (Math.PI * k),
+                });
+              }
+              break;
+            case "heartx": {
+              // Parametric heart via Fourier approximation
+              const coeffs = [
+                { n: 1, a: 0, b: 1 },
+                { n: 2, a: 0, b: -0.5 },
+                { n: 3, a: 0, b: 0.25 },
+                { n: 4, a: 0, b: -0.125 },
+                { n: 5, a: 0, b: 0.0625 },
+              ];
+              return coeffs.slice(0, maxTerms);
+            }
+            case "epicycloid":
+              for (let k = 1; k <= maxTerms; k++) {
+                terms.push({ n: k, a: 1 / (k * k), b: 1 / (k * k) });
+              }
+              break;
+            default:
+              terms.push({ n: 1, a: 0, b: 1 });
+          }
+          return terms.slice(0, maxTerms);
+        },
+
+        // Evaluate x(t) for an epicycle set
+        evalX(coeffs, t) {
+          return coeffs.reduce((s, c) => s + c.a * Math.cos(c.n * t), 0);
+        },
+        evalY(coeffs, t) {
+          return coeffs.reduce((s, c) => s + c.b * Math.sin(c.n * t), 0);
+        },
+      };
+
+      // ═══════════════════════════════════════════════════════════════
+      //  DATA: SHAPES & UPGRADES
+      // ═══════════════════════════════════════════════════════════════
+      const SHAPES_DEF = [
+        {
+          id: "circle",
+          name: "Circle",
+          maxTerms: 1,
+          unlockCost: 0,
+          completionTerms: 1,
+          hPerSec: 1,
+        },
+        {
+          id: "square",
+          name: "Square Wave",
+          maxTerms: 12,
+          unlockCost: 30,
+          completionTerms: 12,
+          hPerSec: 3,
+        },
+        {
+          id: "triangle",
+          name: "Triangle",
+          maxTerms: 12,
+          unlockCost: 120,
+          completionTerms: 12,
+          hPerSec: 6,
+        },
+        {
+          id: "sawtooth",
+          name: "Sawtooth",
+          maxTerms: 15,
+          unlockCost: 400,
+          completionTerms: 15,
+          hPerSec: 12,
+        },
+        {
+          id: "epicycloid",
+          name: "Epicycloid",
+          maxTerms: 20,
+          unlockCost: 1200,
+          completionTerms: 20,
+          hPerSec: 25,
+        },
+      ];
+
+      const UPGRADES_DEF = [
+        {
+          id: "term2",
+          name: "2nd Harmonic",
+          desc: "Unlock term n=2",
+          cost: 8,
+          effect: { terms: 2 },
+          requires: null,
+        },
+        {
+          id: "term3",
+          name: "3rd Harmonic",
+          desc: "Unlock term n=3",
+          cost: 20,
+          effect: { terms: 3 },
+          requires: "term2",
+        },
+        {
+          id: "term5",
+          name: "5th Harmonic",
+          desc: "Unlock term n=5",
+          cost: 50,
+          effect: { terms: 5 },
+          requires: "term3",
+        },
+        {
+          id: "term7",
+          name: "7th Harmonic",
+          desc: "Unlock term n=7",
+          cost: 130,
+          effect: { terms: 7 },
+          requires: "term5",
+        },
+        {
+          id: "term10",
+          name: "10th Harmonic",
+          desc: "Unlock term n=10",
+          cost: 350,
+          effect: { terms: 10 },
+          requires: "term7",
+        },
+        {
+          id: "term15",
+          name: "15th Harmonic",
+          desc: "Unlock term n=15",
+          cost: 900,
+          effect: { terms: 15 },
+          requires: "term10",
+        },
+        {
+          id: "term20",
+          name: "20th Harmonic",
+          desc: "Unlock term n=20",
+          cost: 2500,
+          effect: { terms: 20 },
+          requires: "term15",
+        },
+        {
+          id: "speed2",
+          name: "Angular Velocity ×2",
+          desc: "Double rotation speed",
+          cost: 40,
+          effect: { speed: 2 },
+          requires: null,
+        },
+        {
+          id: "speed4",
+          name: "Angular Velocity ×4",
+          desc: "Quadruple speed",
+          cost: 200,
+          effect: { speed: 4 },
+          requires: "speed2",
+        },
+        {
+          id: "autoh1",
+          name: "Differential Engine I",
+          desc: "+2 ℏ/sec passively",
+          cost: 60,
+          effect: { autoH: 2 },
+          requires: null,
+        },
+        {
+          id: "autoh2",
+          name: "Differential Engine II",
+          desc: "+8 ℏ/sec passively",
+          cost: 300,
+          effect: { autoH: 8 },
+          requires: "autoh1",
+        },
+        {
+          id: "autoh3",
+          name: "Analytical Engine",
+          desc: "+30 ℏ/sec passively",
+          cost: 1100,
+          effect: { autoH: 30 },
+          requires: "autoh2",
+        },
+        {
+          id: "trail2",
+          name: "Longer Trail",
+          desc: "Trail shows more history",
+          cost: 80,
+          effect: { trail: 2 },
+          requires: null,
+        },
+        {
+          id: "trail3",
+          name: "Persistence",
+          desc: "Full curve overlay",
+          cost: 400,
+          effect: { trail: 3 },
+          requires: "trail2",
+        },
+        {
+          id: "multi",
+          name: "Parallel Canvas",
+          desc: "Run 2 shapes at once",
+          cost: 800,
+          effect: { parallel: 2 },
+          requires: "trail2",
+        },
+      ];
+
+      // ═══════════════════════════════════════════════════════════════
+      //  GAME STATE
+      // ═══════════════════════════════════════════════════════════════
+      class GameState {
+        constructor() {
+          this.harmonics = 0;
+          this.totalHarmonics = 0;
+          this.termsUnlocked = 1; // max n we can use
+          this.shapesCompleted = 0;
+          this.speed = 1;
+          this.autoH = 0; // harmonics/sec passive
+          this.trailLevel = 1;
+          this.parallelSlots = 1;
+          this.epoch = 1;
+
+          this.purchasedUpgrades = new Set();
+          this.unlockedShapes = new Set(["circle"]);
+          this.activeShapeId = "circle";
+
+          // Per-shape term progress
+          this.shapeTerms = {};
+          SHAPES_DEF.forEach((s) => {
+            this.shapeTerms[s.id] = 1;
+          });
+
+          this.t = 0;
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      //  RENDERER
+      // ═══════════════════════════════════════════════════════════════
+      class Renderer {
+        constructor(canvas) {
+          this.canvas = canvas;
+          this.ctx = canvas.getContext("2d");
+          this.trail = [];
+          this.maxTrail = 400;
+          this.resize();
+        }
+
+        resize() {
+          this.canvas.width = this.canvas.offsetWidth * window.devicePixelRatio;
+          this.canvas.height =
+            this.canvas.offsetHeight * window.devicePixelRatio;
+          this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+          this.w = this.canvas.offsetWidth;
+          this.h = this.canvas.offsetHeight;
+        }
+
+        clear() {
+          const { ctx, w, h } = this;
+          ctx.clearRect(0, 0, w, h);
+        }
+
+        drawEpicycles(coeffs, t, cx, cy, scale, trailLevel) {
+          const { ctx } = this;
+          let x = cx,
+            y = cy;
+
+          // Draw each epicycle arm
+          for (let i = 0; i < coeffs.length; i++) {
+            const c = coeffs[i];
+            const r = Math.sqrt(c.a * c.a + c.b * c.b) * scale;
+            if (r < 0.5) continue;
+
+            const angle = c.n * t + Math.atan2(c.b, c.a);
+            const nx = x + r * Math.cos(angle);
+            const ny = y + r * Math.sin(angle);
+
+            // Circle
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.strokeStyle = i === 0 ? "#1a1a2e40" : "#1a1a2e28";
+            ctx.lineWidth = 0.6;
+            ctx.stroke();
+
+            // Arm
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(nx, ny);
+            ctx.strokeStyle = "#1a3a6b88";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Dot at tip
+            ctx.beginPath();
+            ctx.arc(nx, ny, i === coeffs.length - 1 ? 3 : 1.5, 0, Math.PI * 2);
+            ctx.fillStyle = i === coeffs.length - 1 ? "#8b1a1a" : "#1a3a6b";
+            ctx.fill();
+
+            x = nx;
+            y = ny;
+          }
+
+          return { x, y };
+        }
+
+        drawTrail(trail, trailLevel) {
+          const { ctx } = this;
+          if (trail.length < 2) return;
+
+          const limit =
+            trailLevel === 1 ? 150 : trailLevel === 2 ? 300 : trail.length;
+          const pts = trail.slice(-limit);
+
+          ctx.beginPath();
+          ctx.moveTo(pts[0].x, pts[0].y);
+          for (let i = 1; i < pts.length; i++) {
+            ctx.lineTo(pts[i].x, pts[i].y);
+          }
+          ctx.strokeStyle = "#8b1a1a";
+          ctx.lineWidth = 1.2;
+          ctx.lineJoin = "round";
+          ctx.stroke();
+        }
+
+        drawIdealCurve(coeffs, scale, cx, cy, trailLevel) {
+          if (trailLevel < 3) return;
+          const { ctx } = this;
+          const steps = 300;
+
+          ctx.beginPath();
+          for (let i = 0; i <= steps; i++) {
+            const tt = (i / steps) * Math.PI * 2;
+            const px = cx + MathUtils.evalX(coeffs, tt) * scale;
+            const py = cy + MathUtils.evalY(coeffs, tt) * scale;
+            i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.strokeStyle = "#1a3a6b30";
+          ctx.lineWidth = 0.8;
+          ctx.setLineDash([4, 6]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Draw axes + labels
+        drawFrame(cx, cy) {
+          const { ctx, w, h } = this;
+          ctx.save();
+          ctx.strokeStyle = "#1a1a2e18";
+          ctx.lineWidth = 1;
+          // crosshair at center
+          ctx.beginPath();
+          ctx.moveTo(cx - 10, cy);
+          ctx.lineTo(cx + 10, cy);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cx, cy - 10);
+          ctx.lineTo(cx, cy + 10);
+          ctx.stroke();
+          // label
+          ctx.font = "10px JetBrains Mono, monospace";
+          ctx.fillStyle = "#1a1a2e44";
+          ctx.fillText("O", cx + 6, cy - 4);
+          ctx.restore();
+        }
+
+        render(state, shapeDef) {
+          this.clear();
+          const { w, h, ctx } = this;
+          const cx = w * 0.48;
+          const cy = h * 0.5;
+          const scale = Math.min(w, h) * 0.32;
+
+          const terms = Math.min(state.termsUnlocked, shapeDef.maxTerms);
+          const coeffs = MathUtils.getCoefficients(shapeDef.id, terms);
+
+          this.drawFrame(cx, cy);
+          this.drawIdealCurve(coeffs, scale, cx, cy, state.trailLevel);
+
+          const tip = this.drawEpicycles(
+            coeffs,
+            state.t,
+            cx,
+            cy,
+            scale,
+            state.trailLevel,
+          );
+
+          this.trail.push({ x: tip.x, y: tip.y });
+          if (this.trail.length > this.maxTrail) this.trail.shift();
+
+          this.drawTrail(this.trail, state.trailLevel);
+
+          // Tip glow
+          ctx.beginPath();
+          ctx.arc(tip.x, tip.y, 5, 0, Math.PI * 2);
+          ctx.fillStyle = "#8b1a1a66";
+          ctx.fill();
+        }
+
+        clearTrail() {
+          this.trail = [];
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      //  GAME ENGINE
+      // ═══════════════════════════════════════════════════════════════
+      class GameEngine {
+        constructor() {
+          this.state = new GameState();
+          this.renderer = new Renderer(document.getElementById("main-canvas"));
+          this.ui = new UIManager(this.state, this);
+          this.lastTime = null;
+          this.running = false;
+
+          window.addEventListener("resize", () => {
+            this.renderer.resize();
+            this.renderer.clearTrail();
+          });
+        }
+
+        start() {
+          this.running = true;
+          this.lastTime = performance.now();
+          requestAnimationFrame((ts) => this.loop(ts));
+        }
+
+        loop(timestamp) {
+          if (!this.running) return;
+          const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1);
+          this.lastTime = timestamp;
+
+          this.update(dt);
+          this.draw();
+          this.ui.update();
+
+          requestAnimationFrame((ts) => this.loop(ts));
+        }
+
+        update(dt) {
+          const s = this.state;
+          s.t += dt * s.speed * 0.6;
+
+          // Passive harmonics
+          const earned = s.autoH * dt;
+          s.harmonics += earned;
+          s.totalHarmonics += earned;
+
+          // Harmonics from drawing: each completed cycle yields a small amount
+          const cycleEarned = s.termsUnlocked * 0.08 * dt;
+          s.harmonics += cycleEarned;
+          s.totalHarmonics += cycleEarned;
+
+          // Shape completion check
+          const shapeDef = SHAPES_DEF.find((sd) => sd.id === s.activeShapeId);
+          const currentTerms = Math.min(s.termsUnlocked, shapeDef.maxTerms);
+          if (currentTerms >= shapeDef.completionTerms) {
+            const prev = s.shapeTerms[s.activeShapeId] || 0;
+            if (prev < shapeDef.completionTerms) {
+              s.shapeTerms[s.activeShapeId] = shapeDef.completionTerms;
+              s.shapesCompleted++;
+              this.ui.notify(
+                `✓ ${shapeDef.name} completed! +${shapeDef.hPerSec * 10} ℏ`,
+              );
+              s.harmonics += shapeDef.hPerSec * 10;
+              s.totalHarmonics += shapeDef.hPerSec * 10;
+            }
+          } else {
+            s.shapeTerms[s.activeShapeId] = currentTerms;
+          }
+        }
+
+        draw() {
+          const shapeDef = SHAPES_DEF.find(
+            (sd) => sd.id === this.state.activeShapeId,
+          );
+          this.renderer.render(this.state, shapeDef);
+        }
+
+        buyUpgrade(id) {
+          const s = this.state;
+          const def = UPGRADES_DEF.find((u) => u.id === id);
+          if (!def || s.purchasedUpgrades.has(id)) return;
+          if (def.requires && !s.purchasedUpgrades.has(def.requires)) return;
+          if (s.harmonics < def.cost) return;
+
+          s.harmonics -= def.cost;
+          s.purchasedUpgrades.add(id);
+
+          const e = def.effect;
+          if (e.terms !== undefined)
+            s.termsUnlocked = Math.max(s.termsUnlocked, e.terms);
+          if (e.speed !== undefined) s.speed = Math.max(s.speed, e.speed);
+          if (e.autoH !== undefined) s.autoH += e.autoH;
+          if (e.trail !== undefined)
+            s.trailLevel = Math.max(s.trailLevel, e.trail);
+          if (e.parallel !== undefined) s.parallelSlots = e.parallel;
+
+          this.renderer.clearTrail();
+          this.ui.notify(`Research unlocked: ${def.name}`);
+          this.ui.renderUpgrades();
+        }
+
+        unlockShape(id) {
+          const s = this.state;
+          const def = SHAPES_DEF.find((sd) => sd.id === id);
+          if (!def || s.unlockedShapes.has(id)) return;
+          if (s.harmonics < def.unlockCost) return;
+          s.harmonics -= def.unlockCost;
+          s.unlockedShapes.add(id);
+          this.ui.notify(`Shape unlocked: ${def.name}`);
+          this.ui.renderShapes();
+        }
+
+        setActiveShape(id) {
+          if (!this.state.unlockedShapes.has(id)) return;
+          this.state.activeShapeId = id;
+          this.renderer.clearTrail();
+          this.ui.renderShapes();
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      //  UI MANAGER
+      // ═══════════════════════════════════════════════════════════════
+      class UIManager {
+        constructor(state, engine) {
+          this.state = state;
+          this.engine = engine;
+          this._notifTimer = null;
+          this.renderUpgrades();
+          this.renderShapes();
+        }
+
+        fmt(n) {
+          if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+          if (n >= 1e3) return (n / 1e3).toFixed(1) + "k";
+          return Math.floor(n).toString();
+        }
+
+        update() {
+          const s = this.state;
+          document.getElementById("res-harmonics").textContent = this.fmt(
+            s.harmonics,
+          );
+          document.getElementById("res-harmonics-rate").textContent =
+            s.autoH > 0 ? `+${s.autoH.toFixed(1)}/s` : "";
+          document.getElementById("res-terms").textContent = s.termsUnlocked;
+          document.getElementById("res-shapes").textContent = s.shapesCompleted;
+
+          document.getElementById("tick-display").textContent =
+            `t = ${(s.t % (2 * Math.PI)).toFixed(3)}`;
+
+          // Stats
+          const shapeDef = SHAPES_DEF.find((sd) => sd.id === s.activeShapeId);
+          const curTerms = Math.min(s.termsUnlocked, shapeDef.maxTerms);
+          const accuracy = (
+            (curTerms / shapeDef.completionTerms) *
+            100
+          ).toFixed(1);
+          document.getElementById("stat-accuracy").textContent = accuracy + "%";
+          document.getElementById("stat-terms").textContent = curTerms;
+          document.getElementById("stat-total-h").textContent = this.fmt(
+            s.totalHarmonics,
+          );
+          document.getElementById("stat-speed").textContent = s.speed + "×";
+
+          // Epoch
+          const epochs = ["I", "II", "III", "IV", "V", "VI", "VII"];
+          const ep = Math.min(
+            Math.floor(s.totalHarmonics / 500),
+            epochs.length - 1,
+          );
+          s.epoch = ep + 1;
+          document.getElementById("stat-epoch").textContent = epochs[ep];
+
+          // Formula display
+          const shapeDef2 = SHAPES_DEF.find((sd) => sd.id === s.activeShapeId);
+          let formula = "";
+          if (s.activeShapeId === "square")
+            formula = "f(t) = Σ 4/(nπ) · sin(nt)  [n odd]";
+          else if (s.activeShapeId === "triangle")
+            formula = "f(t) = Σ 8/(n²π²) · sin(nt)";
+          else if (s.activeShapeId === "sawtooth")
+            formula = "f(t) = Σ (-1)ⁿ⁺¹ · 2/(nπ) · sin(nt)";
+          else formula = "f(t) ≈ sin(t)";
+          document.getElementById("formula-display").textContent = formula;
+
+          // Refresh button states
+          document.querySelectorAll(".upgrade-btn[data-id]").forEach((btn) => {
+            const id = btn.dataset.id;
+            const def = UPGRADES_DEF.find((u) => u.id === id);
+            btn.disabled =
+              s.harmonics < def.cost ||
+              s.purchasedUpgrades.has(id) ||
+              (def.requires && !s.purchasedUpgrades.has(def.requires));
+          });
+
+          // Shape progress bars
+          SHAPES_DEF.forEach((sd) => {
+            const bar = document.getElementById(`bar-${sd.id}`);
+            if (!bar) return;
+            const t = Math.min(s.termsUnlocked, sd.maxTerms);
+            const pct = ((t / sd.completionTerms) * 100).toFixed(1);
+            bar.style.width = pct + "%";
+            const lbl = document.getElementById(`terms-lbl-${sd.id}`);
+            if (lbl) lbl.textContent = `${t} / ${sd.completionTerms} terms`;
+          });
+        }
+
+        renderUpgrades() {
+          const s = this.state;
+          const el = document.getElementById("upgrades-list");
+          el.innerHTML = "";
+          UPGRADES_DEF.forEach((def) => {
+            if (s.purchasedUpgrades.has(def.id)) return;
+            if (def.requires && !s.purchasedUpgrades.has(def.requires)) return;
+            const btn = document.createElement("button");
+            btn.className = "upgrade-btn";
+            btn.dataset.id = def.id;
+            btn.disabled = s.harmonics < def.cost;
+            btn.innerHTML = `
+        <div class="btn-top">
+          <span class="btn-name">${def.name}</span>
+          <span class="btn-cost">${def.cost} ℏ</span>
+        </div>
+        <div class="btn-desc">${def.desc}</div>`;
+            btn.addEventListener("click", () => {
+              this.engine.buyUpgrade(def.id);
+            });
+            el.appendChild(btn);
+          });
+          if (el.children.length === 0) {
+            el.innerHTML =
+              '<div style="font-size:11px;color:var(--ink-mid);font-style:italic">All research complete.</div>';
+          }
+        }
+
+        renderShapes() {
+          const s = this.state;
+          const el = document.getElementById("shapes-list");
+          el.innerHTML = "";
+          SHAPES_DEF.forEach((def) => {
+            const unlocked = s.unlockedShapes.has(def.id);
+            const item = document.createElement("div");
+            item.className =
+              "shape-item" +
+              (s.activeShapeId === def.id ? " active" : "") +
+              (!unlocked ? " locked" : "");
+
+            // Mini SVG icon
+            const svg = this._makeShapeIcon(def.id);
+            item.innerHTML = `
+        ${svg}
+        <div class="shape-info">
+          <div class="shape-name">${def.name}</div>
+          <div class="shape-progress-wrap"><div class="shape-progress-bar" id="bar-${def.id}" style="width:0%"></div></div>
+          <div class="shape-terms" id="terms-lbl-${def.id}">0 / ${def.completionTerms}</div>
+        </div>
+        ${!unlocked ? `<span style="font-family:var(--font-mono);font-size:10px;color:var(--red)">${def.unlockCost}ℏ</span>` : ""}
+      `;
+
+            if (!unlocked) {
+              item.addEventListener("click", () =>
+                this.engine.unlockShape(def.id),
+              );
+            } else {
+              item.addEventListener("click", () =>
+                this.engine.setActiveShape(def.id),
+              );
+            }
+            el.appendChild(item);
+          });
+        }
+
+        _makeShapeIcon(id) {
+          const shapes = {
+            circle: `<svg class="shape-icon" viewBox="-1.2 -1.2 2.4 2.4" xmlns="http://www.w3.org/2000/svg"><circle cx="0" cy="0" r="0.9" fill="none" stroke="#1a3a6b" stroke-width="0.12"/></svg>`,
+            square: `<svg class="shape-icon" viewBox="-1.2 -1.2 2.4 2.4" xmlns="http://www.w3.org/2000/svg"><rect x="-0.75" y="-0.75" width="1.5" height="1.5" fill="none" stroke="#1a3a6b" stroke-width="0.12"/></svg>`,
+            triangle: `<svg class="shape-icon" viewBox="-1.2 -1.2 2.4 2.4" xmlns="http://www.w3.org/2000/svg"><polygon points="0,-0.9 0.78,0.45 -0.78,0.45" fill="none" stroke="#1a3a6b" stroke-width="0.12"/></svg>`,
+            sawtooth: `<svg class="shape-icon" viewBox="-1.2 -1.2 2.4 2.4" xmlns="http://www.w3.org/2000/svg"><polyline points="-0.9,0.6 -0.9,-0.6 0.3,0.6 0.3,-0.6 0.9,0.6" fill="none" stroke="#1a3a6b" stroke-width="0.12"/></svg>`,
+            epicycloid: `<svg class="shape-icon" viewBox="-1.2 -1.2 2.4 2.4" xmlns="http://www.w3.org/2000/svg"><path d="M 0.9 0 C 0.9 -0.5 0 -0.9 0 -0.9 C 0 -0.9 -0.9 -0.5 -0.9 0 C -0.9 0.5 0 0.9 0 0.9 C 0 0.9 0.9 0.5 0.9 0 Z" fill="none" stroke="#1a3a6b" stroke-width="0.12"/></svg>`,
+          };
+          return shapes[id] || shapes.circle;
+        }
+
+        notify(msg) {
+          const el = document.getElementById("notif");
+          el.textContent = msg;
+          el.classList.add("show");
+          clearTimeout(this._notifTimer);
+          this._notifTimer = setTimeout(
+            () => el.classList.remove("show"),
+            2800,
+          );
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      //  BOOT
+      // ═══════════════════════════════════════════════════════════════
+      window.addEventListener("DOMContentLoaded", () => {
+        const engine = new GameEngine();
+        engine.start();
+        // Expose for debugging
+        window._game = engine;
+      });
+    </script>
+  </body>
+</html>

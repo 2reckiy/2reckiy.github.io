@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settlement - Survival Prototype</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #e0e0e0;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            pointer-events: none;
+            border: 1px solid #bbb;
+            width: 220px;
+        }
+
+        .resource-val {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+
+        .stat-header {
+            color: #95a5a6;
+            font-size: 0.7em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 10px;
+        }
+
+        .alert {
+            color: #e74c3c;
+            font-weight: bold;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="ui-layer">
+        <div class="stat-header">Stockpile</div>
+        <div>🍎 Food: <span id="ui-food" class="resource-val">0</span></div>
+        <div>🪵 Wood: <span id="ui-wood" class="resource-val">0</span></div>
+        <div id="ui-alert" class="alert"></div>
+        <div id="ui-msg" style="font-size: 0.8em; margin-top:10px; color:#555;">Click to start settlement</div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const TILE_SIZE = 50;
+        const COLORS = {
+            GRASS: '#f9fbf2',
+            FOREST: '#e2efda',
+            BUSH: '#d9e8fb',
+            EMPTY: '#f9fbf2', // Same as grass
+            BONFIRE: '#e67e22'
+        };
+
+        class Tile {
+            constructor(type) {
+                this.type = type;
+                this.amount = (type === 'GRASS') ? 0 : 15 + Math.random() * 20;
+                this.maxAmount = this.amount;
+            }
+        }
+
+        class Settler {
+            constructor(x, y, role) {
+                this.x = x; this.y = y; this.role = role;
+                this.type = 'settler';
+
+                // Dynamic Stats
+                this.speed = 0.3 + Math.random() * 0.4; // Slower movement
+                this.strength = 3 + Math.random() * 5;  // Carry capacity
+                this.attentiveness = 0.2 + Math.random() * 0.5; // Yield rate
+
+                // Survival Stats (0-100)
+                this.fatigue = 0;
+                this.hunger = 0;
+
+                this.inventory = 0;
+                this.state = 'searching';
+                this.velocity = { x: 0, y: 0 };
+            }
+
+            update(engine) {
+                // Natural stat decay
+                this.hunger += 0.02;
+                this.fatigue += 0.01;
+
+                // Logic Overrides: Hunger and Fatigue take priority
+                if (this.hunger > 80 || this.fatigue > 90) {
+                    this.state = 'returning';
+                }
+
+                switch (this.state) {
+                    case 'searching':
+                        this.wander(engine);
+                        break;
+                    case 'gathering':
+                        this.work(engine);
+                        break;
+                    case 'returning':
+                        this.moveTowards(engine.bonfirePos.x, engine.bonfirePos.y);
+                        if (this.isNear(engine.bonfirePos)) {
+                            // Deposit resources
+                            engine.resources[this.role] += Math.floor(this.inventory);
+                            this.inventory = 0;
+
+                            // Handle Needs
+                            if (this.hunger > 30 && engine.resources.food > 0) {
+                                engine.resources.food--;
+                                this.hunger = 0;
+                            }
+
+                            if (this.fatigue > 50) {
+                                this.state = 'resting';
+                            } else if (this.hunger < 30) {
+                                this.state = 'searching';
+                            }
+                        }
+                        break;
+                    case 'resting':
+                        this.fatigue -= 0.2;
+                        if (this.fatigue <= 0) this.state = 'searching';
+                        break;
+                }
+            }
+
+            wander(engine) {
+                if (Math.random() < 0.02) {
+                    const angle = Math.random() * Math.PI * 2;
+                    this.velocity.x = Math.cos(angle) * this.speed;
+                    this.velocity.y = Math.sin(angle) * this.speed;
+                }
+                this.x += this.velocity.x; this.y += this.velocity.y;
+
+                const tx = Math.floor(this.x / TILE_SIZE);
+                const ty = Math.floor(this.y / TILE_SIZE);
+                const tile = engine.getTile(tx, ty);
+
+                const target = this.role === 'food' ? 'BUSH' : 'FOREST';
+                if (tile && tile.type === target && tile.amount > 0) {
+                    this.state = 'gathering';
+                }
+            }
+
+            work(engine) {
+                const tx = Math.floor(this.x / TILE_SIZE);
+                const ty = Math.floor(this.y / TILE_SIZE);
+                const tile = engine.getTile(tx, ty);
+
+                if (tile && tile.amount > 0) {
+                    const harvest = 0.02 * this.attentiveness; // DECREASED YIELD
+                    tile.amount -= harvest;
+                    this.inventory += harvest;
+                    this.fatigue += 0.05;
+
+                    if (this.inventory >= this.strength) this.state = 'returning';
+                } else {
+                    this.state = 'searching'; // Resource depleted
+                }
+            }
+
+            moveTowards(tx, ty) {
+                const dx = tx - this.x; const dy = ty - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const currentSpeed = this.hunger > 90 ? this.speed * 0.5 : this.speed;
+                if (dist > 2) {
+                    this.x += (dx / dist) * currentSpeed;
+                    this.y += (dy / dist) * currentSpeed;
+                }
+            }
+
+            isNear(pos) { return Math.abs(this.x - pos.x) < 20 && Math.abs(this.y - pos.y) < 20; }
+        }
+
+        class GameEngine {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.entities = [];
+                this.grid = [];
+                this.resources = { food: 5, brushwood: 0 }; // Start with a little food
+                this.bonfirePlaced = false;
+                this.bonfirePos = { x: 0, y: 0 };
+                this.init();
+            }
+
+            init() {
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                this.generateWorld();
+                this.canvas.addEventListener('click', (e) => this.handleInput(e));
+                requestAnimationFrame(() => this.loop());
+            }
+
+            resize() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
+
+            generateWorld() {
+                const cols = Math.ceil(window.innerWidth / TILE_SIZE);
+                const rows = Math.ceil(window.innerHeight / TILE_SIZE);
+                for (let x = 0; x < cols; x++) {
+                    this.grid[x] = [];
+                    for (let y = 0; y < rows; y++) {
+                        const r = Math.random();
+                        let type = 'GRASS';
+                        if (r > 0.93) type = 'FOREST';
+                        else if (r > 0.88) type = 'BUSH';
+                        this.grid[x][y] = new Tile(type);
+                    }
+                }
+            }
+
+            getTile(x, y) { return (this.grid[x] && this.grid[x][y]) ? this.grid[x][y] : null; }
+
+            handleInput(e) {
+                if (!this.bonfirePlaced) {
+                    this.bonfirePos = { x: e.clientX, y: e.clientY };
+                    this.bonfirePlaced = true;
+                    for (let i = 0; i < 4; i++) {
+                        this.entities.push(new Settler(this.bonfirePos.x, this.bonfirePos.y, i % 2 === 0 ? 'food' : 'brushwood'));
+                    }
+                    document.getElementById('ui-msg').innerText = "Settlers must eat and rest.";
+                }
+            }
+
+            update() {
+                this.entities.forEach(ent => ent.update(this));
+                document.getElementById('ui-food').innerText = this.resources.food;
+                document.getElementById('ui-wood').innerText = this.resources.brushwood;
+                document.getElementById('ui-alert').innerText = (this.resources.food <= 0 && this.bonfirePlaced) ? "⚠️ STARVATION RISK" : "";
+            }
+
+            render() {
+                Renderer.drawWorld(this.ctx, this.grid);
+                if (this.bonfirePlaced) Renderer.drawBonfire(this.ctx, this.bonfirePos);
+                this.entities.forEach(ent => Renderer.drawSettler(this.ctx, ent));
+            }
+
+            loop() { this.update(); this.render(); requestAnimationFrame(() => this.loop()); }
+        }
+
+        class Renderer {
+            static drawWorld(ctx, grid) {
+                for (let x = 0; x < grid.length; x++) {
+                    for (let y = 0; y < grid[x].length; y++) {
+                        const tile = grid[x][y];
+                        if (tile.type === 'GRASS') {
+                            ctx.fillStyle = COLORS.GRASS;
+                        } else {
+                            // Fading effect based on remaining resources
+                            const intensity = 0.5 + (tile.amount / tile.maxAmount) * 0.5;
+                            ctx.fillStyle = tile.type === 'FOREST' ? `rgba(180, 210, 160, ${intensity})` : `rgba(180, 200, 240, ${intensity})`;
+                        }
+                        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+
+            static drawBonfire(ctx, pos) {
+                ctx.font = '30px Arial'; ctx.textAlign = 'center';
+                ctx.fillText('🔥', pos.x, pos.y + 10);
+            }
+
+            static drawSettler(ctx, ent) {
+                // Body
+                ctx.fillStyle = ent.role === 'food' ? '#16a085' : '#7f8c8d';
+                ctx.beginPath(); ctx.arc(ent.x, ent.y, 6, 0, Math.PI * 2); ctx.fill();
+
+                // Needs UI: Hunger (Orange) and Fatigue (Purple)
+                const drawBar = (offset, percent, color) => {
+                    ctx.fillStyle = '#eee'; ctx.fillRect(ent.x - 10, ent.y + offset, 20, 2);
+                    ctx.fillStyle = color; ctx.fillRect(ent.x - 10, ent.y + offset, 20 * (percent / 100), 2);
+                };
+                drawBar(8, ent.hunger, '#e67e22');
+                drawBar(11, ent.fatigue, '#9b59b6');
+            }
+        }
+
+        new GameEngine();
+    </script>
+</body>
+
+</html>

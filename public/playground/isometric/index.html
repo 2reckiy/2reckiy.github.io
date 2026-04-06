@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isometric Builder</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1a1c2c;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #f4f4f4;
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 4px;
+            pointer-events: none;
+            border-bottom: 2px solid #5d275d;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="ui">Click to Build/Remove Blocks<br><span id="coords">Grid: [0, 0]</span></div>
+    <canvas id="isoCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('isoCanvas');
+        const ctx = canvas.getContext('2d');
+        const coordDisplay = document.getElementById('coords');
+
+        const config = {
+            tileSize: 40,
+            wallHeight: 40,
+            colors: {
+                grid: '#292d3e',
+                top: '#ef7d57',
+                left: '#b13e53',
+                right: '#732758',
+                hover: 'rgba(255, 255, 255, 0.2)'
+            }
+        };
+
+        let blocks = new Set(); // Stores "u,v" strings of active blocks
+        let hoverGrid = { u: 0, v: 0 };
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function project(u, v, z = 0) {
+            const ox = canvas.width / 2;
+            const oy = canvas.height / 2; // Centered
+            return {
+                x: ox + (u - v) * (config.tileSize * 0.866),
+                y: oy + (u + v) * (config.tileSize * 0.5) - z
+            };
+        }
+
+        function unproject(screenX, screenY) {
+            const ox = canvas.width / 2;
+            const oy = canvas.height / 2;
+            const dx = screenX - ox;
+            const dy = screenY - oy;
+            const u = Math.floor((dy / (config.tileSize * 0.5) + dx / (config.tileSize * 0.866)) / 2);
+            const v = Math.floor((dy / (config.tileSize * 0.5) - dx / (config.tileSize * 0.866)) / 2);
+            return { u, v };
+        }
+
+        function drawCube(u, v) {
+            const h = config.wallHeight;
+            const p0 = project(u, v, 0);       // Bottom-back
+            const p1 = project(u + 1, v, 0);     // Bottom-right
+            const p2 = project(u + 1, v + 1, 0);   // Bottom-front
+            const p3 = project(u, v + 1, 0);     // Bottom-left
+
+            const t0 = project(u, v, h);       // Top-back
+            const t1 = project(u + 1, v, h);     // Top-right
+            const t2 = project(u + 1, v + 1, h);   // Top-front
+            const t3 = project(u, v + 1, h);     // Top-left
+
+            // Left Face
+            ctx.fillStyle = config.colors.left;
+            ctx.beginPath();
+            ctx.moveTo(p3.x, p3.y); ctx.lineTo(p2.x, p2.y);
+            ctx.lineTo(t2.x, t2.y); ctx.lineTo(t3.x, t3.y);
+            ctx.fill();
+
+            // Right Face
+            ctx.fillStyle = config.colors.right;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+            ctx.lineTo(t2.x, t2.y); ctx.lineTo(t1.x, t1.y);
+            ctx.fill();
+
+            // Top Face
+            ctx.fillStyle = config.colors.top;
+            ctx.beginPath();
+            ctx.moveTo(t0.x, t0.y); ctx.lineTo(t1.x, t1.y);
+            ctx.lineTo(t2.x, t2.y); ctx.lineTo(t3.x, t3.y);
+            ctx.fill();
+        }
+
+        function drawTile(u, v, fill) {
+            const p0 = project(u, v);
+            const p1 = project(u + 1, v);
+            const p2 = project(u + 1, v + 1);
+            const p3 = project(u, v + 1);
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y);
+            ctx.closePath();
+            if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+            ctx.stroke();
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const range = 10;
+
+            // 1. Draw Ground Grid
+            ctx.strokeStyle = config.colors.grid;
+            for (let u = -range; u <= range; u++) {
+                for (let v = -range; v <= range; v++) {
+                    drawTile(u, v);
+                }
+            }
+
+            // 2. Draw Built Blocks (Sorted by U+V for correct depth)
+            const sortedBlocks = Array.from(blocks).map(s => s.split(',').map(Number))
+                .sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]));
+
+            sortedBlocks.forEach(([u, v]) => drawCube(u, v));
+
+            // 3. Draw Hover Highlight
+            drawTile(hoverGrid.u, hoverGrid.v, config.colors.hover);
+
+            requestAnimationFrame(render);
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            hoverGrid = unproject(e.clientX, e.clientY);
+            coordDisplay.innerText = `Grid: [${hoverGrid.u}, ${hoverGrid.v}]`;
+        });
+
+        canvas.addEventListener('mousedown', () => {
+            const key = `${hoverGrid.u},${hoverGrid.v}`;
+            if (blocks.has(key)) blocks.delete(key);
+            else blocks.add(key);
+        });
+
+        window.addEventListener('resize', resize);
+        resize();
+        render();
+    </script>
+</body>
+
+</html>

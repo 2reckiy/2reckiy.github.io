@@ -24,7 +24,7 @@
 }
 
 .snake-canvas-container canvas {
-  padding: 2px;            
+  padding: 2px;
 }
 
 .snake-time-container {
@@ -33,6 +33,7 @@
   left: 50%;
   transform: translate(-50%);
 
+  background-color: #30363a;
   color: #ffffff;
   font-size: 1rem;
 }
@@ -49,7 +50,7 @@
 .snake-furyoku-container {
   display: flex;
   position: relative;
-  width: 100%;
+  padding: 0 4px;
   margin-bottom: 5px;
   align-items: center;
   justify-content: center;

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Square Drop Water Game</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #1a1a1a;
+        font-family: sans-serif;
+      }
+      canvas {
+        display: block;
+      }
+      .stats {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: #00d4ff;
+        pointer-events: none;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stats">
+      <div id="volume-display">Water Level: 0%</div>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const volumeLabel = document.getElementById("volume-display");
+
+      let width, height;
+      let particles = [];
+
+      // Water Pool State
+      let pool = {
+        width: 0,
+        height: 4,
+        x: 0,
+        y: 0,
+        totalVolume: 0,
+        isFullWidth: false,
+      };
+
+      const squareSize = 15;
+      const gravity = 0.6;
+      const waterColor = "#00d4ff";
+
+      function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+        pool.y = height; // Start pool at the very bottom
+        pool.x = width / 2; // Center the initial spread
+      }
+
+      window.addEventListener("resize", resize);
+      resize();
+
+      class Drop {
+        constructor(x, y) {
+          this.x = x - squareSize / 2;
+          this.y = y;
+          this.vy = 2;
+          this.active = true;
+        }
+
+        update() {
+          this.vy += gravity;
+          this.y += this.vy;
+
+          // Check collision with the "Water Line"
+          const waterLine = height - (pool.isFullWidth ? pool.height : 4);
+
+          if (this.y + squareSize >= waterLine) {
+            this.active = false;
+            this.absorb();
+          }
+        }
+
+        absorb() {
+          // Each square adds "volume" (area)
+          const addedVolume = squareSize * squareSize;
+          pool.totalVolume += addedVolume;
+
+          if (!pool.isFullWidth) {
+            // Spread width first
+            // We calculate width based on volume / fixed initial height
+            pool.width = pool.totalVolume / 4;
+            pool.x = width / 2 - pool.width / 2;
+
+            if (pool.width >= width) {
+              pool.width = width;
+              pool.x = 0;
+              pool.isFullWidth = true;
+              // Recalculate height based on the excess volume now that width is locked
+              pool.height = pool.totalVolume / width;
+            }
+          } else {
+            // Width is maxed, just grow height
+            pool.height = pool.totalVolume / width;
+          }
+
+          volumeLabel.innerText = `Water Level: ${Math.floor(pool.height)}px`;
+        }
+
+        draw() {
+          ctx.fillStyle = waterColor;
+          ctx.fillRect(this.x, this.y, squareSize, squareSize);
+        }
+      }
+
+      // Interaction
+      let isMouseDown = false;
+      let lastSpawn = 0;
+
+      window.addEventListener("mousedown", () => (isMouseDown = true));
+      window.addEventListener("mouseup", () => (isMouseDown = false));
+      window.addEventListener("mousemove", (e) => {
+        if (isMouseDown) {
+          const now = Date.now();
+          if (now - lastSpawn > 50) {
+            // Throttle spawning
+            particles.push(new Drop(e.clientX, e.clientY));
+            lastSpawn = now;
+          }
+        }
+      });
+
+      function drawPool() {
+        ctx.fillStyle = waterColor;
+        // Draw the main body of water
+        ctx.fillRect(pool.x, height - pool.height, pool.width, pool.height);
+
+        // Add a subtle glow/highlight to the top surface
+        ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+        ctx.fillRect(pool.x, height - pool.height, pool.width, 2);
+      }
+
+      function animate() {
+        // Dark trail effect
+        ctx.fillStyle = "rgba(26, 26, 26, 0.5)";
+        ctx.fillRect(0, 0, width, height);
+
+        // Update and draw falling drops
+        particles = particles.filter((p) => p.active);
+        particles.forEach((p) => {
+          p.update();
+          p.draw();
+        });
+
+        drawPool();
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    </script>
+  </body>
+</html>

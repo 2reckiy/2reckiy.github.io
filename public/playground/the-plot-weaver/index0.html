@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <title>The Plot Weaver — Prototype</title>
+    <style>
+      body {
+        background: #f4f0e6;
+        font-family: Georgia, serif;
+        padding: 20px;
+        max-width: 800px;
+        margin: auto;
+      }
+      #story {
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        border: 2px solid #ccc;
+      }
+      .slot {
+        color: #b00;
+        font-weight: bold;
+        cursor: pointer;
+        padding: 2px 4px;
+        border-bottom: 1px dashed #b00;
+      }
+      #hand {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+      }
+      .card {
+        padding: 10px;
+        background: #fff7da;
+        border: 1px solid #caa84a;
+        border-radius: 6px;
+        cursor: pointer;
+        width: 140px;
+      }
+      .chooser {
+        display: flex;
+        gap: 15px;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>The Plot Weaver — Prototype</h1>
+
+    <h3>Сюжетний Зачин:</h3>
+    <p>
+      <b
+        >“У віддаленому селі з’явилася загадкова проблема, яка потребує
+        негайного втручання.”</b
+      >
+    </p>
+
+    <div id="story">
+      На околиці села жив собі
+      <span class="slot" data-type="character">[Персонаж]</span>, який одного
+      дня зіткнувся з <span class="slot" data-type="event">[Подією]</span>. Ця
+      незвична ситуація привела його до
+      <span class="slot" data-type="location">[Місця]</span>, де на нього чекала
+      несподівана розв’язка.
+    </div>
+
+    <h3>Рука карт:</h3>
+    <div id="hand"></div>
+
+    <div id="chooser"></div>
+
+    <script>
+      // —————————————————————————
+      // КАРТИ
+      // —————————————————————————
+      const CARD_POOL = [
+        {
+          name: "Лицар Аріон",
+          type: "character",
+          text: "молодий воїн зі світлим серцем",
+        },
+        {
+          name: "Відьма Северія",
+          type: "character",
+          text: "загадкова жінка зі своїми таємницями",
+        },
+        {
+          name: "Старий Міст",
+          type: "location",
+          text: "споруда, що веде у заборонену частину лісу",
+        },
+        {
+          name: "Темна Печера",
+          type: "location",
+          text: "місце, вкрите легендами про монстрів",
+        },
+        {
+          name: "Зникнення Дитини",
+          type: "event",
+          text: "тривожна подія, що сколихнула все село",
+        },
+        {
+          name: "Раптовий Шторм",
+          type: "event",
+          text: "природна катастрофа, що з’явилася нізвідки",
+        },
+      ];
+
+      let hand = [];
+
+      function drawCard() {
+        return CARD_POOL[Math.floor(Math.random() * CARD_POOL.length)];
+      }
+
+      function refillHand() {
+        hand = [drawCard(), drawCard(), drawCard()];
+        renderHand();
+      }
+
+      function renderHand() {
+        const handDiv = document.getElementById("hand");
+        handDiv.innerHTML = "";
+
+        hand.forEach((card, index) => {
+          const el = document.createElement("div");
+          el.className = "card";
+          el.innerHTML = `<b>${card.name}</b><br>${card.text}<br><i>${card.type}</i>`;
+          el.onclick = () => selectCard(index);
+          handDiv.appendChild(el);
+        });
+      }
+
+      let selectedSlot = null;
+
+      function selectCard(cardIndex) {
+        if (!selectedSlot) return;
+
+        const card = hand[cardIndex];
+
+        // тип має співпасти
+        if (selectedSlot.dataset.type !== card.type) {
+          alert("Ця карта не підходить до цього слота!");
+          return;
+        }
+
+        // замінюємо слот на назву карти
+        selectedSlot.outerHTML = `<b>${card.name}</b>`;
+
+        // додаємо новий текст після вставки карти
+        appendGeneratedText(card);
+
+        // видаляємо карту з руки
+        hand.splice(cardIndex, 1);
+        renderHand();
+
+        selectedSlot = null;
+
+        if (hand.length === 0) {
+          offerThreeCards();
+        }
+      }
+
+      function offerThreeCards() {
+        const chooser = document.getElementById("chooser");
+        chooser.innerHTML = "<h3>Обери 1 з 3 нових карт:</h3>";
+
+        const picks = [drawCard(), drawCard(), drawCard()];
+
+        const wrap = document.createElement("div");
+        wrap.className = "chooser";
+
+        picks.forEach((card) => {
+          const el = document.createElement("div");
+          el.className = "card";
+          el.innerHTML = `<b>${card.name}</b><br>${card.text}<br><i>${card.type}</i>`;
+          el.onclick = () => {
+            hand.push(card);
+            renderHand();
+            chooser.innerHTML = "";
+          };
+          wrap.appendChild(el);
+        });
+
+        chooser.appendChild(wrap);
+      }
+
+      function appendGeneratedText(card) {
+        const story = document.getElementById("story");
+        const newSlotType = ["character", "event", "location"][
+          Math.floor(Math.random() * 3)
+        ];
+
+        const newFragment = `\n\nДодавши ${card.name.toLowerCase()}, історія повернула у новий бік. 
+        Це привело героя до <span class="slot" data-type="${newSlotType}">[${newSlotType}]</span>.`;
+
+        story.innerHTML += newFragment;
+        attachSlotEvents();
+      }
+
+      function attachSlotEvents() {
+        document.querySelectorAll(".slot").forEach((slot) => {
+          slot.onclick = () => {
+            selectedSlot = slot;
+            // фільтруємо руку
+            document.querySelectorAll(".card").forEach((cardDiv) => {
+              cardDiv.style.opacity = "0.3";
+            });
+            hand.forEach((card, i) => {
+              if (card.type === slot.dataset.type) {
+                document.querySelectorAll(".card")[i].style.opacity = "1";
+              }
+            });
+          };
+        });
+      }
+
+      refillHand();
+      attachSlotEvents();
+    </script>
+  </body>
+</html>

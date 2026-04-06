@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Random Template Track Generator</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #6dc06b;
+      }
+      canvas {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+      }
+      #ui {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 6px;
+        font-family: sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div id="ui">
+      <button id="regen">Generate Random Track</button> seed: <span id="seed"></span>
+    </div>
+
+    <script>
+      function getUrlParameter(name) {
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        return urlParams.get(name);
+      }
+      function updateUrlParameter(key, value) {
+        // Create a URL object from the current window location
+        const url = new URL(window.location.href);
+
+        // Use URLSearchParams.set() to add or update the parameter
+        url.searchParams.set(key, value);
+
+        // Use history.pushState() to update the address bar without a page reload
+        // Parameters are: state object, title (often ignored, use ''), URL
+        window.history.pushState({}, "", url);
+      }
+      // Seeded random --------
+      function mulberry32(seed) {
+        let t = seed + 0x6d2b79f5;
+        return function () {
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+      let rnd = mulberry32(1234567);
+
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
+
+      function resize() {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = innerWidth * dpr;
+        canvas.height = innerHeight * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      resize();
+      addEventListener("resize", resize);
+
+      ////////////////////////////////////////////////////////////////////////////////
+      // Geometry helpers
+      ////////////////////////////////////////////////////////////////////////////////
+
+      function addStraight(pts, p, dir, length, segments = 20) {
+        for (let i = 1; i <= segments; i++) {
+          const t = (length * i) / segments;
+          pts.push({ x: p.x + dir.x * t, y: p.y + dir.y * t });
+        }
+        const p2 = pts[pts.length - 1];
+        return p2;
+      }
+
+      function addArc(pts, p, dir, radius, sweepDeg, segments = 30) {
+        const sweep = (sweepDeg * Math.PI) / 180;
+        const left = Math.sign(sweepDeg); // positive = left, negative = right
+        const perp =
+          left > 0 ? { x: -dir.y, y: dir.x } : { x: dir.y, y: -dir.x };
+
+        const C = { x: p.x + perp.x * radius, y: p.y + perp.y * radius };
+        const startAngle = Math.atan2(p.y - C.y, p.x - C.x);
+
+        for (let i = 1; i <= segments; i++) {
+          const a = startAngle + sweep * (i / segments);
+          pts.push({
+            x: C.x + Math.cos(a) * radius,
+            y: C.y + Math.sin(a) * radius,
+          });
+        }
+
+        const pend = pts[pts.length - 1];
+        const endAngle = startAngle + sweep;
+        const dir2 = { x: Math.cos(endAngle), y: Math.sin(endAngle) };
+        return { p: pend, dir: dir2 };
+      }
+
+      function dist(a, b) {
+        const dx = a.x - b.x,
+          dy = a.y - b.y;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////
+      // Random template-based generator
+      ////////////////////////////////////////////////////////////////////////////////
+
+      function randomTrack() {
+        const pts = [];
+        const start = { x: 0, y: 0 };
+        let p = { ...start };
+        let dir = { x: 1, y: 0 };
+
+        pts.push({ ...p });
+
+        const minSegments = 6;
+        const maxSegments = 20;
+        const targetRadius = 120; // closeness before closing loop
+
+        let segmentsCount = 0;
+
+        while (segmentsCount < maxSegments) {
+          segmentsCount++;
+
+          // randomly pick segment type
+          const type = rnd() < 0.5 ? "straight" : "turn";
+
+          if (type === "straight") {
+            const L = 150 + rnd() * 300;
+            p = addStraight(pts, p, dir, L);
+          } else {
+            const angleChoices = Array.from(
+              { length: 18 },
+              (_, i) => (i + 1) * 10
+            ); //[30, 45, 90, 135, 180];
+            const angle = angleChoices[(rnd() * angleChoices.length) | 0];
+            const radius = 80 + rnd() * 120;
+            const left = rnd() < 0.5 ? 1 : -1;
+            const res = addArc(pts, p, dir, radius, angle * left);
+            p = res.p;
+            dir = res.dir;
+          }
+
+          // try closing the loop once we have enough path
+          if (segmentsCount >= minSegments) {
+            if (dist(p, start) < targetRadius) {
+              // final snap helper: small arc to aim at start
+              const toStart = {
+                x: start.x - p.x,
+                y: start.y - p.y,
+              };
+              const desiredAngle = Math.atan2(toStart.y, toStart.x);
+              const currentAngle = Math.atan2(dir.y, dir.x);
+              let delta = desiredAngle - currentAngle;
+              // normalize
+              while (delta > Math.PI) delta -= 2 * Math.PI;
+              while (delta < -Math.PI) delta += 2 * Math.PI;
+
+              // convert small delta to arc
+              const deltaDeg = (delta * 180) / Math.PI;
+              const closeRadius = 100;
+              const res2 = addArc(pts, p, dir, closeRadius, deltaDeg);
+              p = res2.p;
+              dir = res2.dir;
+
+              // finally push exact start point
+              pts.push({ ...start });
+              return pts;
+            }
+          }
+        }
+
+        // fallback: close with simple straight
+        pts.push({ ...start });
+
+        // optional smoothing by averaging neighbors to reduce sharp noise (pre-smooth)
+        const smooth = pts.map((p, i) => {
+          const prev = pts[(i - 1 + pts.length) % pts.length];
+          const next = pts[(i + 1) % pts.length];
+          return {
+            x: (prev.x + p.x + next.x) / 3,
+            y: (prev.y + p.y + next.y) / 3,
+          };
+        });
+
+        // return smoothed points
+        return smooth;
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////
+      // VIEWPORT SCALING FOR ANY DISPLAY SIZE
+      ////////////////////////////////////////////////////////////////////////////////
+
+      function computeBounds(pts) {
+        let minX = Infinity,
+          maxX = -Infinity;
+        let minY = Infinity,
+          maxY = -Infinity;
+        for (const p of pts) {
+          if (p.x < minX) minX = p.x;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.y > maxY) maxY = p.y;
+        }
+        return { minX, maxX, minY, maxY };
+      }
+
+      function applyViewportTransform(ctx, bounds) {
+        const w = canvas.width;
+        const h = canvas.height;
+
+        const trackW = bounds.maxX - bounds.minX;
+        const trackH = bounds.maxY - bounds.minY;
+
+        const padding = 80; // px screen padding around track
+        const scale = Math.min(
+          (w - padding * 2) / trackW,
+          (h - padding * 2) / trackH
+        );
+
+        const offsetX = (w - trackW * scale) * 0.5 - bounds.minX * scale;
+        const offsetY = (h - trackH * scale) * 0.5 - bounds.minY * scale;
+
+        // Apply transform to context
+        ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////
+      // Draw
+      ////////////////////////////////////////////////////////////////////////////////
+
+      function drawTrack(pts) {
+        // Reset transform first so clearRect affects the whole canvas
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const bounds = computeBounds(pts);
+        applyViewportTransform(ctx, bounds);
+
+        ctx.beginPath();
+        pts.forEach((pt, i) => {
+          if (i === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.closePath();
+
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+
+        // outer edge
+        ctx.strokeStyle = "#222";
+        ctx.lineWidth = 110;
+        ctx.stroke();
+
+        // asphalt
+        ctx.strokeStyle = "#444";
+        ctx.lineWidth = 90;
+        ctx.stroke();
+
+        // centerline
+        ctx.setLineDash([10, 10]);
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////
+      // Init
+      ////////////////////////////////////////////////////////////////////////////////
+
+      function generate(seed) {
+        rnd = mulberry32(seed);
+
+        const pts = randomTrack();
+        drawTrack(pts);
+
+        console.log({ seed, pts });
+        updateUrlParameter("seed", seed);
+
+        const el = document.getElementById("seed");
+        el.textContent = seed;
+      }
+
+      function generateRandom() {
+        const seed = Math.floor(Math.random() * 1_000_000_00);
+        generate(seed)
+      }
+
+      document.getElementById("regen").onclick = generateRandom;
+
+      const seed = getUrlParameter("seed") ?? Math.floor(Math.random() * 1_000_000);
+      generate(parseInt(seed));
+    </script>
+  </body>
+</html>

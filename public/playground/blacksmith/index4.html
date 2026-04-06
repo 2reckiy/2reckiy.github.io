@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Forge Master: Class Edition</title>
+    <style>
+        :root {
+            --bg: #0f0f13;
+            --window: #1c1c24;
+            --border: #343442;
+            --accent: #ff9f43;
+            --text: #d1d1e0;
+            --panel-h: #252530;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        header {
+            height: 50px;
+            background: #000;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        .stat {
+            background: #222;
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid #444;
+        }
+
+        .stat span {
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .qty-bar {
+            background: var(--panel-h);
+            padding: 8px;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .qty-btn {
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 2px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .qty-btn.active {
+            background: var(--accent);
+            color: #000;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 280px 240px 1fr;
+            gap: 10px;
+            padding: 10px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .panel {
+            background: var(--window);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            background: var(--panel-h);
+            padding: 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        /* Icon Grid */
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 8px;
+        }
+
+        .icon-item {
+            aspect-ratio: 1/1;
+            background: #2a2a35;
+            border: 2px solid #3f3f4f;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .icon-item:hover {
+            border-color: var(--accent);
+        }
+
+        .icon-item .emoji {
+            font-size: 24px;
+        }
+
+        .icon-item .badge {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            background: #000;
+            font-size: 10px;
+            padding: 1px 4px;
+            border-radius: 4px;
+        }
+
+        /* Forge UI */
+        .forge-display {
+            text-align: center;
+            padding: 10px;
+            background: #14141b;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        .prog-bg {
+            background: #000;
+            height: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border: 1px solid #333;
+            overflow: hidden;
+        }
+
+        .prog-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff9f43, #ff6b6b);
+            width: 0%;
+        }
+
+        .recipe-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #2a2a35;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .recipe-row:hover {
+            border-color: var(--accent);
+        }
+
+        /* Quality Colors */
+        .q-Common {
+            border-color: #444;
+        }
+
+        .q-Fine {
+            border-color: #3498db;
+            box-shadow: 0 0 5px #3498db55;
+        }
+
+        .q-Masterwork {
+            border-color: #f1c40f;
+            box-shadow: 0 0 8px #f1c40f55;
+        }
+
+        footer {
+            height: 30px;
+            background: #000;
+            font-size: 11px;
+            padding: 0 15px;
+            display: flex;
+            align-items: center;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="stat">💰 <span id="ui-gold">0</span></div>
+        <div class="stat">Rank <span id="ui-lvl">1</span></div>
+        <div class="stat">XP <span id="ui-xp">0/100</span></div>
+    </header>
+
+    <div class="qty-bar" id="ui-qty-bar">
+        <button class="qty-btn active" onclick="game.setQty(1)">x1</button>
+        <button class="qty-btn" onclick="game.setQty(10)">x10</button>
+        <button class="qty-btn" onclick="game.setQty(25)">x25</button>
+        <button class="qty-btn" onclick="game.setQty(100)">x100</button>
+    </div>
+
+    <main>
+        <div class="panel">
+            <div class="panel-header">Marketplace</div>
+            <div class="scroll" id="ui-market"></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">The Forge</div>
+            <div class="scroll">
+                <div class="forge-display">
+                    <div id="forge-icon" style="font-size:32px">🔥</div>
+                    <div id="forge-name" style="font-weight:bold; margin-top:5px">Idle</div>
+                    <div class="prog-bg">
+                        <div id="forge-fill" class="prog-fill"></div>
+                    </div>
+                    <div id="ui-queue" style="font-size:10px; opacity:0.6"></div>
+                </div>
+                <div id="ui-recipes"></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Warehouse</div>
+            <div class="scroll">
+                <div class="icon-grid" id="ui-inventory"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div id="ui-log">Forge initialized.</div>
+    </footer>
+
+    <script>
+        /** * ENTITY DATA 
+         */
+        const CONFIG = {
+            resources: [
+                { id: 'iron', name: 'Iron', emoji: '🪨', basePrice: 10 },
+                { id: 'wood', name: 'Wood', emoji: '🪵', basePrice: 5 }
+            ],
+            recipes: [
+                { id: 'dagger', name: 'Dagger', emoji: '🗡️', lv: 1, cost: { iron: 2 }, time: 1500, xp: 15, val: 35 },
+                { id: 'axe', name: 'Hatchet', emoji: '🪓', lv: 1, cost: { iron: 1, wood: 3 }, time: 2500, xp: 25, val: 60 },
+                { id: 'sword', name: 'Broadsword', emoji: '⚔️', lv: 2, cost: { iron: 6 }, time: 5000, xp: 60, val: 160 },
+                { id: 'shield', name: 'Plate Shield', emoji: '🛡️', lv: 2, cost: { iron: 4, wood: 4 }, time: 6000, xp: 80, val: 210 }
+            ]
+        };
+
+        /** * ENTITY CLASSES 
+         */
+
+        class Resource {
+            constructor(cfg) {
+                this.id = cfg.id;
+                this.name = cfg.name;
+                this.emoji = cfg.emoji;
+                this.basePrice = cfg.basePrice;
+            }
+        }
+
+        class Product {
+            constructor(recipe, quality) {
+                this.id = recipe.id;
+                this.name = recipe.name;
+                this.emoji = recipe.emoji;
+                this.val = recipe.val;
+                this.quality = quality; // Common, Fine, Masterwork
+            }
+        }
+
+        class Player {
+            constructor() {
+                this.gold = 250;
+                this.level = 1;
+                this.xp = 0;
+                this.nextLevelXp = 100;
+                this.resources = { iron: 0, wood: 0 };
+                this.inventory = [];
+            }
+
+            addXp(amt) {
+                this.xp += amt;
+                if (this.xp >= this.nextLevelXp) {
+                    this.level++;
+                    this.xp = 0;
+                    this.nextLevelXp = Math.floor(this.nextLevelXp * 1.8);
+                    return true; // Leveled up
+                }
+                return false;
+            }
+        }
+
+        class Market {
+            constructor() {
+                this.mods = { iron: 1, wood: 1, sell: 1 };
+            }
+
+            randomize() {
+                this.mods.iron = 0.6 + Math.random() * 0.8;
+                this.mods.wood = 0.6 + Math.random() * 0.8;
+                this.mods.sell = 0.8 + Math.random() * 0.4;
+            }
+
+            getPrice(resId) {
+                const base = CONFIG.resources.find(r => r.id === resId).basePrice;
+                return Math.ceil(base * this.mods[resId]);
+            }
+        }
+
+        class Forge {
+            constructor(player) {
+                this.player = player;
+                this.queue = [];
+                this.isBusy = false;
+                this.onFinish = null; // Callback for GameEngine
+            }
+
+            add(recipe, qty) {
+                for (let i = 0; i < qty; i++) this.queue.push(recipe);
+                if (!this.isBusy) this.next();
+            }
+
+            next() {
+                if (this.queue.length === 0) {
+                    this.isBusy = false;
+                    return;
+                }
+
+                const recipe = this.queue[0];
+
+                // Resource check
+                for (let res in recipe.cost) {
+                    if (this.player.resources[res] < recipe.cost[res]) {
+                        game.log(`Forge halted: Need ${res}`);
+                        this.isBusy = false;
+                        return;
+                    }
+                }
+
+                // Consume & Start
+                for (let res in recipe.cost) this.player.resources[res] -= recipe.cost[res];
+                this.queue.shift();
+                this.isBusy = true;
+                this.startCraft(recipe);
+            }
+
+            startCraft(recipe) {
+                let start = null;
+                const duration = recipe.time / (1 + (this.player.level * 0.2));
+
+                const step = (ts) => {
+                    if (!start) start = ts;
+                    const progress = (ts - start) / duration;
+                    document.getElementById('forge-fill').style.width = Math.min(progress * 100, 100) + "%";
+                    document.getElementById('forge-icon').innerText = recipe.emoji;
+                    document.getElementById('forge-name').innerText = recipe.name;
+
+                    if (progress < 1) {
+                        requestAnimationFrame(step);
+                    } else {
+                        this.complete(recipe);
+                    }
+                };
+                requestAnimationFrame(step);
+            }
+
+            complete(recipe) {
+                const roll = Math.random() * this.player.level;
+                const quality = roll > 8 ? "Masterwork" : (roll > 4 ? "Fine" : "Common");
+                const product = new Product(recipe, quality);
+
+                this.player.inventory.push(product);
+                if (this.player.addXp(recipe.xp)) game.log("RANK UP!");
+
+                this.onFinish(); // Trigger UI refresh
+                this.next();
+            }
+        }
+
+        /**
+         * MAIN GAME ENGINE
+         */
+        class GameEngine {
+            constructor() {
+                this.player = new Player();
+                this.market = new Market();
+                this.forge = new Forge(this.player);
+                this.qty = 1;
+
+                this.forge.onFinish = () => this.updateUI();
+
+                // Initializing logic loops
+                setInterval(() => {
+                    this.market.randomize();
+                    this.log("Market prices shifted.");
+                    this.updateUI();
+                }, 20000);
+
+                this.updateUI();
+            }
+
+            setQty(n) {
+                this.qty = n;
+                document.querySelectorAll('.qty-btn').forEach(b =>
+                    b.classList.toggle('active', parseInt(b.innerText.replace('x', '')) === n));
+                this.updateUI();
+            }
+
+            buy(resId) {
+                const price = this.market.getPrice(resId) * this.qty;
+                if (this.player.gold >= price) {
+                    this.player.gold -= price;
+                    this.player.resources[resId] += this.qty;
+                    this.updateUI();
+                }
+            }
+
+            sell(id, quality) {
+                let sold = 0;
+                const unitPrice = Math.floor(CONFIG.recipes.find(r => r.id === id).val * this.market.mods.sell);
+
+                for (let i = this.player.inventory.length - 1; i >= 0; i--) {
+                    const item = this.player.inventory[i];
+                    if (item.id === id && item.quality === quality && sold < this.qty) {
+                        this.player.inventory.splice(i, 1);
+                        this.player.gold += unitPrice;
+                        sold++;
+                    }
+                }
+                this.updateUI();
+            }
+
+            log(msg) {
+                document.getElementById('ui-log').innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            }
+
+            updateUI() {
+                // Stats
+                document.getElementById('ui-gold').innerText = Math.floor(this.player.gold).toLocaleString();
+                document.getElementById('ui-lvl').innerText = this.player.level;
+                document.getElementById('ui-xp').innerText = `${this.player.xp}/${this.player.nextLevelXp}`;
+
+                // Market Grid
+                document.getElementById('ui-market').innerHTML = CONFIG.resources.map(res => `
+            <div class="recipe-row" onclick="game.buy('${res.id}')">
+                <span style="font-size:24px">${res.emoji}</span>
+                <div style="flex:1">
+                    <strong>${res.name}</strong><br>
+                    <small>Inv: ${this.player.resources[res.id]}</small>
+                </div>
+                <div style="text-align:right">
+                    <strong>${this.market.getPrice(res.id) * this.qty}g</strong><br>
+                    <small>x${this.qty}</small>
+                </div>
+            </div>
+        `).join('');
+
+                // Recipe List
+                document.getElementById('ui-recipes').innerHTML = CONFIG.recipes
+                    .filter(r => this.player.level >= r.lv)
+                    .map(r => `
+                <div class="recipe-row" onclick="game.forge.add(CONFIG.recipes.find(x=>x.id==='${r.id}'), game.qty)">
+                    <span style="font-size:20px">${r.emoji}</span>
+                    <div style="flex:1">
+                        <strong>${r.name}</strong><br>
+                        <small>${Object.entries(r.cost).map(([k, v]) => v * this.qty + k[0].toUpperCase()).join(' ')}</small>
+                    </div>
+                    <small>Queue ${this.qty}</small>
+                </div>
+            `).join('');
+
+                // Inventory Grid
+                const groups = this.player.inventory.reduce((acc, item) => {
+                    const key = item.id + item.quality;
+                    if (!acc[key]) acc[key] = { ...item, count: 0 };
+                    acc[key].count++;
+                    return acc;
+                }, {});
+
+                document.getElementById('ui-inventory').innerHTML = Object.values(groups).map(item => `
+            <div class="icon-item q-${item.quality}" onclick="game.sell('${item.id}', '${item.quality}')">
+                <span class="emoji">${item.emoji}</span>
+                <span class="badge">x${item.count}</span>
+                <div style="font-size:9px; color:#aaa; margin-top:2px;">${Math.floor(item.val * this.market.mods.sell)}g</div>
+            </div>
+        `).join('');
+
+                // Queue
+                document.getElementById('ui-queue').innerText = this.forge.queue.length > 0
+                    ? `Next: ${this.forge.queue[0].name} (+${this.forge.queue.length - 1})`
+                    : "Queue Empty";
+            }
+        }
+
+        // Start Game
+        const game = new GameEngine();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>LEGO Mosaic Studio — Inventory Mode</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 20px;
+        background: #f4f4f9;
+        user-select: none;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        align-items: flex-end;
+      }
+      label {
+        font-size: 11px;
+        font-weight: bold;
+        display: flex;
+        flex-direction: column;
+        color: #444;
+      }
+      input,
+      select {
+        padding: 5px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+
+      .main-layout {
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        gap: 20px;
+      }
+      .canvas-area {
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .canvas-container {
+        position: relative;
+        border: 1px solid #000;
+        display: inline-block;
+        background: #222;
+        overflow: hidden;
+      }
+      #selector {
+        position: absolute;
+        border: 2px solid #00ff88;
+        background: rgba(0, 255, 136, 0.1);
+        cursor: move;
+        box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.6);
+        z-index: 5;
+      }
+      .handle {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        background: #00ff88;
+        border: 2px solid #000;
+        border-radius: 50%;
+        bottom: -7px;
+        right: -7px;
+        cursor: se-resize;
+      }
+
+      #outCanvas {
+        image-rendering: pixelated;
+        width: 100%;
+        border: 1px solid #333;
+        display: block;
+      }
+
+      /* Inventory Styles */
+      .inventory-panel {
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        height: fit-content;
+      }
+      .inventory-title {
+        font-weight: bold;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+      }
+      .color-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+        font-size: 14px;
+      }
+      .color-swatch {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+      }
+      .count-badge {
+        font-weight: bold;
+        margin-left: auto;
+        background: #eee;
+        padding: 2px 8px;
+        border-radius: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="controls">
+      <label>Файл: <input id="file" type="file" accept="image/*" /></label>
+      <label
+        >Масштаб:
+        <input
+          id="zoomSlider"
+          type="range"
+          min="0.1"
+          max="2"
+          step="0.1"
+          value="0.8"
+      /></label>
+      <label
+        >Палітра:
+        <select id="paletteSelect">
+          <option value="lego_grayscale">LEGO Grayscale (4 Colors)</option>
+          <option value="lego_primary">LEGO Primary (8 Colors)</option>
+          <option value="classic_90s">90s Classic Space</option>
+        </select>
+      </label>
+      <label
+        >W: <input id="targetW" type="number" value="32" style="width: 45px"
+      /></label>
+      <label
+        >H: <input id="targetH" type="number" value="32" style="width: 45px"
+      /></label>
+      <button
+        id="dl"
+        style="
+          padding: 8px 15px;
+          cursor: pointer;
+          background: #007bff;
+          color: #fff;
+          border: none;
+          border-radius: 5px;
+        "
+      >
+        Завантажити Схему
+      </button>
+    </div>
+
+    <div class="main-layout">
+      <div class="canvas-area">
+        <div style="display: flex; gap: 20px">
+          <div class="canvas-container" id="wrapper">
+            <canvas id="origCanvas"></canvas>
+            <div id="selector"><div class="handle"></div></div>
+          </div>
+          <div style="flex: 1">
+            <div style="margin-bottom: 5px; font-weight: bold; font-size: 12px">
+              Попередній перегляд (З сіткою 10x10)
+            </div>
+            <canvas id="outCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="inventory-panel">
+        <div class="inventory-title">📋 Список деталей</div>
+        <div id="inventoryList">Завантажте фото...</div>
+      </div>
+    </div>
+
+    <script>
+      const PALETTES = {
+        lego_grayscale: [
+          { r: 255, g: 255, b: 255, n: "White" },
+          { r: 160, g: 160, b: 160, n: "Light Gray" },
+          { r: 120, g: 120, b: 120, n: "Gray" },
+          { r: 80, g: 80, b: 80, n: "Dark Gray" },
+          { r: 0, g: 0, b: 0, n: "Black" },
+        ],
+        lego_primary: [
+          { r: 255, g: 255, b: 255, n: "White" },
+          { r: 0, g: 0, b: 0, n: "Black" },
+          { r: 200, g: 0, b: 0, n: "Red" },
+          { r: 0, g: 85, b: 175, n: "Blue" },
+          { r: 255, g: 210, b: 0, n: "Yellow" },
+          { r: 0, g: 150, b: 70, n: "Green" },
+          { r: 160, g: 160, b: 160, n: "L. Gray" },
+          { r: 100, g: 60, b: 40, n: "Brown" },
+        ],
+        classic_90s: [
+          { r: 0, g: 0, b: 0, n: "Black" },
+          { r: 0, g: 85, b: 175, n: "Blue" },
+          { r: 200, g: 200, b: 200, n: "L. Gray" },
+          { r: 255, g: 210, b: 0, n: "Yellow" },
+        ],
+      };
+
+      let img = new Image(),
+        loaded = false,
+        isDragging = false,
+        isResizing = false;
+      let selX = 20,
+        selY = 20,
+        selW = 150,
+        selH = 150;
+      let startMouseX, startMouseY, startX, startY, startW;
+
+      const elements = {
+        file: document.getElementById("file"),
+        zoom: document.getElementById("zoomSlider"),
+        palette: document.getElementById("paletteSelect"),
+        tw: document.getElementById("targetW"),
+        th: document.getElementById("targetH"),
+        orig: document.getElementById("origCanvas"),
+        out: document.getElementById("outCanvas"),
+        inv: document.getElementById("inventoryList"),
+        sel: document.getElementById("selector"),
+        wrap: document.getElementById("wrapper"),
+      };
+
+      elements.file.onchange = (e) => {
+        const url = URL.createObjectURL(e.target.files[0]);
+        img.onload = () => {
+          loaded = true;
+          updateCanvas();
+          updateRatio();
+        };
+        img.src = url;
+      };
+
+      elements.zoom.oninput = updateCanvas;
+      [elements.palette, elements.tw, elements.th].forEach(
+        (el) =>
+          (el.oninput = () => {
+            updateRatio();
+            process();
+          }),
+      );
+
+      function updateCanvas() {
+        if (!loaded) return;
+        const z = parseFloat(elements.zoom.value);
+        elements.orig.width = img.width * z;
+        elements.orig.height = img.height * z;
+        elements.orig
+          .getContext("2d")
+          .drawImage(img, 0, 0, elements.orig.width, elements.orig.height);
+        updateUI();
+        process();
+      }
+
+      function updateRatio() {
+        if (!loaded) return;
+        const r = parseInt(elements.tw.value) / parseInt(elements.th.value);
+        selH = selW / r;
+        updateUI();
+      }
+
+      // Drag/Resize logic
+      elements.wrap.onmousedown = (e) => {
+        if (!loaded) return;
+        if (e.target.classList.contains("handle")) isResizing = true;
+        else if (e.target === elements.sel) isDragging = true;
+        else return;
+        startMouseX = e.clientX;
+        startMouseY = e.clientY;
+        startX = selX;
+        startY = selY;
+        startW = selW;
+      };
+
+      window.onmousemove = (e) => {
+        if (!loaded || (!isDragging && !isResizing)) return;
+        const dx = e.clientX - startMouseX;
+        const ratio = parseInt(elements.tw.value) / parseInt(elements.th.value);
+        if (isDragging) {
+          selX = Math.max(0, Math.min(startX + dx, elements.orig.width - selW));
+          selY = Math.max(
+            0,
+            Math.min(
+              startY + (e.clientY - startMouseY),
+              elements.orig.height - selH,
+            ),
+          );
+        }
+        if (isResizing) {
+          selW = Math.max(
+            30,
+            Math.min(startW + dx, elements.orig.width - selX),
+          );
+          selH = selW / ratio;
+        }
+        updateUI();
+        process();
+      };
+
+      window.onmouseup = () => (isDragging = isResizing = false);
+
+      function updateUI() {
+        elements.sel.style.left = selX + "px";
+        elements.sel.style.top = selY + "px";
+        elements.sel.style.width = selW + "px";
+        elements.sel.style.height = selH + "px";
+        elements.sel.style.display = loaded ? "block" : "none";
+      }
+
+      function process() {
+        if (!loaded) return;
+        const tw = parseInt(elements.tw.value),
+          th = parseInt(elements.th.value);
+        elements.out.width = tw;
+        elements.out.height = th;
+        const ctx = elements.out.getContext("2d");
+        ctx.drawImage(elements.orig, selX, selY, selW, selH, 0, 0, tw, th);
+
+        const imgData = ctx.getImageData(0, 0, tw, th),
+          d = imgData.data;
+        const palette = PALETTES[elements.palette.value];
+        const counts = {};
+
+        for (let i = 0; i < d.length; i += 4) {
+          let minMove = Infinity,
+            closest = palette[0];
+          for (const c of palette) {
+            const dist =
+              Math.pow(d[i] - c.r, 2) +
+              Math.pow(d[i + 1] - c.g, 2) +
+              Math.pow(d[i + 2] - c.b, 2);
+            if (dist < minMove) {
+              minMove = dist;
+              closest = c;
+            }
+          }
+          d[i] = closest.r;
+          d[i + 1] = closest.g;
+          d[i + 2] = closest.b;
+          counts[closest.n] = (counts[closest.n] || 0) + 1;
+        }
+        ctx.putImageData(imgData, 0, 0);
+        updateInventory(counts, palette);
+      }
+
+      function updateInventory(counts, palette) {
+        elements.inv.innerHTML = palette
+          .map((c) => {
+            const count = counts[c.n] || 0;
+            return `<div class="color-row">
+            <div class="color-swatch" style="background:rgb(${c.r},${c.g},${c.b})"></div>
+            <span>${c.n}</span>
+            <span class="count-badge">${count}</span>
+          </div>`;
+          })
+          .join("");
+      }
+
+      elements.out.onmouseenter = () => {
+        /* Logic to show hover coords if needed */
+      };
+    </script>
+  </body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Idle Farm Generator Game</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 50px;
+      background: #f0fff0;
+    }
+    #log {
+      font-size: 24px;
+      margin-bottom: 20px;
+      height: 50px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌱 Idle Farm</h1>
+  <div id="log">Натисни "Почати"</div>
+  <button id="next">▶️ Далі</button>
+  <button id="auto">⏳ Авто</button>
+
+  <script>
+    function* growCarrot() {
+      yield "🌱 Посадив моркву";
+      yield "💧 Полив її";
+      yield "☀️ Сонце пригріло";
+      yield "🌿 Морква росте...";
+      yield "🥕 Морква готова!";
+      yield "🔁 Посадити ще";
+    }
+
+    let game = growCarrot();
+    const log = document.getElementById("log");
+    const nextBtn = document.getElementById("next");
+    const autoBtn = document.getElementById("auto");
+    let auto = false;
+
+    function nextStep() {
+      const { value, done } = game.next();
+      if (done) {
+        game = growCarrot(); // перезапуск
+        log.textContent = "🔁 Гра перезапущена";
+      } else {
+        log.textContent = value;
+      }
+    }
+
+    nextBtn.onclick = nextStep;
+
+    autoBtn.onclick = () => {
+      auto = !auto;
+      autoBtn.textContent = auto ? "⏸ Зупинити" : "⏳ Авто";
+      if (auto) {
+        const interval = setInterval(() => {
+          if (!auto) return clearInterval(interval);
+          nextStep();
+        }, 1500);
+      }
+    };
+  </script>
+</body>
+</html>

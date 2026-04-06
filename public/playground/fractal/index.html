@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Fractal Tree</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #0a0a0a; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            draw();
+        }
+
+        function drawBranch(x, y, len, angle, branchWidth, depth) {
+            ctx.beginPath();
+            ctx.save();
+            
+            // Set color based on depth (Hue cycles 30 degrees per level)
+            ctx.strokeStyle = `hsl(${(depth * 30) % 360}, 80%, 60%)`;
+            ctx.lineWidth = branchWidth;
+            
+            // Move and rotate the coordinate system to the start of the branch
+            ctx.translate(x, y);
+            ctx.rotate(angle * Math.PI / 180);
+            
+            // Draw the line from (0,0) to (0, -len)
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -len);
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            if (depth === 0) {
+                ctx.restore();
+                return;
+            }
+
+            // Recursive calls: 
+            // 1. Pass the end of the current branch (0, -len) as the new start
+            // 2. Shrink length by ~20%
+            // 3. Thin the branch
+            drawBranch(0, -len, len * 0.75, 25, branchWidth * 0.7, depth - 1);
+            drawBranch(0, -len, len * 0.75, -25, branchWidth * 0.7, depth - 1);
+
+            ctx.restore();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Parameters: Start X, Start Y, Length, Angle, Width, Max Depth
+            const initialLength = canvas.height / 4;
+            drawBranch(canvas.width / 2, canvas.height - 50, initialLength, 0, 15, 12);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+    </script>
+</body>
+</html>

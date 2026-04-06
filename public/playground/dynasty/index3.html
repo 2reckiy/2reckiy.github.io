@@ -1,0 +1,1650 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dynasty Tree</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0b0906;
+      }
+
+      #canvas {
+        display: block;
+        cursor: grab;
+      }
+      #canvas.dragging {
+        cursor: grabbing;
+      }
+
+      /* ── Dynasty header ─────────────────────────── */
+      #dynasty-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 14px 22px 30px;
+        background: linear-gradient(
+          to bottom,
+          rgba(11, 9, 6, 0.98) 60%,
+          transparent
+        );
+        pointer-events: none;
+        z-index: 5;
+      }
+      #dynasty-name {
+        font-family: "Cinzel", serif;
+        font-size: 22px;
+        font-weight: 700;
+        color: #c8a951;
+        letter-spacing: 0.12em;
+      }
+      #dynasty-motto {
+        font-family: "Crimson Text", serif;
+        font-style: italic;
+        font-size: 13px;
+        color: #6a5a38;
+        margin-top: 3px;
+        letter-spacing: 0.04em;
+      }
+
+      /* ── Info panel ─────────────────────────────── */
+      #info-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 290px;
+        background: linear-gradient(160deg, #131009 0%, #0b0906 100%);
+        border-left: 1px solid #2c2010;
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-y: auto;
+        z-index: 20;
+        padding: 20px;
+        scrollbar-width: thin;
+        scrollbar-color: #2c2010 transparent;
+      }
+      #info-panel.open {
+        transform: translateX(0);
+      }
+      #info-panel::-webkit-scrollbar {
+        width: 4px;
+      }
+      #info-panel::-webkit-scrollbar-thumb {
+        background: #2c2010;
+      }
+
+      #panel-close {
+        float: right;
+        background: none;
+        border: none;
+        color: #4a3a20;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+        transition: color 0.2s;
+      }
+      #panel-close:hover {
+        color: #c8a951;
+      }
+
+      .panel-section {
+        margin-bottom: 14px;
+      }
+      .panel-label {
+        font-family: "Cinzel", serif;
+        font-size: 9px;
+        letter-spacing: 0.15em;
+        color: #4a3a20;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+      }
+      .panel-value {
+        font-size: 13px;
+        color: #d0b878;
+        line-height: 1.5;
+      }
+      .panel-link {
+        color: #c8a951;
+        cursor: pointer;
+      }
+      .panel-link:hover {
+        text-decoration: underline;
+      }
+      .panel-divider {
+        border: none;
+        border-top: 1px solid #1e1608;
+        margin: 14px 0;
+      }
+      .trait-chip {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 2px;
+        font-size: 11px;
+        margin: 2px 2px 0 0;
+        color: #e8d5a3;
+        letter-spacing: 0.04em;
+      }
+      .panel-note {
+        padding: 10px 12px;
+        background: #0f0c07;
+        border-left: 2px solid #3a2c10;
+        border-radius: 2px;
+        font-style: italic;
+        font-size: 12px;
+        color: #7a6a48;
+        line-height: 1.6;
+      }
+      .panel-avatar {
+        width: 54px;
+        height: 54px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Cinzel", serif;
+        font-size: 22px;
+        margin-bottom: 12px;
+      }
+      .panel-person-name {
+        font-family: "Cinzel", serif;
+        font-size: 16px;
+        color: #e8d5a3;
+        margin-bottom: 3px;
+      }
+      .panel-person-title {
+        font-style: italic;
+        color: #6a5a38;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+      .panel-person-dates {
+        color: #5a4a28;
+        font-size: 12px;
+      }
+
+      /* ── Legend ─────────────────────────────────── */
+      #legend {
+        position: fixed;
+        bottom: 18px;
+        left: 18px;
+        z-index: 5;
+        background: rgba(11, 9, 6, 0.88);
+        border: 1px solid #2c2010;
+        padding: 12px 14px;
+        border-radius: 4px;
+        font-size: 11px;
+        color: #6a5a38;
+        font-family: "Crimson Text", serif;
+      }
+      #legend-title {
+        font-family: "Cinzel", serif;
+        font-size: 9px;
+        letter-spacing: 0.15em;
+        color: #4a3a20;
+        margin-bottom: 8px;
+      }
+      .legend-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 5px;
+      }
+      .legend-line {
+        width: 22px;
+        height: 2px;
+        border-radius: 1px;
+        flex-shrink: 0;
+      }
+      .legend-line.dashed {
+        background: transparent;
+        border-top: 2px dashed;
+        height: 0;
+      }
+
+      /* ── Controls ───────────────────────────────── */
+      #controls {
+        position: fixed;
+        bottom: 18px;
+        right: 18px;
+        display: flex;
+        gap: 6px;
+        z-index: 10;
+      }
+      .ctrl-btn {
+        background: #0f0c07;
+        border: 1px solid #2c2010;
+        color: #c8a951;
+        width: 34px;
+        height: 34px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+      }
+      .ctrl-btn:hover {
+        border-color: #c8a951;
+        background: #1a1508;
+      }
+      .ctrl-btn.wide {
+        width: auto;
+        padding: 0 12px;
+        font-family: "Cinzel", serif;
+        font-size: 10px;
+        letter-spacing: 0.1em;
+      }
+
+      /* ── Tooltip ─────────────────────────────────── */
+      #tooltip {
+        position: fixed;
+        pointer-events: none;
+        z-index: 30;
+        background: rgba(11, 9, 6, 0.95);
+        border: 1px solid #2c2010;
+        border-radius: 4px;
+        padding: 6px 10px;
+        font-family: "Crimson Text", serif;
+        font-size: 12px;
+        color: #c8a951;
+        opacity: 0;
+        transition: opacity 0.15s;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+
+    <div id="dynasty-header">
+      <div id="dynasty-name"></div>
+      <div id="dynasty-motto"></div>
+    </div>
+
+    <div id="info-panel">
+      <button id="panel-close">✕</button>
+      <div id="panel-content"></div>
+    </div>
+
+    <div id="legend">
+      <div id="legend-title">LEGEND</div>
+      <div class="legend-row">
+        <div class="legend-line" style="background: #c8a951"></div>
+        Marriage
+      </div>
+      <div class="legend-row">
+        <div class="legend-line dashed" style="border-color: #8b3a3a"></div>
+        Affair
+      </div>
+      <div class="legend-row">
+        <div class="legend-line" style="background: #3a6a4a"></div>
+        Legitimate child
+      </div>
+      <div class="legend-row">
+        <div class="legend-line dashed" style="border-color: #7a6a38"></div>
+        Illegitimate / Adopted
+      </div>
+      <div class="legend-row">
+        <div
+          style="
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #1e2d47;
+            border: 1px solid #3a6a9a;
+            flex-shrink: 0;
+          "
+        ></div>
+        Male
+      </div>
+      <div class="legend-row">
+        <div
+          style="
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #2a1030;
+            border: 1px solid #7a3a6a;
+            flex-shrink: 0;
+          "
+        ></div>
+        Female
+      </div>
+      <div class="legend-row">
+        <div
+          style="
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #1a2a0a;
+            border: 1px solid #4a7a3a;
+            flex-shrink: 0;
+          "
+        ></div>
+        Alive
+      </div>
+    </div>
+
+    <div id="controls">
+      <button class="ctrl-btn" id="btn-zoom-out" title="Zoom out">−</button>
+      <button class="ctrl-btn" id="btn-zoom-in" title="Zoom in">+</button>
+      <button class="ctrl-btn wide" id="btn-fit">FIT</button>
+    </div>
+
+    <div id="tooltip"></div>
+
+    <script>
+      // ════════════════════════════════════════════════════════════
+      //  DATA CONFIG
+      //  This is the single source of truth — edit to build any dynasty.
+      // ════════════════════════════════════════════════════════════
+      const dynastyConfig = {
+        // Dynasty meta
+        dynasty: {
+          id: "drakon",
+          name: "House Drakon",
+          motto: '"By Fire and Will Shall We Endure"',
+          crest: "⚔",
+          colors: { primary: "#8B1A1A", accent: "#C8A951" },
+        },
+
+        /**
+         * persons[]
+         * Each person in the dynasty (or married into it).
+         *
+         * Required:  id, name, gender ('male'|'female'|'other')
+         * Optional:  born (year), died (year), status ('alive'|'deceased'|'unknown')
+         *            title, notes, avatar (image URL or null)
+         *            traits: string[]  — drives the colour-coded trait dots
+         */
+        persons: [
+          {
+            id: "p1",
+            name: "Aldric I Drakon",
+            gender: "male",
+            born: 120,
+            died: 189,
+            status: "deceased",
+            title: "Founder-King",
+            traits: ["conqueror", "visionary", "ruthless"],
+            notes:
+              "United seven keeps after the Ashwar. Founded the dynasty aged 28.",
+          },
+          {
+            id: "p2",
+            name: "Seraphina Vael",
+            gender: "female",
+            born: 128,
+            died: 175,
+            status: "deceased",
+            title: "Queen Consort",
+            traits: ["wise", "healer", "beloved"],
+            notes: "A powerful healer who kept the court at peace.",
+          },
+          {
+            id: "p3",
+            name: "Maren of Vale",
+            gender: "female",
+            born: 135,
+            died: 201,
+            status: "deceased",
+            title: "Countess of Vale",
+            traits: ["ambitious", "cunning"],
+            notes:
+              "Aldric's mistress; bore him a son he never acknowledged publicly.",
+          },
+          {
+            id: "p4",
+            name: "Edric II Drakon",
+            gender: "male",
+            born: 150,
+            died: 220,
+            status: "deceased",
+            title: "King Edric II",
+            traits: ["just", "builder"],
+            notes:
+              "Just and beloved. Expanded trade routes across the Eastern Sea.",
+          },
+          {
+            id: "p5",
+            name: "Lyra Drakon",
+            gender: "female",
+            born: 153,
+            died: 198,
+            status: "deceased",
+            title: "Princess Royal",
+            traits: ["scholar", "tragic"],
+            notes: "Died young of the silver fever. Her library survives.",
+          },
+          {
+            id: "p6",
+            name: "Bastian Stone",
+            gender: "male",
+            born: 158,
+            died: 230,
+            status: "deceased",
+            title: "Lord Commander",
+            traits: ["bastard", "loyal", "warrior"],
+            notes:
+              "Bastard son of Aldric I. Served the crown faithfully despite his origins.",
+          },
+          {
+            id: "p7",
+            name: "Elara Voss",
+            gender: "female",
+            born: 155,
+            died: 228,
+            status: "deceased",
+            title: "Queen Elara",
+            traits: ["diplomatic", "shrewd"],
+            notes:
+              "Diplomatic genius. Forged the Eastern Alliance that lasted 80 years.",
+          },
+          {
+            id: "p8",
+            name: "Caelan III Drakon",
+            gender: "male",
+            born: 178,
+            died: 255,
+            status: "deceased",
+            title: "King Caelan III",
+            traits: ["cunning", "ruthless", "paranoid"],
+            notes: "Controversial ruler. His reign is called The Iron Years.",
+          },
+          {
+            id: "p9",
+            name: "Sora Drakon",
+            gender: "male",
+            born: 180,
+            died: 210,
+            status: "deceased",
+            title: "Prince of Ashhold",
+            traits: ["brave", "cursed"],
+            notes: "Died during the Siege of Ashhold. Left no heirs.",
+          },
+          {
+            id: "p10",
+            name: "Mira Drakon",
+            gender: "female",
+            born: 182,
+            died: 270,
+            status: "deceased",
+            title: "Duchess, Eastern March",
+            traits: ["survivor", "wise"],
+            notes: "Longest-lived of her generation. Outlasted three kings.",
+          },
+          {
+            id: "p11",
+            name: "Theron of Ash",
+            gender: "male",
+            born: 180,
+            died: 260,
+            status: "deceased",
+            title: "Prince-Consort",
+            traits: ["scholar", "mage", "gentle"],
+            notes:
+              "Wrote the Codex Drakon. A mage who preferred books to politics.",
+          },
+          {
+            id: "p12",
+            name: "Aldric II Drakon",
+            gender: "male",
+            born: 205,
+            died: null,
+            status: "alive",
+            title: "King Aldric II",
+            traits: ["reformer", "idealist"],
+            notes:
+              "Current ruler. Seeking to dismantle the Iron Laws of his father.",
+          },
+          {
+            id: "p13",
+            name: "Nyra Drakon",
+            gender: "female",
+            born: 208,
+            died: null,
+            status: "alive",
+            title: "Princess-Commander",
+            traits: ["warrior", "fierce", "loyal"],
+            notes: "Commands the Drakon Royal Guard. Unmarried by choice.",
+          },
+          {
+            id: "p14",
+            name: "Isel Stone",
+            gender: "female",
+            born: 185,
+            died: 240,
+            status: "deceased",
+            title: "Lady of Millhaven",
+            traits: ["practical", "kind"],
+            notes: "Bastian's wife. A merchant's daughter who earned respect.",
+          },
+          {
+            id: "p15",
+            name: "Brennan Stone",
+            gender: "male",
+            born: 208,
+            died: null,
+            status: "alive",
+            title: "Knight of the Vale",
+            traits: ["loyal", "honorable"],
+            notes:
+              "Grandson of Aldric I through the bastard line. Keeps the Stone name proudly.",
+          },
+        ],
+
+        /**
+         * unions[]
+         * A union links exactly two people. Children are specified in parentage[].
+         *
+         * type: 'marriage' | 'affair' | 'betrothal' | 'concubinage'
+         * year:   year the union began
+         * ended:  year it ended (or null if ongoing)
+         * endReason: 'death' | 'divorce' | 'annulment' | null
+         */
+        unions: [
+          {
+            id: "u1",
+            type: "marriage",
+            partnerIds: ["p1", "p2"],
+            year: 145,
+            ended: 175,
+            endReason: "death",
+          },
+          {
+            id: "u2",
+            type: "affair",
+            partnerIds: ["p1", "p3"],
+            year: 155,
+            ended: 158,
+            endReason: "ended",
+          },
+          {
+            id: "u3",
+            type: "marriage",
+            partnerIds: ["p4", "p7"],
+            year: 175,
+            ended: 220,
+            endReason: "death",
+          },
+          {
+            id: "u4",
+            type: "marriage",
+            partnerIds: ["p8", "p11"],
+            year: 202,
+            ended: 255,
+            endReason: "death",
+          },
+          {
+            id: "u5",
+            type: "marriage",
+            partnerIds: ["p6", "p14"],
+            year: 182,
+            ended: 240,
+            endReason: "death",
+          },
+        ],
+
+        /**
+         * parentage[]
+         * Links a child to the union (pair of parents) that produced them.
+         *
+         * type: 'legitimate' | 'illegitimate' | 'adopted'
+         */
+        parentage: [
+          { childId: "p4", unionId: "u1", type: "legitimate" },
+          { childId: "p5", unionId: "u1", type: "legitimate" },
+          { childId: "p6", unionId: "u2", type: "illegitimate" },
+          { childId: "p8", unionId: "u3", type: "legitimate" },
+          { childId: "p9", unionId: "u3", type: "legitimate" },
+          { childId: "p10", unionId: "u3", type: "legitimate" },
+          { childId: "p12", unionId: "u4", type: "legitimate" },
+          { childId: "p13", unionId: "u4", type: "legitimate" },
+          { childId: "p15", unionId: "u5", type: "legitimate" },
+        ],
+      };
+
+      // ════════════════════════════════════════════════════════════
+      //  VISUAL CONSTANTS
+      // ════════════════════════════════════════════════════════════
+      const NW = 148; // node width
+      const NH = 108; // node height
+      const HGAP = 44; // horizontal gap between nodes
+      const VGAP = 110; // vertical gap between generations
+      const CGAP = 18; // gap between couple nodes
+
+      const TRAIT_COLORS = {
+        conqueror: "#7a1a1a",
+        visionary: "#1a3a7a",
+        ruthless: "#5a1010",
+        wise: "#3a5a7a",
+        healer: "#1a5a3a",
+        beloved: "#7a3a5a",
+        just: "#3a6a3a",
+        builder: "#6a4a1a",
+        warrior: "#6a1a1a",
+        scholar: "#1a3a6a",
+        tragic: "#4a2a4a",
+        bastard: "#5a5a5a",
+        loyal: "#3a5a3a",
+        diplomatic: "#3a4a6a",
+        shrewd: "#5a4a1a",
+        cunning: "#4a3a1a",
+        ruthless2: "#4a1010",
+        paranoid: "#3a1a3a",
+        brave: "#5a3a1a",
+        cursed: "#2a1a4a",
+        survivor: "#3a5a3a",
+        mage: "#2a1a6a",
+        gentle: "#5a3a5a",
+        reformer: "#1a5a6a",
+        idealist: "#1a4a6a",
+        fierce: "#6a1a1a",
+        practical: "#4a4a2a",
+        kind: "#6a3a5a",
+        honorable: "#3a5a4a",
+        ambitious: "#6a3a1a",
+      };
+
+      const COL = {
+        bg: "#0b0906",
+        gridDot: "rgba(90,70,40,.07)",
+        nodeMaleF: "#111822",
+        nodeMaleB: "#243860",
+        nodeMaleH: "#182340",
+        nodeFemaleF: "#180d20",
+        nodeFemaleB: "#602060",
+        nodeFemaleH: "#280c38",
+        nodeAlive: "#1a2e12",
+        nodeAliveB: "#4a7a2a",
+        selected: "#c8a951",
+        marriage: "#c8a951",
+        affair: "#8b3a3a",
+        childLeg: "#3a6a4a",
+        childIlleg: "#7a6a38",
+        childAdopt: "#4a3a7a",
+        textMain: "#e8d5a3",
+        textSub: "#7a6a48",
+        textDim: "#4a3a24",
+        dropLine: "rgba(100,85,55,.35)",
+      };
+
+      // ════════════════════════════════════════════════════════════
+      //  LAYOUT ENGINE
+      // ════════════════════════════════════════════════════════════
+      function computeLayout(cfg) {
+        const { persons, unions, parentage } = cfg;
+
+        // Index maps
+        const personMap = new Map(persons.map((p) => [p.id, p]));
+        const unionMap = new Map(unions.map((u) => [u.id, u]));
+        const childToRec = new Map(parentage.map((r) => [r.childId, r]));
+        const unionToChildren = new Map(unions.map((u) => [u.id, []]));
+        parentage.forEach((r) =>
+          unionToChildren.get(r.unionId).push(r.childId),
+        );
+
+        const personUnions = new Map(persons.map((p) => [p.id, []]));
+        unions.forEach((u) =>
+          u.partnerIds.forEach((pid) => {
+            if (personUnions.has(pid)) personUnions.get(pid).push(u.id);
+          }),
+        );
+
+        // ── 1. Assign generations ──────────────────────────────
+        const genMap = new Map();
+
+        function assignGen(pid, visited = new Set()) {
+          if (genMap.has(pid)) return genMap.get(pid);
+          if (visited.has(pid)) return 0;
+          visited.add(pid);
+
+          const rec = childToRec.get(pid);
+          if (!rec) {
+            genMap.set(pid, 0);
+            return 0;
+          }
+
+          const union = unionMap.get(rec.unionId);
+          const parentGens = union.partnerIds
+            .filter((p) => p !== pid)
+            .map((p) => assignGen(p, new Set(visited)));
+          const g = Math.max(0, ...parentGens) + 1;
+          genMap.set(pid, g);
+          return g;
+        }
+
+        persons.forEach((p) => assignGen(p.id));
+
+        // Spouses share the same generation (propagate)
+        let changed = true;
+        while (changed) {
+          changed = false;
+          unions.forEach((u) => {
+            const [a, b] = u.partnerIds;
+            if (genMap.has(a) && !genMap.has(b)) {
+              genMap.set(b, genMap.get(a));
+              changed = true;
+            }
+            if (genMap.has(b) && !genMap.has(a)) {
+              genMap.set(a, genMap.get(b));
+              changed = true;
+            }
+            if (genMap.has(a) && genMap.has(b)) {
+              const maxG = Math.max(genMap.get(a), genMap.get(b));
+              if (genMap.get(a) !== maxG) {
+                genMap.set(a, maxG);
+                changed = true;
+              }
+              if (genMap.get(b) !== maxG) {
+                genMap.set(b, maxG);
+                changed = true;
+              }
+            }
+          });
+        }
+        persons.forEach((p) => {
+          if (!genMap.has(p.id)) genMap.set(p.id, 0);
+        });
+
+        // ── 2. Subtree widths ──────────────────────────────────
+        const widthCache = new Map();
+
+        function unionChildrenWidth(uid) {
+          const kids = unionToChildren.get(uid) || [];
+          if (!kids.length) return 0;
+          return (
+            kids.reduce((s, c) => s + personWidth(c), 0) +
+            (kids.length - 1) * HGAP
+          );
+        }
+
+        function personWidth(pid, depth = 0) {
+          if (widthCache.has(pid)) return widthCache.get(pid);
+          if (depth > 30) return NW;
+
+          const parentUnions = (personUnions.get(pid) || []).filter(
+            (uid) => (unionToChildren.get(uid) || []).length > 0,
+          );
+
+          if (!parentUnions.length) {
+            widthCache.set(pid, NW);
+            return NW;
+          }
+
+          // Each child-bearing union contributes a subtree.
+          // The person's own node must be at least NW wide.
+          // All child subtrees together define the span.
+          const allKids = [
+            ...new Set(
+              parentUnions.flatMap((uid) => unionToChildren.get(uid) || []),
+            ),
+          ];
+          const kidsW =
+            allKids.reduce((s, c) => s + personWidth(c, depth + 1), 0) +
+            (allKids.length - 1) * HGAP;
+          const w = Math.max(NW, kidsW);
+          widthCache.set(pid, w);
+          return w;
+        }
+
+        // ── 3. Assign positions ────────────────────────────────
+        const posMap = new Map(); // pid  → {x, y}
+        const unionPosMap = new Map(); // uid  → {x, y}
+
+        function placeUnionChildren(uid, centerX) {
+          const kids = unionToChildren.get(uid) || [];
+          if (!kids.length) return;
+          const uid_union = unionMap.get(uid);
+          const parentGen = genMap.get(uid_union.partnerIds[0]) ?? 0;
+          const childY = (parentGen + 1) * (NH + VGAP);
+          const totalW =
+            kids.reduce((s, c) => s + personWidth(c), 0) +
+            (kids.length - 1) * HGAP;
+          let x = centerX - totalW / 2;
+          kids.forEach((cid) => {
+            const cw = personWidth(cid);
+            const cx = x + cw / 2;
+            if (!posMap.has(cid)) posMap.set(cid, { x: cx, y: childY });
+            // Recurse into this child's own unions
+            (personUnions.get(cid) || [])
+              .filter((uuid) => (unionToChildren.get(uuid) || []).length > 0)
+              .forEach((uuid) => {
+                const already = posMap.get(cid);
+                placeUnion(uuid, already.x);
+              });
+            x += cw + HGAP;
+          });
+        }
+
+        function placeUnion(uid, centerX) {
+          if (unionPosMap.has(uid)) return;
+          const union = unionMap.get(uid);
+          const [a, b] = union.partnerIds;
+          const g = genMap.get(a) ?? genMap.get(b) ?? 0;
+          const y = g * (NH + VGAP);
+          const half = (NW + CGAP) / 2;
+          if (!posMap.has(a)) posMap.set(a, { x: centerX - half, y });
+          if (!posMap.has(b)) posMap.set(b, { x: centerX + half, y });
+          unionPosMap.set(uid, { x: centerX, y });
+          placeUnionChildren(uid, centerX);
+        }
+
+        // Find primary root unions: both partners are roots (no parents)
+        const rootUnions = unions.filter((u) =>
+          u.partnerIds.every((pid) => !childToRec.has(pid)),
+        );
+
+        // Compute total width for primary root unions
+        function rootUnionW(uid) {
+          const union = unionMap.get(uid);
+          const kids = unionToChildren.get(uid) || [];
+          const kidsTotalW =
+            kids.reduce((s, c) => s + personWidth(c), 0) +
+            (kids.length - 1) * HGAP;
+          const coupleW = NW * 2 + CGAP;
+          return Math.max(coupleW, kidsTotalW);
+        }
+
+        const rootTotalW =
+          rootUnions.reduce((s, u) => s + rootUnionW(u.id), 0) +
+          (rootUnions.length - 1) * HGAP * 2;
+        let rx = -rootTotalW / 2;
+        rootUnions.forEach((u) => {
+          const w = rootUnionW(u.id);
+          placeUnion(u.id, rx + w / 2);
+          rx += w + HGAP * 2;
+        });
+
+        // Secondary unions (one partner already placed, one not)
+        unions.forEach((u) => {
+          if (unionPosMap.has(u.id)) return;
+          const [a, b] = u.partnerIds;
+          const aPos = posMap.get(a),
+            bPos = posMap.get(b);
+          if (aPos && !bPos) {
+            // Place b to the right of a, offset from existing nodes
+            const rightEdge =
+              Math.max(...[...posMap.values()].map((p) => p.x)) + NW / 2 + HGAP;
+            posMap.set(b, { x: rightEdge + NW / 2, y: aPos.y });
+            const cx = (aPos.x + posMap.get(b).x) / 2;
+            unionPosMap.set(u.id, { x: cx, y: aPos.y });
+            placeUnionChildren(u.id, cx);
+          } else if (!aPos && bPos) {
+            const leftEdge =
+              Math.min(...[...posMap.values()].map((p) => p.x)) - NW / 2 - HGAP;
+            posMap.set(a, { x: leftEdge - NW / 2, y: bPos.y });
+            const cx = (posMap.get(a).x + bPos.x) / 2;
+            unionPosMap.set(u.id, { x: cx, y: bPos.y });
+            placeUnionChildren(u.id, cx);
+          }
+        });
+
+        // Any remaining orphaned persons
+        let orphanX = 0;
+        persons.forEach((p) => {
+          if (!posMap.has(p.id)) {
+            posMap.set(p.id, {
+              x: orphanX,
+              y: (genMap.get(p.id) ?? 0) * (NH + VGAP),
+            });
+            orphanX += NW + HGAP;
+          }
+        });
+
+        return {
+          posMap,
+          unionPosMap,
+          genMap,
+          personMap,
+          unionMap,
+          unionToChildren,
+          childToRec,
+          personUnions,
+        };
+      }
+
+      // ════════════════════════════════════════════════════════════
+      //  RENDERER
+      // ════════════════════════════════════════════════════════════
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      let layout = null;
+      let selected = null;
+      let hitRects = []; // [{pid, sx, sy, sw, sh}] in screen coords
+
+      let cam = { x: 0, y: 0, scale: 1 };
+
+      function W2S(wx, wy) {
+        return {
+          x: wx * cam.scale + cam.x + canvas.width / 2,
+          y: wy * cam.scale + cam.y + canvas.height / 2,
+        };
+      }
+
+      function S2W(sx, sy) {
+        return {
+          x: (sx - cam.x - canvas.width / 2) / cam.scale,
+          y: (sy - cam.y - canvas.height / 2) / cam.scale,
+        };
+      }
+
+      function roundRect(x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+      }
+
+      function drawPersonNode(person, wx, wy) {
+        const s = cam.scale;
+        const sc = W2S(wx, wy);
+        const w = NW * s,
+          h = NH * s;
+        const cx = sc.x - w / 2,
+          cy = sc.y - h / 2;
+        const r = 5 * s;
+        const isMale = person.gender === "male";
+        const isAlive = person.status === "alive";
+        const isSel = selected?.id === person.id;
+
+        const fillColor = isAlive
+          ? COL.nodeAlive
+          : isMale
+            ? COL.nodeMaleF
+            : COL.nodeFemaleF;
+        const borderColor = isSel
+          ? COL.selected
+          : isAlive
+            ? COL.nodeAliveB
+            : isMale
+              ? COL.nodeMaleB
+              : COL.nodeFemaleB;
+        const headerColor = isAlive
+          ? "#122008"
+          : isMale
+            ? COL.nodeMaleH
+            : COL.nodeFemaleH;
+        const avatarColor = isAlive
+          ? "#2a5018"
+          : isMale
+            ? "#1e2d47"
+            : "#2a0d32";
+        const avatarBord = isAlive ? "#4a8030" : isMale ? "#3a5a8a" : "#7a3a7a";
+
+        // Shadow
+        ctx.shadowColor = "rgba(0,0,0,.7)";
+        ctx.shadowBlur = 18 * s;
+        ctx.shadowOffsetY = 5 * s;
+        roundRect(cx, cy, w, h, r);
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+
+        // Border
+        roundRect(cx, cy, w, h, r);
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = (isSel ? 2.5 : 1.5) * s;
+        ctx.stroke();
+
+        // Header band
+        const hH = 30 * s;
+        ctx.save();
+        roundRect(cx, cy, w, h, r);
+        ctx.clip();
+        ctx.fillStyle = headerColor;
+        ctx.fillRect(cx, cy, w, hH);
+        ctx.restore();
+
+        // Thin header separator
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 0.5 * s;
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy + hH);
+        ctx.lineTo(cx + w, cy + hH);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        // Avatar circle
+        const aR = 13 * s;
+        const aX = cx + 17 * s;
+        const aY = cy + 15 * s;
+        ctx.beginPath();
+        ctx.arc(aX, aY, aR, 0, Math.PI * 2);
+        ctx.fillStyle = avatarColor;
+        ctx.fill();
+        ctx.strokeStyle = avatarBord;
+        ctx.lineWidth = 1.2 * s;
+        ctx.stroke();
+
+        // Avatar initial
+        ctx.fillStyle = "#c8d8e8";
+        ctx.font = `bold ${10 * s}px Cinzel,serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(person.name[0].toUpperCase(), aX, aY);
+
+        // Name
+        const nX = cx + 34 * s;
+        const nY = cy + 4 * s;
+        const maxW = w - 38 * s;
+        ctx.fillStyle = COL.textMain;
+        ctx.font = `600 ${10.5 * s}px Cinzel,serif`;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        let nm = person.name;
+        while (ctx.measureText(nm).width > maxW && nm.length > 2)
+          nm = nm.slice(0, -1);
+        if (nm !== person.name) nm = nm.slice(0, -1) + "…";
+        ctx.fillText(nm, nX, nY);
+
+        // Title
+        ctx.fillStyle = COL.textSub;
+        ctx.font = `italic ${9 * s}px "Crimson Text",serif`;
+        let tt = person.title || "";
+        while (ctx.measureText(tt).width > maxW && tt.length > 2)
+          tt = tt.slice(0, -1);
+        if (tt !== (person.title || "")) tt = tt.slice(0, -1) + "…";
+        ctx.fillText(tt, nX, nY + 13 * s);
+
+        // Dates row
+        const bornStr = person.born ? `b.${person.born}` : "?";
+        const diedStr = person.died
+          ? `d.${person.died}`
+          : isAlive
+            ? "✦ living"
+            : "?";
+        ctx.fillStyle = COL.textDim;
+        ctx.font = `${9 * s}px "Crimson Text",serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillText(`${bornStr}  ·  ${diedStr}`, sc.x, cy + hH + 5 * s);
+
+        // Alive dot
+        if (isAlive) {
+          ctx.beginPath();
+          ctx.arc(cx + w - 8 * s, cy + 8 * s, 3.5 * s, 0, Math.PI * 2);
+          ctx.fillStyle = "#5a9a3a";
+          ctx.fill();
+        }
+
+        // Trait dots
+        const maxDots = Math.floor((w - 14 * s) / (9 * s));
+        const traits = (person.traits || []).slice(0, maxDots);
+        const dotY = cy + h - 12 * s;
+        traits.forEach((t, i) => {
+          ctx.beginPath();
+          ctx.arc(cx + 9 * s + i * 9 * s, dotY, 3 * s, 0, Math.PI * 2);
+          ctx.fillStyle = TRAIT_COLORS[t] || "#3a3a3a";
+          ctx.fill();
+        });
+        const extra = (person.traits || []).length - maxDots;
+        if (extra > 0) {
+          ctx.fillStyle = COL.textDim;
+          ctx.font = `${8 * s}px "Crimson Text",serif`;
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(`+${extra}`, cx + 9 * s + maxDots * 9 * s + 2 * s, dotY);
+        }
+
+        // Selected glow
+        if (isSel) {
+          ctx.shadowColor = COL.selected;
+          ctx.shadowBlur = 20 * s;
+          roundRect(cx, cy, w, h, r);
+          ctx.strokeStyle = COL.selected;
+          ctx.lineWidth = 2 * s;
+          ctx.stroke();
+          ctx.shadowColor = "transparent";
+          ctx.shadowBlur = 0;
+        }
+
+        // Hit rect
+        hitRects.push({ pid: person.id, sx: cx, sy: cy, sw: w, sh: h });
+      }
+
+      function drawConnections() {
+        const { posMap, unionPosMap, unionMap, unionToChildren, childToRec } =
+          layout;
+        const s = cam.scale;
+
+        ctx.save();
+
+        dynastyConfig.unions.forEach((union) => {
+          const [aid, bid] = union.partnerIds;
+          const ap = posMap.get(aid),
+            bp = posMap.get(bid);
+          if (!ap || !bp) return;
+
+          const as = W2S(ap.x, ap.y),
+            bs = W2S(bp.x, bp.y);
+          const sw = (NW * s) / 2,
+            sh = (NH * s) / 2;
+
+          // Couple connector
+          const left = ap.x < bp.x ? as : bs;
+          const right = ap.x < bp.x ? bs : as;
+          const lineColor =
+            union.type === "marriage" ? COL.marriage : COL.affair;
+
+          ctx.strokeStyle = lineColor;
+          ctx.lineWidth = 2 * s;
+          ctx.setLineDash(union.type === "marriage" ? [] : [6 * s, 4 * s]);
+          ctx.beginPath();
+          ctx.moveTo(left.x + sw, left.y);
+          ctx.lineTo(right.x - sw, right.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Union symbol (ring on marriage)
+          const midX = (left.x + right.x) / 2;
+          const midY = left.y;
+          if (union.type === "marriage") {
+            ctx.beginPath();
+            ctx.arc(midX, midY, 5 * s, 0, Math.PI * 2);
+            ctx.strokeStyle = COL.marriage;
+            ctx.lineWidth = 1.5 * s;
+            ctx.stroke();
+          } else {
+            // X mark for affair
+            const cr = 4 * s;
+            ctx.strokeStyle = COL.affair;
+            ctx.lineWidth = 1.5 * s;
+            ctx.beginPath();
+            ctx.moveTo(midX - cr, midY - cr);
+            ctx.lineTo(midX + cr, midY + cr);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(midX + cr, midY - cr);
+            ctx.lineTo(midX - cr, midY + cr);
+            ctx.stroke();
+          }
+
+          // Children drop lines
+          const kids = unionToChildren.get(union.id) || [];
+          if (!kids.length) return;
+
+          const upos = unionPosMap.get(union.id);
+          if (!upos) return;
+          const us = W2S(upos.x, upos.y);
+          const dropY = us.y + sh + 28 * s;
+
+          // Vertical from union midpoint
+          ctx.strokeStyle = COL.dropLine;
+          ctx.lineWidth = 1.5 * s;
+          ctx.beginPath();
+          ctx.moveTo(us.x, us.y + sh);
+          ctx.lineTo(us.x, dropY);
+          ctx.stroke();
+
+          // Horizontal bar
+          if (kids.length > 1) {
+            const kl = posMap.get(kids[0]),
+              kr = posMap.get(kids[kids.length - 1]);
+            if (kl && kr) {
+              const sl = W2S(kl.x, kl.y),
+                sr = W2S(kr.x, kr.y);
+              ctx.beginPath();
+              ctx.moveTo(sl.x, dropY);
+              ctx.lineTo(sr.x, dropY);
+              ctx.stroke();
+            }
+          }
+
+          // Vertical to each child
+          kids.forEach((cid) => {
+            const cp = posMap.get(cid);
+            if (!cp) return;
+            const cs = W2S(cp.x, cp.y);
+            const rec = childToRec.get(cid);
+            const illeg = rec?.type === "illegitimate";
+            const adopt = rec?.type === "adopted";
+            const color = adopt
+              ? COL.childAdopt
+              : illeg
+                ? COL.childIlleg
+                : COL.childLeg;
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5 * s;
+            ctx.setLineDash(illeg || adopt ? [5 * s, 3 * s] : []);
+            ctx.beginPath();
+            ctx.moveTo(cs.x, dropY);
+            ctx.lineTo(cs.x, cs.y - sh);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Arrow tip
+            ctx.fillStyle = color;
+            const aw = 3.5 * s;
+            ctx.beginPath();
+            ctx.moveTo(cs.x, cs.y - sh);
+            ctx.lineTo(cs.x - aw, cs.y - sh - 6 * s);
+            ctx.lineTo(cs.x + aw, cs.y - sh - 6 * s);
+            ctx.closePath();
+            ctx.fill();
+          });
+        });
+
+        ctx.restore();
+      }
+
+      function render() {
+        if (!layout) return;
+        const { posMap } = layout;
+        hitRects = [];
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Background
+        ctx.fillStyle = COL.bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Dot grid
+        const gs = 40 * cam.scale;
+        const ox = (cam.x + canvas.width / 2) % gs;
+        const oy = (cam.y + canvas.height / 2) % gs;
+        ctx.fillStyle = COL.gridDot;
+        for (let gx = ox - gs; gx < canvas.width + gs; gx += gs)
+          for (let gy = oy - gs; gy < canvas.height + gs; gy += gs) {
+            ctx.beginPath();
+            ctx.arc(gx, gy, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+        drawConnections();
+
+        dynastyConfig.persons.forEach((p) => {
+          const pos = posMap.get(p.id);
+          if (pos) drawPersonNode(p, pos.x, pos.y);
+        });
+      }
+
+      // ════════════════════════════════════════════════════════════
+      //  INTERACTION
+      // ════════════════════════════════════════════════════════════
+      let drag = false,
+        dragStart = { x: 0, y: 0 },
+        dragMoved = false;
+
+      canvas.addEventListener("mousedown", (e) => {
+        drag = true;
+        dragMoved = false;
+        dragStart = { x: e.clientX, y: e.clientY };
+        canvas.classList.add("dragging");
+      });
+      canvas.addEventListener("mousemove", (e) => {
+        if (drag) {
+          cam.x += e.clientX - dragStart.x;
+          cam.y += e.clientY - dragStart.y;
+          dragStart = { x: e.clientX, y: e.clientY };
+          dragMoved = true;
+          render();
+        } else {
+          handleHover(e.clientX, e.clientY);
+        }
+      });
+      canvas.addEventListener("mouseup", (e) => {
+        canvas.classList.remove("dragging");
+        if (!dragMoved) handleClick(e.clientX, e.clientY);
+        drag = false;
+      });
+      canvas.addEventListener("mouseleave", () => {
+        drag = false;
+        canvas.classList.remove("dragging");
+        document.getElementById("tooltip").style.opacity = "0";
+      });
+      canvas.addEventListener(
+        "wheel",
+        (e) => {
+          e.preventDefault();
+          const factor = e.deltaY < 0 ? 1.12 : 0.9;
+          const wx = (e.clientX - cam.x - canvas.width / 2) / cam.scale;
+          const wy = (e.clientY - cam.y - canvas.height / 2) / cam.scale;
+          cam.scale = Math.max(0.15, Math.min(4, cam.scale * factor));
+          cam.x = e.clientX - wx * cam.scale - canvas.width / 2;
+          cam.y = e.clientY - wy * cam.scale - canvas.height / 2;
+          render();
+        },
+        { passive: false },
+      );
+
+      // Touch support
+      let lastTouchDist = null;
+      canvas.addEventListener(
+        "touchstart",
+        (e) => {
+          if (e.touches.length === 1) {
+            drag = true;
+            dragMoved = false;
+            dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          }
+          if (e.touches.length === 2) {
+            lastTouchDist = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY,
+            );
+          }
+        },
+        { passive: false },
+      );
+      canvas.addEventListener(
+        "touchmove",
+        (e) => {
+          e.preventDefault();
+          if (e.touches.length === 1 && drag) {
+            const t = e.touches[0];
+            cam.x += t.clientX - dragStart.x;
+            cam.y += t.clientY - dragStart.y;
+            dragStart = { x: t.clientX, y: t.clientY };
+            dragMoved = true;
+            render();
+          }
+          if (e.touches.length === 2) {
+            const d = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY,
+            );
+            if (lastTouchDist)
+              cam.scale = Math.max(
+                0.15,
+                Math.min(4, (cam.scale * d) / lastTouchDist),
+              );
+            lastTouchDist = d;
+            render();
+          }
+        },
+        { passive: false },
+      );
+      canvas.addEventListener("touchend", (e) => {
+        if (!dragMoved && e.changedTouches.length === 1) {
+          handleClick(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+        }
+        drag = false;
+        lastTouchDist = null;
+      });
+
+      function hitTest(sx, sy) {
+        for (const r of hitRects)
+          if (
+            sx >= r.sx &&
+            sx <= r.sx + r.sw &&
+            sy >= r.sy &&
+            sy <= r.sy + r.sh
+          )
+            return r.pid;
+        return null;
+      }
+
+      function handleClick(sx, sy) {
+        const pid = hitTest(sx, sy);
+        if (pid) {
+          const person = dynastyConfig.persons.find((p) => p.id === pid);
+          selected = person;
+          openPanel(person);
+        } else {
+          selected = null;
+          document.getElementById("info-panel").classList.remove("open");
+        }
+        render();
+      }
+
+      const tooltip = document.getElementById("tooltip");
+      let hoverPid = null;
+      function handleHover(sx, sy) {
+        const pid = hitTest(sx, sy);
+        if (pid !== hoverPid) {
+          hoverPid = pid;
+          if (pid) {
+            const p = dynastyConfig.persons.find((x) => x.id === pid);
+            tooltip.textContent = `${p.name}${p.title ? "  ·  " + p.title : ""}`;
+            tooltip.style.opacity = "1";
+          } else {
+            tooltip.style.opacity = "0";
+          }
+        }
+        if (pid) {
+          tooltip.style.left = sx + 14 + "px";
+          tooltip.style.top = sy - 10 + "px";
+        }
+      }
+
+      // ════════════════════════════════════════════════════════════
+      //  INFO PANEL
+      // ════════════════════════════════════════════════════════════
+      function openPanel(person) {
+        const {
+          personMap,
+          unionMap,
+          unionToChildren,
+          childToRec,
+          personUnions,
+        } = layout;
+
+        const isMale = person.gender === "male";
+        const isAlive = person.status === "alive";
+        const avBg = isAlive ? "#1a2e12" : isMale ? "#1e2d47" : "#2a0d32";
+        const avBord = isAlive ? "#4a7a2a" : isMale ? "#3a5a8a" : "#7a3a7a";
+
+        // Parents
+        const pRec = childToRec.get(person.id);
+        let parentsHtml = `<span style="color:${COL.textDim}">Unknown</span>`;
+        if (pRec) {
+          const u = unionMap.get(pRec.unionId);
+          if (u) {
+            parentsHtml = u.partnerIds
+              .map((pid) => {
+                const p = dynastyConfig.persons.find((x) => x.id === pid);
+                return p
+                  ? `<span class="panel-link" onclick="selectById('${pid}')">${p.name}</span>`
+                  : "?";
+              })
+              .join(' <span style="color:#4a3a20">&amp;</span> ');
+          }
+        }
+
+        // Unions & spouses
+        const myUnions = personUnions.get(person.id) || [];
+        const unionsHtml =
+          myUnions
+            .map((uid) => {
+              const u = unionMap.get(uid);
+              const sid = u.partnerIds.find((p) => p !== person.id);
+              const sp = dynastyConfig.persons.find((x) => x.id === sid);
+              const typ = u.type.charAt(0).toUpperCase() + u.type.slice(1);
+              const yr = u.year ? `${u.year}` : "?";
+              const end = u.ended ? ` – ${u.ended}` : "";
+              return sp
+                ? `<span class="panel-link" onclick="selectById('${sid}')">${sp.name}</span> <span style="color:${COL.textDim};font-size:11px;">(${typ}, ${yr}${end})</span>`
+                : `Unknown`;
+            })
+            .join("<br>") || `<span style="color:${COL.textDim}">None</span>`;
+
+        // Children
+        const kidsIds = myUnions.flatMap(
+          (uid) => unionToChildren.get(uid) || [],
+        );
+        const kidsHtml = kidsIds.length
+          ? kidsIds
+              .map((cid) => {
+                const c = dynastyConfig.persons.find((x) => x.id === cid);
+                const rec = childToRec.get(cid);
+                const tag =
+                  rec?.type !== "legitimate"
+                    ? ` <span style="color:${COL.textDim};font-size:10px;">(${rec?.type})</span>`
+                    : "";
+                return c
+                  ? `<span class="panel-link" onclick="selectById('${cid}')">${c.name}</span>${tag}`
+                  : "?";
+              })
+              .join(", ")
+          : `<span style="color:${COL.textDim}">None</span>`;
+
+        // Traits
+        const traitsHtml = (person.traits || [])
+          .map(
+            (t) =>
+              `<span class="trait-chip" style="background:${TRAIT_COLORS[t] || "#2a2010"}">${t}</span>`,
+          )
+          .join("");
+
+        const genderLabel =
+          { male: "Male", female: "Female", other: "Other" }[person.gender] ||
+          person.gender;
+        const statusLabel = isAlive
+          ? `<span style="color:#5a9a3a">✦ Living</span>`
+          : "Deceased";
+
+        document.getElementById("panel-content").innerHTML = `
+    <div class="panel-avatar" style="background:${avBg};border:2px solid ${avBord}">
+      ${person.name[0].toUpperCase()}
+    </div>
+    <div class="panel-person-name">${person.name}</div>
+    <div class="panel-person-title">${person.title || ""}</div>
+    <div class="panel-person-dates">
+      ${person.born ? "b." + person.born : "?"}
+      ${person.born || person.died ? " · " : ""}
+      ${person.died ? "d." + person.died : statusLabel}
+      &nbsp;·&nbsp; ${genderLabel}
+    </div>
+
+    <hr class="panel-divider">
+
+    <div class="panel-section">
+      <div class="panel-label">Parents</div>
+      <div class="panel-value">${parentsHtml}</div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-label">Unions</div>
+      <div class="panel-value">${unionsHtml}</div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-label">Children</div>
+      <div class="panel-value">${kidsHtml}</div>
+    </div>
+    ${
+      traitsHtml
+        ? `
+    <div class="panel-section">
+      <div class="panel-label">Traits</div>
+      <div>${traitsHtml}</div>
+    </div>`
+        : ""
+    }
+    ${
+      person.notes
+        ? `
+    <hr class="panel-divider">
+    <div class="panel-section">
+      <div class="panel-label">Chronicle</div>
+      <div class="panel-note">${person.notes}</div>
+    </div>`
+        : ""
+    }
+  `;
+        document.getElementById("info-panel").classList.add("open");
+      }
+
+      window.selectById = function (id) {
+        const p = dynastyConfig.persons.find((x) => x.id === id);
+        if (!p) return;
+        selected = p;
+        openPanel(p);
+        render();
+        // Pan to that person
+        const pos = layout.posMap.get(id);
+        if (pos) {
+          cam.x = -pos.x * cam.scale;
+          cam.y = -pos.y * cam.scale;
+          render();
+        }
+      };
+
+      document.getElementById("panel-close").addEventListener("click", () => {
+        selected = null;
+        document.getElementById("info-panel").classList.remove("open");
+        render();
+      });
+
+      // ════════════════════════════════════════════════════════════
+      //  CONTROLS
+      // ════════════════════════════════════════════════════════════
+      document.getElementById("btn-zoom-in").addEventListener("click", () => {
+        cam.scale = Math.min(4, cam.scale * 1.2);
+        render();
+      });
+      document.getElementById("btn-zoom-out").addEventListener("click", () => {
+        cam.scale = Math.max(0.15, cam.scale * 0.83);
+        render();
+      });
+      document.getElementById("btn-fit").addEventListener("click", fitView);
+
+      function fitView() {
+        if (!layout) return;
+        const pts = [...layout.posMap.values()];
+        const minX = Math.min(...pts.map((p) => p.x)) - NW / 2;
+        const maxX = Math.max(...pts.map((p) => p.x)) + NW / 2;
+        const minY = Math.min(...pts.map((p) => p.y)) - NH / 2;
+        const maxY = Math.max(...pts.map((p) => p.y)) + NH / 2;
+        const pad = 70;
+        const sx = (canvas.width - pad * 2) / (maxX - minX);
+        const sy = (canvas.height - pad * 2) / (maxY - minY);
+        cam.scale = Math.min(sx, sy, 1.3);
+        cam.x = -((minX + maxX) / 2) * cam.scale;
+        cam.y = -((minY + maxY) / 2) * cam.scale;
+        render();
+      }
+
+      // ════════════════════════════════════════════════════════════
+      //  INIT
+      // ════════════════════════════════════════════════════════════
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        render();
+      }
+
+      // Header
+      document.getElementById("dynasty-name").textContent =
+        `${dynastyConfig.dynasty.crest}  ${dynastyConfig.dynasty.name}`;
+      document.getElementById("dynasty-motto").textContent =
+        dynastyConfig.dynasty.motto;
+
+      // Compute layout and draw
+      layout = computeLayout(dynastyConfig);
+      window.addEventListener("resize", resize);
+      resize();
+      setTimeout(fitView, 80); // let fonts load first
+    </script>
+  </body>
+</html>

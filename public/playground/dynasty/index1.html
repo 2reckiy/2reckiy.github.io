@@ -1,0 +1,2092 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dynasty Legacy - Genetic Lineage Simulator</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap");
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --bg-primary: #0a0e14;
+        --bg-secondary: #151922;
+        --bg-tertiary: #1c2128;
+        --accent-gold: #d4af37;
+        --accent-gold-dim: #8b7523;
+        --text-primary: #e8e6e3;
+        --text-secondary: #9b9691;
+        --border-color: #2a3038;
+        --male-color: #4a7c9e;
+        --female-color: #9e4a7c;
+        --success: #6a9e4a;
+        --danger: #9e4a4a;
+        --warning: #9e8b4a;
+      }
+
+      body {
+        font-family: "Crimson Text", serif;
+        background: linear-gradient(135deg, #0a0e14 0%, #151922 100%);
+        color: var(--text-primary);
+        overflow: hidden;
+        height: 100vh;
+      }
+
+      /* Header */
+      .header {
+        background: var(--bg-secondary);
+        border-bottom: 2px solid var(--accent-gold-dim);
+        padding: 1rem 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      }
+
+      .title {
+        font-family: "Cinzel", serif;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--accent-gold);
+        text-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+        letter-spacing: 2px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .btn {
+        background: linear-gradient(
+          135deg,
+          var(--bg-tertiary) 0%,
+          var(--bg-secondary) 100%
+        );
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: "Crimson Text", serif;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+      }
+
+      .btn:hover {
+        background: var(--bg-tertiary);
+        border-color: var(--accent-gold-dim);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      .btn-primary {
+        background: linear-gradient(
+          135deg,
+          var(--accent-gold-dim) 0%,
+          var(--accent-gold) 100%
+        );
+        color: var(--bg-primary);
+        font-weight: 600;
+        border-color: var(--accent-gold);
+      }
+
+      .btn-primary:hover {
+        background: var(--accent-gold);
+        box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+      }
+
+      .speed-control {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        background: var(--bg-tertiary);
+        padding: 0.5rem;
+        border-radius: 4px;
+        border: 1px solid var(--border-color);
+      }
+
+      .speed-btn {
+        padding: 0.3rem 0.8rem;
+        font-size: 0.9rem;
+        min-width: 50px;
+      }
+
+      .speed-btn.active {
+        background: var(--accent-gold);
+        color: var(--bg-primary);
+        border-color: var(--accent-gold);
+      }
+
+      /* Main Layout */
+      .main-container {
+        display: flex;
+        height: calc(100vh - 80px);
+      }
+
+      /* Side Panel */
+      .side-panel {
+        width: 320px;
+        background: var(--bg-secondary);
+        border-right: 2px solid var(--border-color);
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .panel-section {
+        border-bottom: 1px solid var(--border-color);
+        padding: 1.5rem;
+      }
+
+      .panel-section h3 {
+        font-family: "Cinzel", serif;
+        font-size: 1.1rem;
+        color: var(--accent-gold);
+        margin-bottom: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .stat-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+      }
+
+      .stat-label {
+        color: var(--text-secondary);
+      }
+
+      .stat-value {
+        color: var(--accent-gold);
+        font-weight: 600;
+      }
+
+      .dynasty-selector {
+        margin-bottom: 1rem;
+      }
+
+      .dynasty-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .dynasty-item {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        padding: 0.8rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .dynasty-item:hover {
+        border-color: var(--accent-gold-dim);
+        background: var(--bg-primary);
+      }
+
+      .dynasty-item.active {
+        border-color: var(--accent-gold);
+        background: var(--accent-gold-dim);
+        color: var(--bg-primary);
+      }
+
+      .dynasty-name {
+        font-family: "Cinzel", serif;
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+      }
+
+      .dynasty-stats {
+        font-size: 0.85rem;
+        opacity: 0.8;
+      }
+
+      /* Events Feed */
+      .events-feed {
+        flex: 1;
+        overflow-y: auto;
+        max-height: 400px;
+      }
+
+      .event-item {
+        background: var(--bg-tertiary);
+        border-left: 3px solid var(--accent-gold-dim);
+        padding: 0.8rem;
+        margin-bottom: 0.5rem;
+        border-radius: 0 4px 4px 0;
+        font-size: 0.9rem;
+        animation: slideIn 0.3s ease;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateX(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      .event-item.birth {
+        border-left-color: var(--success);
+      }
+
+      .event-item.death {
+        border-left-color: var(--danger);
+      }
+
+      .event-item.marriage {
+        border-left-color: var(--accent-gold);
+      }
+
+      .event-time {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        margin-bottom: 0.3rem;
+      }
+
+      /* Canvas Container */
+      .canvas-container {
+        flex: 1;
+        position: relative;
+        background: radial-gradient(
+          ellipse at center,
+          #151922 0%,
+          #0a0e14 100%
+        );
+        overflow: hidden;
+      }
+
+      #gameCanvas {
+        display: block;
+        cursor: grab;
+      }
+
+      #gameCanvas:active {
+        cursor: grabbing;
+      }
+
+      /* Info Panel */
+      .info-panel {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 300px;
+        background: rgba(21, 25, 34, 0.95);
+        border: 2px solid var(--accent-gold-dim);
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(10px);
+        display: none;
+        max-height: 80vh;
+        overflow-y: auto;
+      }
+
+      .info-panel.visible {
+        display: block;
+        animation: fadeIn 0.3s ease;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .info-panel h4 {
+        font-family: "Cinzel", serif;
+        color: var(--accent-gold);
+        margin-bottom: 1rem;
+        font-size: 1.3rem;
+      }
+
+      .info-close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0.5rem;
+      }
+
+      .info-close:hover {
+        color: var(--accent-gold);
+      }
+
+      .trait-section {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color);
+      }
+
+      .trait-section h5 {
+        color: var(--accent-gold-dim);
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .trait-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+
+      .trait-item {
+        background: var(--bg-tertiary);
+        padding: 0.5rem;
+        border-radius: 4px;
+        border-left: 2px solid var(--accent-gold-dim);
+        font-size: 0.9rem;
+      }
+
+      .trait-label {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        display: block;
+      }
+
+      .trait-value {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+
+      .action-buttons {
+        margin-top: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      /* Modal */
+      .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+      }
+
+      .modal.visible {
+        display: flex;
+      }
+
+      .modal-content {
+        background: var(--bg-secondary);
+        border: 2px solid var(--accent-gold);
+        border-radius: 8px;
+        padding: 2rem;
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+      }
+
+      .modal-content h3 {
+        font-family: "Cinzel", serif;
+        color: var(--accent-gold);
+        margin-bottom: 1rem;
+      }
+
+      .candidate-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+
+      .candidate-item {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        padding: 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .candidate-item:hover {
+        border-color: var(--accent-gold);
+        background: var(--bg-primary);
+      }
+
+      .candidate-name {
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+      }
+
+      .candidate-info {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+      }
+
+      /* Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: var(--bg-primary);
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: var(--accent-gold-dim);
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--accent-gold);
+      }
+
+      .save-load-buttons {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+
+      .file-input {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="title">DYNASTY LEGACY</div>
+      <div class="controls">
+        <div class="speed-control">
+          <button class="btn speed-btn" data-speed="0">⏸</button>
+          <button class="btn speed-btn active" data-speed="1">1×</button>
+          <button class="btn speed-btn" data-speed="2">2×</button>
+          <button class="btn speed-btn" data-speed="5">5×</button>
+        </div>
+        <button class="btn" id="saveBtn">💾 Save</button>
+        <button class="btn" id="loadBtn">📁 Load</button>
+        <button class="btn" id="exportBtn">📤 Export</button>
+        <input type="file" id="importInput" class="file-input" accept=".json" />
+        <button class="btn" id="importBtn">📥 Import</button>
+      </div>
+    </div>
+
+    <div class="main-container">
+      <div class="side-panel">
+        <div class="panel-section">
+          <h3>Current Dynasty</h3>
+          <div class="stat-row">
+            <span class="stat-label">Year:</span>
+            <span class="stat-value" id="currentYear">1000</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Members:</span>
+            <span class="stat-value" id="memberCount">1</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Wealth:</span>
+            <span class="stat-value" id="wealth">1000</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Prestige:</span>
+            <span class="stat-value" id="prestige">100</span>
+          </div>
+        </div>
+
+        <div class="panel-section dynasty-selector">
+          <h3>Houses</h3>
+          <div class="dynasty-list" id="dynastyList"></div>
+        </div>
+
+        <div class="panel-section">
+          <h3>Recent Events</h3>
+          <div class="events-feed" id="eventsFeed"></div>
+        </div>
+      </div>
+
+      <div class="canvas-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <div class="info-panel" id="infoPanel">
+          <button class="info-close" id="closeInfoBtn">×</button>
+          <div id="infoPanelContent"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="marriageModal">
+      <div class="modal-content">
+        <h3>Arrange Marriage</h3>
+        <p id="marriagePrompt"></p>
+        <div class="candidate-list" id="candidateList"></div>
+        <button class="btn" style="margin-top: 1rem" id="closeModalBtn">
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <script>
+      // ==================== DATA STRUCTURES ====================
+
+      // Genetic Traits Configuration (Medium Complexity)
+      const GENETIC_TRAITS = {
+        // Physical Traits
+        hairColor: {
+          alleles: ["black", "brown", "blonde", "red"],
+          dominance: { black: 4, brown: 3, blonde: 2, red: 1 },
+        },
+        eyeColor: {
+          alleles: ["brown", "green", "blue", "hazel"],
+          dominance: { brown: 4, hazel: 3, green: 2, blue: 1 },
+        },
+        height: {
+          alleles: ["tall", "average", "short"],
+          dominance: { tall: 3, average: 2, short: 1 },
+        },
+        build: {
+          alleles: ["sturdy", "average", "slender"],
+          dominance: { sturdy: 3, average: 2, slender: 1 },
+        },
+
+        // Health Traits
+        longevity: {
+          alleles: ["robust", "normal", "frail"],
+          dominance: { robust: 3, normal: 2, frail: 1 },
+        },
+        fertility: {
+          alleles: ["high", "normal", "low"],
+          dominance: { high: 3, normal: 2, low: 1 },
+        },
+        disease: {
+          alleles: ["none", "weak_heart", "blood_disorder"],
+          dominance: { none: 3, weak_heart: 2, blood_disorder: 1 },
+        },
+
+        // Personality Traits
+        temperament: {
+          alleles: ["calm", "balanced", "fiery"],
+          dominance: { calm: 3, balanced: 2, fiery: 1 },
+        },
+        intelligence: {
+          alleles: ["brilliant", "average", "simple"],
+          dominance: { brilliant: 3, average: 2, simple: 1 },
+        },
+
+        // Special Traits
+        beauty: {
+          alleles: ["stunning", "pleasant", "plain"],
+          dominance: { stunning: 3, pleasant: 2, plain: 1 },
+        },
+      };
+
+      // Game Configuration
+      const CONFIG = {
+        startYear: 1000,
+        dynastyCount: 5,
+        baseWealth: 1000,
+        basePrestige: 100,
+        yearLength: 2000, // ms per year at 1x speed
+
+        // Biology
+        adultAge: 16,
+        maxAge: 80,
+        fertilityAgeMin: 16,
+        fertilityAgeMax: 45,
+        childCooldown: 2, // years
+
+        // Mortality
+        baseChildMortality: 0.15,
+        baseMortality: 0.02,
+        oldAgeMortality: 0.1,
+        childbirthMortality: 0.05,
+
+        // Events
+        eventChance: 0.05,
+        plagueChance: 0.01,
+
+        // Economy
+        yearlyIncome: 50,
+        marriageCost: 200,
+        childCost: 100,
+
+        // Rendering
+        nodeWidth: 80,
+        nodeHeight: 100,
+        generationGap: 150,
+        siblingGap: 100,
+      };
+
+      // House Names
+      const HOUSE_NAMES = [
+        "Ashford",
+        "Blackwood",
+        "Crestfall",
+        "Darkmore",
+        "Everhart",
+        "Fairwind",
+        "Goldvein",
+        "Highcrest",
+        "Ironforge",
+        "Kingsley",
+        "Lightbringer",
+        "Moonstone",
+        "Nightshade",
+        "Oakenshield",
+        "Ravenwood",
+      ];
+
+      const FIRST_NAMES_MALE = [
+        "Aldric",
+        "Branor",
+        "Cedric",
+        "Darius",
+        "Edmund",
+        "Felix",
+        "Gareth",
+        "Henrik",
+        "Ivor",
+        "Jasper",
+        "Kyran",
+        "Lucian",
+      ];
+
+      const FIRST_NAMES_FEMALE = [
+        "Alys",
+        "Beatrice",
+        "Celia",
+        "Diana",
+        "Elara",
+        "Freya",
+        "Gwendolyn",
+        "Helena",
+        "Isolde",
+        "Juliana",
+        "Katerina",
+        "Lyanna",
+      ];
+
+      // ==================== CLASSES ====================
+
+      class Genotype {
+        constructor(traits = null) {
+          this.genes = {};
+
+          if (traits) {
+            // Use provided traits
+            this.genes = { ...traits };
+          } else {
+            // Generate random genotype
+            for (let trait in GENETIC_TRAITS) {
+              const alleles = GENETIC_TRAITS[trait].alleles;
+              this.genes[trait] = {
+                a1: this.randomAllele(alleles),
+                a2: this.randomAllele(alleles),
+              };
+            }
+          }
+        }
+
+        randomAllele(alleles) {
+          return alleles[Math.floor(Math.random() * alleles.length)];
+        }
+
+        inherit(parent1, parent2) {
+          const childGenes = {};
+
+          for (let trait in GENETIC_TRAITS) {
+            const p1Gene = parent1.genes[trait];
+            const p2Gene = parent2.genes[trait];
+
+            childGenes[trait] = {
+              a1: Math.random() < 0.5 ? p1Gene.a1 : p1Gene.a2,
+              a2: Math.random() < 0.5 ? p2Gene.a1 : p2Gene.a2,
+            };
+          }
+
+          this.genes = childGenes;
+        }
+
+        getPhenotype(trait) {
+          const gene = this.genes[trait];
+          const dominance = GENETIC_TRAITS[trait].dominance;
+
+          if (dominance[gene.a1] >= dominance[gene.a2]) {
+            return gene.a1;
+          }
+          return gene.a2;
+        }
+
+        getAllPhenotypes() {
+          const phenotypes = {};
+          for (let trait in this.genes) {
+            phenotypes[trait] = this.getPhenotype(trait);
+          }
+          return phenotypes;
+        }
+      }
+
+      class Person {
+        constructor(data) {
+          this.id = data.id || Person.generateId();
+          this.dynastyId = data.dynastyId;
+          this.firstName = data.firstName;
+          this.houseName = data.houseName;
+          this.gender = data.gender;
+          this.birthYear = data.birthYear;
+          this.deathYear = data.deathYear || null;
+          this.genotype = data.genotype || new Genotype();
+
+          this.fatherId = data.fatherId || null;
+          this.motherId = data.motherId || null;
+          this.spouseId = data.spouseId || null;
+          this.childrenIds = data.childrenIds || [];
+
+          this.lastChildYear = data.lastChildYear || 0;
+        }
+
+        static generateId() {
+          return `person_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+
+        getAge(currentYear) {
+          if (this.deathYear) {
+            return this.deathYear - this.birthYear;
+          }
+          return currentYear - this.birthYear;
+        }
+
+        isAlive(currentYear) {
+          return !this.deathYear || this.deathYear > currentYear;
+        }
+
+        canMarry(currentYear) {
+          return (
+            this.isAlive(currentYear) &&
+            this.getAge(currentYear) >= CONFIG.adultAge &&
+            !this.spouseId
+          );
+        }
+
+        canHaveChildren(currentYear) {
+          if (!this.isAlive(currentYear) || !this.spouseId) return false;
+
+          const age = this.getAge(currentYear);
+          const yearsSinceLastChild = currentYear - this.lastChildYear;
+
+          if (this.gender === "female") {
+            return (
+              age >= CONFIG.fertilityAgeMin &&
+              age <= CONFIG.fertilityAgeMax &&
+              yearsSinceLastChild >= CONFIG.childCooldown
+            );
+          }
+
+          return age >= CONFIG.adultAge && age <= 70;
+        }
+
+        getFertilityModifier() {
+          const fertility = this.genotype.getPhenotype("fertility");
+          return fertility === "high" ? 1.5 : fertility === "low" ? 0.5 : 1.0;
+        }
+
+        getLongevityModifier() {
+          const longevity = this.genotype.getPhenotype("longevity");
+          return longevity === "robust"
+            ? 1.3
+            : longevity === "frail"
+              ? 0.7
+              : 1.0;
+        }
+
+        getFullName() {
+          return `${this.firstName} ${this.houseName}`;
+        }
+      }
+
+      class Dynasty {
+        constructor(data) {
+          this.id = data.id || Dynasty.generateId();
+          this.houseName = data.houseName;
+          this.memberIds = data.memberIds || [];
+          this.wealth = data.wealth || CONFIG.baseWealth;
+          this.prestige = data.prestige || CONFIG.basePrestige;
+          this.isPlayer = data.isPlayer || false;
+        }
+
+        static generateId() {
+          return `dynasty_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+
+        addMember(personId) {
+          if (!this.memberIds.includes(personId)) {
+            this.memberIds.push(personId);
+          }
+        }
+
+        removeMember(personId) {
+          this.memberIds = this.memberIds.filter((id) => id !== personId);
+        }
+
+        getLivingMembers(people, currentYear) {
+          return this.memberIds
+            .map((id) => people[id])
+            .filter((p) => p && p.isAlive(currentYear));
+        }
+
+        getFounder(people) {
+          // Return the oldest member by birth year
+          let founder = null;
+          for (let id of this.memberIds) {
+            const person = people[id];
+            if (!founder || person.birthYear < founder.birthYear) {
+              founder = person;
+            }
+          }
+          return founder;
+        }
+      }
+
+      class GameEvent {
+        constructor(year, type, message, dynastyId = null) {
+          this.year = year;
+          this.type = type;
+          this.message = message;
+          this.dynastyId = dynastyId;
+          this.timestamp = Date.now();
+        }
+      }
+
+      // ==================== GAME ENGINE ====================
+
+      class GameEngine {
+        constructor() {
+          this.currentYear = CONFIG.startYear;
+          this.speed = 1; // 0 = paused, 1 = normal, 2 = fast, 5 = very fast
+          this.lastUpdate = 0;
+          this.accumulatedTime = 0;
+
+          this.people = {};
+          this.dynasties = {};
+          this.events = [];
+
+          this.selectedPersonId = null;
+          this.currentDynastyId = null;
+
+          this.initialize();
+        }
+
+        initialize() {
+          // Create player dynasty
+          const playerHouse = this.getRandomHouseName();
+          const playerDynasty = new Dynasty({
+            houseName: playerHouse,
+            isPlayer: true,
+          });
+          this.dynasties[playerDynasty.id] = playerDynasty;
+          this.currentDynastyId = playerDynasty.id;
+
+          // Create founder
+          const founder = new Person({
+            dynastyId: playerDynasty.id,
+            firstName: this.getRandomFirstName("male"),
+            houseName: playerHouse,
+            gender: "male",
+            birthYear: this.currentYear - 25,
+            genotype: new Genotype(),
+          });
+          this.people[founder.id] = founder;
+          playerDynasty.addMember(founder.id);
+
+          // Create AI dynasties
+          for (let i = 0; i < CONFIG.dynastyCount - 1; i++) {
+            this.createAIDynasty();
+          }
+
+          this.addEvent(
+            "birth",
+            `${founder.getFullName()} established House ${playerHouse}`,
+            playerDynasty.id,
+          );
+        }
+
+        createAIDynasty() {
+          const houseName = this.getRandomHouseName();
+          const dynasty = new Dynasty({
+            houseName: houseName,
+            isPlayer: false,
+          });
+          this.dynasties[dynasty.id] = dynasty;
+
+          // Create 1-3 initial members
+          const memberCount = 1 + Math.floor(Math.random() * 3);
+          for (let i = 0; i < memberCount; i++) {
+            const gender = Math.random() < 0.5 ? "male" : "female";
+            const age = 20 + Math.floor(Math.random() * 20);
+
+            const person = new Person({
+              dynastyId: dynasty.id,
+              firstName: this.getRandomFirstName(gender),
+              houseName: houseName,
+              gender: gender,
+              birthYear: this.currentYear - age,
+              genotype: new Genotype(),
+            });
+
+            this.people[person.id] = person;
+            dynasty.addMember(person.id);
+          }
+        }
+
+        getRandomHouseName() {
+          const used = Object.values(this.dynasties).map((d) => d.houseName);
+          const available = HOUSE_NAMES.filter((name) => !used.includes(name));
+          if (available.length === 0)
+            return "House_" + Math.floor(Math.random() * 1000);
+          return available[Math.floor(Math.random() * available.length)];
+        }
+
+        getRandomFirstName(gender) {
+          const names =
+            gender === "male" ? FIRST_NAMES_MALE : FIRST_NAMES_FEMALE;
+          return names[Math.floor(Math.random() * names.length)];
+        }
+
+        addEvent(type, message, dynastyId = null) {
+          const event = new GameEvent(
+            this.currentYear,
+            type,
+            message,
+            dynastyId,
+          );
+          this.events.unshift(event);
+          if (this.events.length > 50) {
+            this.events.pop();
+          }
+        }
+
+        update(deltaTime) {
+          if (this.speed === 0) return;
+
+          this.accumulatedTime += deltaTime * this.speed;
+          const yearDuration = CONFIG.yearLength;
+
+          while (this.accumulatedTime >= yearDuration) {
+            this.accumulatedTime -= yearDuration;
+            this.advanceYear();
+          }
+        }
+
+        advanceYear() {
+          this.currentYear++;
+
+          // Update dynasties
+          for (let dynastyId in this.dynasties) {
+            const dynasty = this.dynasties[dynastyId];
+            dynasty.wealth += CONFIG.yearlyIncome;
+            dynasty.prestige += Math.floor(
+              dynasty.getLivingMembers(this.people, this.currentYear).length /
+                2,
+            );
+          }
+
+          // Process deaths
+          this.processMortality();
+
+          // Process births
+          this.processBirths();
+
+          // Process AI marriages
+          if (Math.random() < 0.3) {
+            this.processAIMarriages();
+          }
+
+          // Random events
+          if (Math.random() < CONFIG.eventChance) {
+            this.processRandomEvent();
+          }
+
+          // AI marriage proposals to player
+          if (Math.random() < 0.1) {
+            this.proposeMarriageToPlayer();
+          }
+        }
+
+        processMortality() {
+          for (let personId in this.people) {
+            const person = this.people[personId];
+            if (!person.isAlive(this.currentYear)) continue;
+
+            const age = person.getAge(this.currentYear);
+            let mortalityChance = CONFIG.baseMortality;
+
+            // Child mortality
+            if (age < 5) {
+              mortalityChance = CONFIG.baseChildMortality;
+            }
+
+            // Old age
+            if (age > 60) {
+              mortalityChance = CONFIG.oldAgeMortality * (age / 60);
+            }
+
+            // Longevity modifier
+            mortalityChance /= person.getLongevityModifier();
+
+            // Disease
+            const disease = person.genotype.getPhenotype("disease");
+            if (disease === "weak_heart" && age > 40) {
+              mortalityChance *= 1.5;
+            } else if (disease === "blood_disorder") {
+              mortalityChance *= 1.3;
+            }
+
+            if (Math.random() < mortalityChance) {
+              this.killPerson(person);
+            }
+          }
+        }
+
+        killPerson(person) {
+          person.deathYear = this.currentYear;
+          const dynasty = this.dynasties[person.dynastyId];
+          this.addEvent(
+            "death",
+            `${person.getFullName()} died at age ${person.getAge(this.currentYear)}`,
+            person.dynastyId,
+          );
+
+          // Clear spouse
+          if (person.spouseId) {
+            const spouse = this.people[person.spouseId];
+            if (spouse) spouse.spouseId = null;
+          }
+        }
+
+        processBirths() {
+          for (let personId in this.people) {
+            const person = this.people[personId];
+            if (
+              person.gender !== "female" ||
+              !person.canHaveChildren(this.currentYear)
+            )
+              continue;
+
+            const spouse = this.people[person.spouseId];
+            if (!spouse || !spouse.isAlive(this.currentYear)) continue;
+
+            // Birth chance
+            const fertilityMod =
+              person.getFertilityModifier() * spouse.getFertilityModifier();
+            const birthChance = 0.3 * fertilityMod;
+
+            if (Math.random() < birthChance) {
+              this.createChild(person, spouse);
+            }
+          }
+        }
+
+        createChild(mother, father) {
+          const dynasty = this.dynasties[father.dynastyId]; // Child takes father's house
+
+          // Childbed mortality
+          if (Math.random() < CONFIG.childbirthMortality) {
+            this.killPerson(mother);
+            this.addEvent(
+              "death",
+              `${mother.getFullName()} died in childbirth`,
+              mother.dynastyId,
+            );
+          }
+
+          const gender = Math.random() < 0.5 ? "male" : "female";
+          const childGenotype = new Genotype();
+          childGenotype.inherit(father.genotype, mother.genotype);
+
+          const child = new Person({
+            dynastyId: father.dynastyId,
+            firstName: this.getRandomFirstName(gender),
+            houseName: father.houseName,
+            gender: gender,
+            birthYear: this.currentYear,
+            genotype: childGenotype,
+            fatherId: father.id,
+            motherId: mother.id,
+          });
+
+          this.people[child.id] = child;
+          dynasty.addMember(child.id);
+          dynasty.wealth -= CONFIG.childCost;
+
+          father.childrenIds.push(child.id);
+          mother.childrenIds.push(child.id);
+          mother.lastChildYear = this.currentYear;
+
+          this.addEvent(
+            "birth",
+            `${child.getFullName()} born to ${father.getFullName()} and ${mother.getFullName()}`,
+            father.dynastyId,
+          );
+        }
+
+        processAIMarriages() {
+          const allDynasties = Object.values(this.dynasties);
+
+          for (let dynasty of allDynasties) {
+            if (dynasty.isPlayer) continue;
+
+            const unmarried = dynasty
+              .getLivingMembers(this.people, this.currentYear)
+              .filter((p) => p.canMarry(this.currentYear));
+
+            if (unmarried.length === 0) continue;
+
+            const person =
+              unmarried[Math.floor(Math.random() * unmarried.length)];
+            const candidates = this.findMarriageCandidates(person, false);
+
+            if (candidates.length > 0) {
+              const partner =
+                candidates[Math.floor(Math.random() * candidates.length)];
+              this.marry(person, partner);
+            }
+          }
+        }
+
+        findMarriageCandidates(person, includePlayer = true) {
+          const candidates = [];
+
+          for (let dynastyId in this.dynasties) {
+            const dynasty = this.dynasties[dynastyId];
+            if (!includePlayer && dynasty.isPlayer) continue;
+            if (dynasty.id === person.dynastyId) continue;
+
+            const members = dynasty
+              .getLivingMembers(this.people, this.currentYear)
+              .filter(
+                (p) =>
+                  p.canMarry(this.currentYear) && p.gender !== person.gender,
+              );
+
+            candidates.push(...members);
+          }
+
+          return candidates;
+        }
+
+        marry(person1, person2) {
+          person1.spouseId = person2.id;
+          person2.spouseId = person1.id;
+
+          const dynasty1 = this.dynasties[person1.dynastyId];
+          const dynasty2 = this.dynasties[person2.dynastyId];
+
+          dynasty1.wealth -= CONFIG.marriageCost / 2;
+          dynasty2.wealth -= CONFIG.marriageCost / 2;
+
+          dynasty1.prestige += 10;
+          dynasty2.prestige += 10;
+
+          this.addEvent(
+            "marriage",
+            `${person1.getFullName()} married ${person2.getFullName()}`,
+            person1.dynastyId,
+          );
+          this.addEvent(
+            "marriage",
+            `${person2.getFullName()} married ${person1.getFullName()}`,
+            person2.dynastyId,
+          );
+        }
+
+        processRandomEvent() {
+          const eventTypes = ["plague", "prosperity", "scandal"];
+          const eventType =
+            eventTypes[Math.floor(Math.random() * eventTypes.length)];
+
+          const dynasty = Object.values(this.dynasties)[
+            Math.floor(Math.random() * Object.values(this.dynasties).length)
+          ];
+
+          switch (eventType) {
+            case "plague":
+              const living = dynasty.getLivingMembers(
+                this.people,
+                this.currentYear,
+              );
+              const victims = Math.floor(living.length * 0.3);
+              for (let i = 0; i < victims && i < living.length; i++) {
+                this.killPerson(living[i]);
+              }
+              this.addEvent(
+                "death",
+                `Plague struck House ${dynasty.houseName}!`,
+                dynasty.id,
+              );
+              break;
+
+            case "prosperity":
+              dynasty.wealth += 500;
+              dynasty.prestige += 20;
+              this.addEvent(
+                "marriage",
+                `House ${dynasty.houseName} enjoyed great prosperity`,
+                dynasty.id,
+              );
+              break;
+
+            case "scandal":
+              dynasty.prestige = Math.max(0, dynasty.prestige - 30);
+              this.addEvent(
+                "death",
+                `Scandal befell House ${dynasty.houseName}`,
+                dynasty.id,
+              );
+              break;
+          }
+        }
+
+        proposeMarriageToPlayer() {
+          const playerDynasty = Object.values(this.dynasties).find(
+            (d) => d.isPlayer,
+          );
+          if (!playerDynasty) return;
+
+          const unmarried = playerDynasty
+            .getLivingMembers(this.people, this.currentYear)
+            .filter((p) => p.canMarry(this.currentYear));
+
+          if (unmarried.length === 0) return;
+
+          // Find AI candidate
+          for (let dynastyId in this.dynasties) {
+            const dynasty = this.dynasties[dynastyId];
+            if (dynasty.isPlayer) continue;
+
+            const aiUnmarried = dynasty
+              .getLivingMembers(this.people, this.currentYear)
+              .filter((p) => p.canMarry(this.currentYear));
+
+            if (aiUnmarried.length > 0) {
+              const aiPerson =
+                aiUnmarried[Math.floor(Math.random() * aiUnmarried.length)];
+              const playerPerson = unmarried.find(
+                (p) => p.gender !== aiPerson.gender,
+              );
+
+              if (playerPerson) {
+                this.addEvent(
+                  "marriage",
+                  `House ${dynasty.houseName} proposes marriage between ${aiPerson.getFullName()} and ${playerPerson.getFullName()}`,
+                  playerDynasty.id,
+                );
+                break;
+              }
+            }
+          }
+        }
+
+        arrangeMarriage(personId) {
+          const person = this.people[personId];
+          if (!person || !person.canMarry(this.currentYear)) return null;
+
+          return this.findMarriageCandidates(person, true);
+        }
+
+        save() {
+          const saveData = {
+            currentYear: this.currentYear,
+            people: this.people,
+            dynasties: this.dynasties,
+            events: this.events,
+            timestamp: Date.now(),
+          };
+
+          localStorage.setItem("dynastyGameSave", JSON.stringify(saveData));
+          return saveData;
+        }
+
+        load(saveData) {
+          this.currentYear = saveData.currentYear;
+          this.people = {};
+          this.dynasties = {};
+
+          // Reconstruct people
+          for (let id in saveData.people) {
+            const data = saveData.people[id];
+            data.genotype = new Genotype(data.genotype.genes);
+            this.people[id] = new Person(data);
+          }
+
+          // Reconstruct dynasties
+          for (let id in saveData.dynasties) {
+            this.dynasties[id] = new Dynasty(saveData.dynasties[id]);
+          }
+
+          this.events = saveData.events || [];
+
+          // Find player dynasty
+          const playerDynasty = Object.values(this.dynasties).find(
+            (d) => d.isPlayer,
+          );
+          if (playerDynasty) {
+            this.currentDynastyId = playerDynasty.id;
+          }
+        }
+
+        exportJSON() {
+          return JSON.stringify(this.save(), null, 2);
+        }
+
+        importJSON(jsonString) {
+          try {
+            const data = JSON.parse(jsonString);
+            this.load(data);
+            return true;
+          } catch (e) {
+            console.error("Import failed:", e);
+            return false;
+          }
+        }
+      }
+
+      // ==================== RENDERER ====================
+
+      class Renderer {
+        constructor(canvas, engine) {
+          this.canvas = canvas;
+          this.ctx = canvas.getContext("2d");
+          this.engine = engine;
+
+          this.camera = { x: 0, y: 0, zoom: 1 };
+          this.isDragging = false;
+          this.dragStart = { x: 0, y: 0 };
+          this.hoveredNode = null;
+
+          this.treeLayout = null;
+
+          this.resize();
+          window.addEventListener("resize", () => this.resize());
+
+          this.setupInput();
+        }
+
+        resize() {
+          this.canvas.width = this.canvas.clientWidth;
+          this.canvas.height = this.canvas.clientHeight;
+        }
+
+        setupInput() {
+          this.canvas.addEventListener("mousedown", (e) => {
+            this.isDragging = true;
+            this.dragStart = {
+              x: e.clientX - this.camera.x,
+              y: e.clientY - this.camera.y,
+            };
+          });
+
+          this.canvas.addEventListener("mousemove", (e) => {
+            if (this.isDragging) {
+              this.camera.x = e.clientX - this.dragStart.x;
+              this.camera.y = e.clientY - this.dragStart.y;
+            } else {
+              this.updateHover(e);
+            }
+          });
+
+          this.canvas.addEventListener("mouseup", () => {
+            this.isDragging = false;
+          });
+
+          this.canvas.addEventListener("click", (e) => {
+            if (this.hoveredNode) {
+              this.engine.selectedPersonId = this.hoveredNode.id;
+              this.showPersonInfo(this.hoveredNode);
+            }
+          });
+
+          this.canvas.addEventListener("wheel", (e) => {
+            e.preventDefault();
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            this.camera.zoom = Math.max(
+              0.3,
+              Math.min(2, this.camera.zoom * zoomFactor),
+            );
+          });
+        }
+
+        updateHover(e) {
+          const rect = this.canvas.getBoundingClientRect();
+          const x = (e.clientX - rect.left - this.camera.x) / this.camera.zoom;
+          const y = (e.clientY - rect.top - this.camera.y) / this.camera.zoom;
+
+          this.hoveredNode = null;
+
+          if (this.treeLayout) {
+            for (let node of this.treeLayout.nodes) {
+              if (
+                x >= node.x &&
+                x <= node.x + CONFIG.nodeWidth &&
+                y >= node.y &&
+                y <= node.y + CONFIG.nodeHeight
+              ) {
+                this.hoveredNode = node;
+                break;
+              }
+            }
+          }
+        }
+
+        showPersonInfo(node) {
+          const person = this.engine.people[node.id];
+          if (!person) return;
+
+          const panel = document.getElementById("infoPanel");
+          const content = document.getElementById("infoPanelContent");
+
+          const phenotypes = person.genotype.getAllPhenotypes();
+          const age = person.getAge(this.engine.currentYear);
+          const status = person.isAlive(this.engine.currentYear)
+            ? "Alive"
+            : "Deceased";
+
+          let html = `
+                    <h4>${person.getFullName()}</h4>
+                    <div class="stat-row">
+                        <span class="stat-label">Status:</span>
+                        <span class="stat-value">${status}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Gender:</span>
+                        <span class="stat-value">${person.gender === "male" ? "♂ Male" : "♀ Female"}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Age:</span>
+                        <span class="stat-value">${age} years</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Born:</span>
+                        <span class="stat-value">${person.birthYear}</span>
+                    </div>
+                `;
+
+          if (person.deathYear) {
+            html += `
+                        <div class="stat-row">
+                            <span class="stat-label">Died:</span>
+                            <span class="stat-value">${person.deathYear}</span>
+                        </div>
+                    `;
+          }
+
+          if (person.spouseId) {
+            const spouse = this.engine.people[person.spouseId];
+            html += `
+                        <div class="stat-row">
+                            <span class="stat-label">Spouse:</span>
+                            <span class="stat-value">${spouse.getFullName()}</span>
+                        </div>
+                    `;
+          }
+
+          // Physical Traits
+          html += `
+                    <div class="trait-section">
+                        <h5>Physical Traits</h5>
+                        <div class="trait-grid">
+                            <div class="trait-item">
+                                <span class="trait-label">Hair</span>
+                                <div class="trait-value">${phenotypes.hairColor}</div>
+                            </div>
+                            <div class="trait-item">
+                                <span class="trait-label">Eyes</span>
+                                <div class="trait-value">${phenotypes.eyeColor}</div>
+                            </div>
+                            <div class="trait-item">
+                                <span class="trait-label">Height</span>
+                                <div class="trait-value">${phenotypes.height}</div>
+                            </div>
+                            <div class="trait-item">
+                                <span class="trait-label">Build</span>
+                                <div class="trait-value">${phenotypes.build}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+          // Health Traits
+          html += `
+                    <div class="trait-section">
+                        <h5>Health & Vitality</h5>
+                        <div class="trait-grid">
+                            <div class="trait-item">
+                                <span class="trait-label">Longevity</span>
+                                <div class="trait-value">${phenotypes.longevity}</div>
+                            </div>
+                            <div class="trait-item">
+                                <span class="trait-label">Fertility</span>
+                                <div class="trait-value">${phenotypes.fertility}</div>
+                            </div>
+                            <div class="trait-item">
+                                <span class="trait-label">Disease</span>
+                                <div class="trait-value">${phenotypes.disease}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+          // Personality Traits
+          html += `
+                    <div class="trait-section">
+                        <h5>Personality</h5>
+                        <div class="trait-grid">
+                            <div class="trait-item">
+                                <span class="trait-label">Temperament</span>
+                                <div class="trait-value">${phenotypes.temperament}</div>
+                            </div>
+                            <div class="trait-item">
+                                <span class="trait-label">Intelligence</span>
+                                <div class="trait-value">${phenotypes.intelligence}</div>
+                            </div>
+                            <div class="trait-item">
+                                <span class="trait-label">Beauty</span>
+                                <div class="trait-value">${phenotypes.beauty}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+          // Actions
+          if (person.isAlive(this.engine.currentYear)) {
+            html += '<div class="action-buttons">';
+
+            if (person.canMarry(this.engine.currentYear)) {
+              html +=
+                '<button class="btn btn-primary" onclick="game.openMarriageModal(\'' +
+                person.id +
+                "')\">Arrange Marriage</button>";
+            }
+
+            html += "</div>";
+          }
+
+          content.innerHTML = html;
+          panel.classList.add("visible");
+        }
+
+        calculateTreeLayout(dynastyId) {
+          const dynasty = this.engine.dynasties[dynastyId];
+          if (!dynasty) return { nodes: [], edges: [] };
+
+          const founder = dynasty.getFounder(this.engine.people);
+          if (!founder) return { nodes: [], edges: [] };
+
+          const nodes = [];
+          const edges = [];
+          const visited = new Set();
+
+          // Build tree recursively
+          const buildTree = (personId, depth, parentX = null) => {
+            if (visited.has(personId)) return;
+            visited.add(personId);
+
+            const person = this.engine.people[personId];
+            if (!person) return;
+
+            // Calculate position
+            const siblings = this.getSiblings(person);
+            const siblingIndex = siblings.indexOf(person);
+
+            const x =
+              parentX !== null
+                ? parentX +
+                  (siblingIndex - siblings.length / 2) * CONFIG.siblingGap
+                : 0;
+            const y = depth * CONFIG.generationGap;
+
+            nodes.push({
+              id: person.id,
+              x: x,
+              y: y,
+              person: person,
+            });
+
+            // Add spouse edge
+            if (person.spouseId && !visited.has(person.spouseId)) {
+              const spouse = this.engine.people[person.spouseId];
+              if (spouse) {
+                const spouseX = x + CONFIG.nodeWidth + 20;
+                nodes.push({
+                  id: spouse.id,
+                  x: spouseX,
+                  y: y,
+                  person: spouse,
+                });
+                visited.add(spouse.id);
+
+                edges.push({
+                  from: person.id,
+                  to: spouse.id,
+                  type: "marriage",
+                });
+              }
+            }
+
+            // Process children
+            for (let childId of person.childrenIds) {
+              edges.push({
+                from: person.id,
+                to: childId,
+                type: "parent",
+              });
+              buildTree(childId, depth + 1, x);
+            }
+          };
+
+          buildTree(founder.id, 0);
+
+          return { nodes, edges };
+        }
+
+        getSiblings(person) {
+          if (!person.motherId || !person.fatherId) return [person];
+
+          const mother = this.engine.people[person.motherId];
+          if (!mother) return [person];
+
+          return mother.childrenIds
+            .map((id) => this.engine.people[id])
+            .filter((p) => p);
+        }
+
+        render() {
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+          this.ctx.save();
+          this.ctx.translate(this.camera.x, this.camera.y);
+          this.ctx.scale(this.camera.zoom, this.camera.zoom);
+
+          if (this.engine.currentDynastyId) {
+            this.treeLayout = this.calculateTreeLayout(
+              this.engine.currentDynastyId,
+            );
+
+            // Center the tree
+            if (
+              this.treeLayout.nodes.length > 0 &&
+              this.camera.x === 0 &&
+              this.camera.y === 0
+            ) {
+              this.camera.x = this.canvas.width / 2;
+              this.camera.y = 50;
+            }
+
+            // Draw edges first
+            for (let edge of this.treeLayout.edges) {
+              this.drawEdge(edge);
+            }
+
+            // Draw nodes
+            for (let node of this.treeLayout.nodes) {
+              this.drawNode(node);
+            }
+          }
+
+          this.ctx.restore();
+        }
+
+        drawEdge(edge) {
+          const fromNode = this.treeLayout.nodes.find(
+            (n) => n.id === edge.from,
+          );
+          const toNode = this.treeLayout.nodes.find((n) => n.id === edge.to);
+
+          if (!fromNode || !toNode) return;
+
+          this.ctx.strokeStyle =
+            edge.type === "marriage" ? "#d4af37" : "#2a3038";
+          this.ctx.lineWidth = edge.type === "marriage" ? 3 : 2;
+
+          this.ctx.beginPath();
+
+          if (edge.type === "marriage") {
+            // Horizontal line for marriage
+            this.ctx.moveTo(
+              fromNode.x + CONFIG.nodeWidth,
+              fromNode.y + CONFIG.nodeHeight / 2,
+            );
+            this.ctx.lineTo(toNode.x, toNode.y + CONFIG.nodeHeight / 2);
+          } else {
+            // Curved line for parent-child
+            const fromX = fromNode.x + CONFIG.nodeWidth / 2;
+            const fromY = fromNode.y + CONFIG.nodeHeight;
+            const toX = toNode.x + CONFIG.nodeWidth / 2;
+            const toY = toNode.y;
+
+            const midY = (fromY + toY) / 2;
+
+            this.ctx.moveTo(fromX, fromY);
+            this.ctx.bezierCurveTo(fromX, midY, toX, midY, toX, toY);
+          }
+
+          this.ctx.stroke();
+        }
+
+        drawNode(node) {
+          const person = node.person;
+          const isHovered = this.hoveredNode && this.hoveredNode.id === node.id;
+          const isSelected = this.engine.selectedPersonId === node.id;
+          const isAlive = person.isAlive(this.engine.currentYear);
+
+          // Background
+          this.ctx.fillStyle = isAlive ? "#1c2128" : "#0a0e14";
+          this.ctx.strokeStyle = isSelected
+            ? "#d4af37"
+            : isHovered
+              ? "#8b7523"
+              : "#2a3038";
+          this.ctx.lineWidth = isSelected ? 3 : isHovered ? 2 : 1;
+
+          this.ctx.fillRect(
+            node.x,
+            node.y,
+            CONFIG.nodeWidth,
+            CONFIG.nodeHeight,
+          );
+          this.ctx.strokeRect(
+            node.x,
+            node.y,
+            CONFIG.nodeWidth,
+            CONFIG.nodeHeight,
+          );
+
+          // Gender indicator
+          const genderColor = person.gender === "male" ? "#4a7c9e" : "#9e4a7c";
+          this.ctx.fillStyle = genderColor;
+          this.ctx.fillRect(node.x, node.y, CONFIG.nodeWidth, 4);
+
+          // Name
+          this.ctx.fillStyle = isAlive ? "#e8e6e3" : "#666";
+          this.ctx.font = "12px Crimson Text";
+          this.ctx.textAlign = "center";
+          this.ctx.fillText(
+            person.firstName,
+            node.x + CONFIG.nodeWidth / 2,
+            node.y + 20,
+          );
+
+          // Age
+          this.ctx.fillStyle = "#9b9691";
+          this.ctx.font = "10px Crimson Text";
+          const age = person.getAge(this.engine.currentYear);
+          this.ctx.fillText(
+            `Age ${age}`,
+            node.x + CONFIG.nodeWidth / 2,
+            node.y + 35,
+          );
+
+          // Traits preview
+          const phenotypes = person.genotype.getAllPhenotypes();
+          this.ctx.font = "9px Crimson Text";
+          this.ctx.fillText(
+            `${phenotypes.hairColor} hair`,
+            node.x + CONFIG.nodeWidth / 2,
+            node.y + 50,
+          );
+          this.ctx.fillText(
+            `${phenotypes.eyeColor} eyes`,
+            node.x + CONFIG.nodeWidth / 2,
+            node.y + 62,
+          );
+
+          if (!isAlive) {
+            this.ctx.fillStyle = "#9e4a4a";
+            this.ctx.fillText("†", node.x + CONFIG.nodeWidth / 2, node.y + 78);
+          }
+        }
+      }
+
+      // ==================== UI CONTROLLER ====================
+
+      class UIController {
+        constructor(engine) {
+          this.engine = engine;
+          this.setupEventListeners();
+        }
+
+        setupEventListeners() {
+          // Speed controls
+          document.querySelectorAll(".speed-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const speed = parseInt(btn.dataset.speed);
+              this.engine.speed = speed;
+
+              document
+                .querySelectorAll(".speed-btn")
+                .forEach((b) => b.classList.remove("active"));
+              btn.classList.add("active");
+            });
+          });
+
+          // Save/Load
+          document.getElementById("saveBtn").addEventListener("click", () => {
+            this.engine.save();
+            this.engine.addEvent("marriage", "Game saved successfully", null);
+          });
+
+          document.getElementById("loadBtn").addEventListener("click", () => {
+            const saveData = localStorage.getItem("dynastyGameSave");
+            if (saveData) {
+              this.engine.load(JSON.parse(saveData));
+              this.engine.addEvent(
+                "marriage",
+                "Game loaded successfully",
+                null,
+              );
+              this.updateDynastyList();
+            }
+          });
+
+          document.getElementById("exportBtn").addEventListener("click", () => {
+            const json = this.engine.exportJSON();
+            const blob = new Blob([json], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `dynasty_save_${Date.now()}.json`;
+            a.click();
+          });
+
+          document.getElementById("importBtn").addEventListener("click", () => {
+            document.getElementById("importInput").click();
+          });
+
+          document
+            .getElementById("importInput")
+            .addEventListener("change", (e) => {
+              const file = e.target.files[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                  if (this.engine.importJSON(event.target.result)) {
+                    this.engine.addEvent(
+                      "marriage",
+                      "Game imported successfully",
+                      null,
+                    );
+                    this.updateDynastyList();
+                  } else {
+                    alert("Failed to import save file");
+                  }
+                };
+                reader.readAsText(file);
+              }
+            });
+
+          // Info panel
+          document
+            .getElementById("closeInfoBtn")
+            .addEventListener("click", () => {
+              document.getElementById("infoPanel").classList.remove("visible");
+            });
+
+          // Modal
+          document
+            .getElementById("closeModalBtn")
+            .addEventListener("click", () => {
+              document
+                .getElementById("marriageModal")
+                .classList.remove("visible");
+            });
+        }
+
+        update() {
+          // Update stats
+          const currentDynasty =
+            this.engine.dynasties[this.engine.currentDynastyId];
+          if (currentDynasty) {
+            document.getElementById("currentYear").textContent =
+              this.engine.currentYear;
+            document.getElementById("memberCount").textContent =
+              currentDynasty.getLivingMembers(
+                this.engine.people,
+                this.engine.currentYear,
+              ).length;
+            document.getElementById("wealth").textContent = Math.floor(
+              currentDynasty.wealth,
+            );
+            document.getElementById("prestige").textContent = Math.floor(
+              currentDynasty.prestige,
+            );
+          }
+
+          // Update events feed
+          this.updateEventsFeed();
+
+          // Update dynasty list
+          this.updateDynastyList();
+        }
+
+        updateEventsFeed() {
+          const feed = document.getElementById("eventsFeed");
+          const currentDynasty =
+            this.engine.dynasties[this.engine.currentDynastyId];
+
+          // Filter events for current dynasty or general events
+          const relevantEvents = this.engine.events
+            .filter(
+              (e) =>
+                !e.dynastyId || e.dynastyId === this.engine.currentDynastyId,
+            )
+            .slice(0, 20);
+
+          feed.innerHTML = relevantEvents
+            .map(
+              (event) => `
+                    <div class="event-item ${event.type}">
+                        <div class="event-time">Year ${event.year}</div>
+                        <div>${event.message}</div>
+                    </div>
+                `,
+            )
+            .join("");
+        }
+
+        updateDynastyList() {
+          const list = document.getElementById("dynastyList");
+
+          list.innerHTML = Object.values(this.engine.dynasties)
+            .map((dynasty) => {
+              const living = dynasty.getLivingMembers(
+                this.engine.people,
+                this.engine.currentYear,
+              ).length;
+              const isActive = dynasty.id === this.engine.currentDynastyId;
+
+              return `
+                        <div class="dynasty-item ${isActive ? "active" : ""}" 
+                             onclick="game.selectDynasty('${dynasty.id}')">
+                            <div class="dynasty-name">
+                                ${dynasty.isPlayer ? "👑 " : ""}House ${dynasty.houseName}
+                            </div>
+                            <div class="dynasty-stats">
+                                ${living} members • ${Math.floor(dynasty.prestige)} prestige
+                            </div>
+                        </div>
+                    `;
+            })
+            .join("");
+        }
+      }
+
+      // ==================== GAME INSTANCE ====================
+
+      class Game {
+        constructor() {
+          this.engine = new GameEngine();
+          this.canvas = document.getElementById("gameCanvas");
+          this.renderer = new Renderer(this.canvas, this.engine);
+          this.ui = new UIController(this.engine);
+
+          this.lastTime = performance.now();
+
+          this.start();
+        }
+
+        start() {
+          this.ui.update();
+          this.loop();
+        }
+
+        loop() {
+          const currentTime = performance.now();
+          const deltaTime = currentTime - this.lastTime;
+          this.lastTime = currentTime;
+
+          this.engine.update(deltaTime);
+          this.renderer.render();
+          this.ui.update();
+
+          requestAnimationFrame(() => this.loop());
+        }
+
+        selectDynasty(dynastyId) {
+          this.engine.currentDynastyId = dynastyId;
+          document.getElementById("infoPanel").classList.remove("visible");
+        }
+
+        openMarriageModal(personId) {
+          const person = this.engine.people[personId];
+          const candidates = this.engine.arrangeMarriage(personId);
+
+          if (!candidates || candidates.length === 0) {
+            alert("No suitable marriage candidates available");
+            return;
+          }
+
+          document.getElementById("marriagePrompt").textContent =
+            `Choose a spouse for ${person.getFullName()}:`;
+
+          const list = document.getElementById("candidateList");
+          list.innerHTML = candidates
+            .map((candidate) => {
+              const age = candidate.getAge(this.engine.currentYear);
+              const phenotypes = candidate.genotype.getAllPhenotypes();
+
+              return `
+                        <div class="candidate-item" onclick="game.confirmMarriage('${personId}', '${candidate.id}')">
+                            <div class="candidate-name">${candidate.getFullName()}</div>
+                            <div class="candidate-info">
+                                Age ${age} • ${phenotypes.hairColor} hair, ${phenotypes.eyeColor} eyes
+                                <br>Fertility: ${phenotypes.fertility} • Longevity: ${phenotypes.longevity}
+                            </div>
+                        </div>
+                    `;
+            })
+            .join("");
+
+          document.getElementById("marriageModal").classList.add("visible");
+        }
+
+        confirmMarriage(personId, partnerId) {
+          const person = this.engine.people[personId];
+          const partner = this.engine.people[partnerId];
+
+          this.engine.marry(person, partner);
+
+          document.getElementById("marriageModal").classList.remove("visible");
+          document.getElementById("infoPanel").classList.remove("visible");
+        }
+      }
+
+      // Start the game
+      let game;
+      window.addEventListener("load", () => {
+        game = new Game();
+      });
+    </script>
+  </body>
+</html>

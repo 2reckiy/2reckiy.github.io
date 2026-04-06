@@ -1,0 +1,1739 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dynasty Builder</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+          sans-serif;
+        overflow: hidden;
+        background: #1a1a2e;
+        color: #eee;
+      }
+
+      #gameContainer {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+      }
+
+      #gameCanvas {
+        display: block;
+        background: #16213e;
+        cursor: grab;
+      }
+
+      #gameCanvas:active {
+        cursor: grabbing;
+      }
+
+      /* UI Overlay */
+      #uiOverlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      #uiOverlay > * {
+        pointer-events: auto;
+      }
+
+      /* Top Control Bar */
+      #controlBar {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(26, 26, 46, 0.95);
+        padding: 15px 25px;
+        border-radius: 12px;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .control-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .control-label {
+        font-size: 14px;
+        color: #aaa;
+        font-weight: 500;
+      }
+
+      .control-value {
+        font-size: 16px;
+        color: #fff;
+        font-weight: 600;
+        min-width: 60px;
+      }
+
+      button {
+        background: #0f3460;
+        border: 1px solid #1a5490;
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+
+      button:hover {
+        background: #1a5490;
+        box-shadow: 0 2px 8px rgba(26, 84, 144, 0.4);
+      }
+
+      button:active {
+        transform: scale(0.95);
+      }
+
+      button.active {
+        background: #e94560;
+        border-color: #e94560;
+      }
+
+      /* Side Panel */
+      #sidePanel {
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 350px;
+        height: 100%;
+        background: rgba(26, 26, 46, 0.98);
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        overflow-y: auto;
+        padding: 20px;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+      }
+
+      #sidePanel.open {
+        transform: translateX(0);
+      }
+
+      #sidePanelToggle {
+        position: absolute;
+        left: -40px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(26, 26, 46, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-right: none;
+        padding: 15px 10px;
+        border-radius: 6px 0 0 6px;
+        cursor: pointer;
+      }
+
+      .panel-section {
+        margin-bottom: 25px;
+      }
+
+      .panel-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        color: #e94560;
+      }
+
+      .person-card {
+        background: rgba(15, 52, 96, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .person-card:hover {
+        background: rgba(15, 52, 96, 0.6);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+
+      .person-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+
+      .person-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+      }
+
+      .person-info {
+        flex: 1;
+      }
+
+      .person-name {
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      .person-details {
+        font-size: 12px;
+        color: #aaa;
+        margin-top: 2px;
+      }
+
+      .person-traits {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+
+      .trait-badge {
+        background: rgba(233, 69, 96, 0.2);
+        border: 1px solid rgba(233, 69, 96, 0.4);
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        color: #ffb3c1;
+      }
+
+      /* Marriage Modal */
+      #marriageModal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      #marriageModal.open {
+        display: flex;
+      }
+
+      .modal-content {
+        background: #1a1a2e;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        padding: 30px;
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+      }
+
+      .modal-title {
+        font-size: 22px;
+        font-weight: 600;
+        margin-bottom: 20px;
+        color: #e94560;
+      }
+
+      .modal-close {
+        float: right;
+        cursor: pointer;
+        font-size: 24px;
+        color: #aaa;
+      }
+
+      .candidate-list {
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      /* Scrollbar Styling */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+
+      /* Loading Screen */
+      #loadingScreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #1a1a2e;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        transition: opacity 0.5s;
+      }
+
+      #loadingScreen.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .loading-content {
+        text-align: center;
+      }
+
+      .loading-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: #e94560;
+        margin-bottom: 20px;
+      }
+
+      .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid rgba(233, 69, 96, 0.2);
+        border-top-color: #e94560;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loadingScreen">
+      <div class="loading-content">
+        <div class="loading-title">Dynasty Builder</div>
+        <div class="loading-spinner"></div>
+      </div>
+    </div>
+
+    <div id="gameContainer">
+      <canvas id="gameCanvas"></canvas>
+
+      <div id="uiOverlay">
+        <!-- Top Control Bar -->
+        <div id="controlBar">
+          <div class="control-group">
+            <span class="control-label">Year:</span>
+            <span class="control-value" id="yearDisplay">1</span>
+          </div>
+          <div class="control-group">
+            <button id="pauseBtn">⏸ Pause</button>
+            <button id="speed1Btn" class="active">1x</button>
+            <button id="speed2Btn">2x</button>
+            <button id="speed4Btn">4x</button>
+          </div>
+          <div class="control-group">
+            <span class="control-label">Dynasty:</span>
+            <span class="control-value" id="dynastyName">-</span>
+          </div>
+          <div class="control-group">
+            <span class="control-label">Members:</span>
+            <span class="control-value" id="membersCount">0</span>
+          </div>
+        </div>
+
+        <!-- Side Panel -->
+        <div id="sidePanel">
+          <div id="sidePanelToggle">◀</div>
+
+          <div class="panel-section">
+            <div class="panel-title">Your Dynasty</div>
+            <div id="playerDynastyInfo"></div>
+          </div>
+
+          <div class="panel-section">
+            <div class="panel-title">Selected Person</div>
+            <div id="selectedPersonInfo">
+              <p style="color: #aaa; font-size: 14px">
+                Click on a person to view details
+              </p>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="panel-title">Actions</div>
+            <div id="actionButtons"></div>
+          </div>
+
+          <div class="panel-section">
+            <div class="panel-title">All Dynasties</div>
+            <div id="dynastyList"></div>
+          </div>
+        </div>
+
+        <!-- Marriage Modal -->
+        <div id="marriageModal">
+          <div class="modal-content">
+            <span class="modal-close" id="modalClose">&times;</span>
+            <div class="modal-title">Choose Marriage Candidate</div>
+            <div id="candidateList" class="candidate-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ============================================================================
+      // DATA MODELS
+      // ============================================================================
+
+      class Person {
+        constructor(id, name, age, gender, dynastyId, parentIds = []) {
+          this.id = id;
+          this.name = name;
+          this.age = age;
+          this.gender = gender; // 'male' or 'female'
+          this.dynastyId = dynastyId;
+          this.parentIds = parentIds; // Array of parent IDs
+          this.spouseIds = []; // Array of current/past spouse IDs
+          this.childrenIds = []; // Array of children IDs
+          this.traits = this.generateTraits();
+          this.isAlive = true;
+          this.birthYear = 0; // Will be set by game
+          this.deathYear = null;
+
+          // Visual properties (for rendering)
+          this.x = 0;
+          this.y = 0;
+          this.generation = 0;
+        }
+
+        generateTraits() {
+          const possibleTraits = [
+            "Intelligent",
+            "Strong",
+            "Charming",
+            "Brave",
+            "Cunning",
+            "Kind",
+            "Ambitious",
+            "Patient",
+            "Wise",
+            "Creative",
+          ];
+          const traitCount = Math.floor(Math.random() * 3) + 1; // 1-3 traits
+          const traits = [];
+          const shuffled = [...possibleTraits].sort(() => Math.random() - 0.5);
+          for (let i = 0; i < traitCount; i++) {
+            traits.push(shuffled[i]);
+          }
+          return traits;
+        }
+
+        canMarry() {
+          return this.isAlive && this.age >= 16 && !this.isMarried();
+        }
+
+        isMarried() {
+          // Check if has living spouse
+          return this.spouseIds.length > 0;
+        }
+
+        canHaveChildren() {
+          return (
+            this.isAlive && this.age >= 16 && this.age < 50 && this.isMarried()
+          );
+        }
+
+        addSpouse(spouseId) {
+          if (!this.spouseIds.includes(spouseId)) {
+            this.spouseIds.push(spouseId);
+          }
+        }
+
+        removeSpouse(spouseId) {
+          this.spouseIds = this.spouseIds.filter((id) => id !== spouseId);
+        }
+
+        addChild(childId) {
+          if (!this.childrenIds.includes(childId)) {
+            this.childrenIds.push(childId);
+          }
+        }
+      }
+
+      class Dynasty {
+        constructor(id, name, color, isPlayer = false) {
+          this.id = id;
+          this.name = name;
+          this.color = color;
+          this.isPlayer = isPlayer;
+          this.memberIds = [];
+          this.prestige = 100;
+          this.wealth = 100;
+          this.power = 100;
+        }
+
+        addMember(personId) {
+          if (!this.memberIds.includes(personId)) {
+            this.memberIds.push(personId);
+          }
+        }
+
+        removeMember(personId) {
+          this.memberIds = this.memberIds.filter((id) => id !== personId);
+        }
+
+        getLivingMembers(gameState) {
+          return this.memberIds
+            .map((id) => gameState.people.get(id))
+            .filter((person) => person && person.isAlive);
+        }
+      }
+
+      class Marriage {
+        constructor(person1Id, person2Id, year) {
+          this.id = `${person1Id}-${person2Id}`;
+          this.person1Id = person1Id;
+          this.person2Id = person2Id;
+          this.marriageYear = year;
+          this.isActive = true;
+        }
+      }
+
+      // ============================================================================
+      // GAME STATE
+      // ============================================================================
+
+      class GameState {
+        constructor() {
+          this.people = new Map(); // id -> Person
+          this.dynasties = new Map(); // id -> Dynasty
+          this.marriages = new Map(); // id -> Marriage
+          this.currentYear = 1;
+          this.nextPersonId = 1;
+          this.nextDynastyId = 1;
+          this.playerDynastyId = null;
+          this.selectedPersonId = null;
+        }
+
+        createPerson(name, age, gender, dynastyId, parentIds = []) {
+          const person = new Person(
+            this.nextPersonId++,
+            name,
+            age,
+            gender,
+            dynastyId,
+            parentIds,
+          );
+          person.birthYear = this.currentYear - age;
+          this.people.set(person.id, person);
+
+          const dynasty = this.dynasties.get(dynastyId);
+          if (dynasty) {
+            dynasty.addMember(person.id);
+          }
+
+          return person;
+        }
+
+        createDynasty(name, color, isPlayer = false) {
+          const dynasty = new Dynasty(
+            this.nextDynastyId++,
+            name,
+            color,
+            isPlayer,
+          );
+          this.dynasties.set(dynasty.id, dynasty);
+
+          if (isPlayer) {
+            this.playerDynastyId = dynasty.id;
+          }
+
+          return dynasty;
+        }
+
+        createMarriage(person1Id, person2Id) {
+          const person1 = this.people.get(person1Id);
+          const person2 = this.people.get(person2Id);
+
+          if (!person1 || !person2) return null;
+          if (!person1.canMarry() || !person2.canMarry()) return null;
+
+          const marriage = new Marriage(person1Id, person2Id, this.currentYear);
+          this.marriages.set(marriage.id, marriage);
+
+          person1.addSpouse(person2Id);
+          person2.addSpouse(person1Id);
+
+          return marriage;
+        }
+
+        divorceMarriage(marriageId) {
+          const marriage = this.marriages.get(marriageId);
+          if (!marriage || !marriage.isActive) return;
+
+          const person1 = this.people.get(marriage.person1Id);
+          const person2 = this.people.get(marriage.person2Id);
+
+          if (person1) person1.removeSpouse(marriage.person2Id);
+          if (person2) person2.removeSpouse(marriage.person1Id);
+
+          marriage.isActive = false;
+        }
+
+        createChild(parent1Id, parent2Id) {
+          const parent1 = this.people.get(parent1Id);
+          const parent2 = this.people.get(parent2Id);
+
+          if (!parent1 || !parent2) return null;
+
+          const gender = Math.random() < 0.5 ? "male" : "female";
+          const name = this.generateName(gender);
+
+          // Child belongs to parent1's dynasty by default
+          const dynastyId = parent1.dynastyId;
+
+          const child = this.createPerson(name, 0, gender, dynastyId, [
+            parent1Id,
+            parent2Id,
+          ]);
+
+          parent1.addChild(child.id);
+          parent2.addChild(child.id);
+
+          return child;
+        }
+
+        generateName(gender) {
+          const maleNames = [
+            "Alexander",
+            "William",
+            "Henry",
+            "Edward",
+            "Richard",
+            "Thomas",
+            "James",
+            "Charles",
+            "George",
+            "Frederick",
+            "Arthur",
+            "Philip",
+          ];
+          const femaleNames = [
+            "Elizabeth",
+            "Victoria",
+            "Catherine",
+            "Margaret",
+            "Anne",
+            "Mary",
+            "Isabella",
+            "Eleanor",
+            "Charlotte",
+            "Sophia",
+            "Emma",
+            "Alexandra",
+          ];
+
+          const names = gender === "male" ? maleNames : femaleNames;
+          return names[Math.floor(Math.random() * names.length)];
+        }
+
+        getMarriageCandidates(personId) {
+          const person = this.people.get(personId);
+          if (!person || !person.canMarry()) return [];
+
+          const candidates = [];
+
+          for (const [id, candidate] of this.people) {
+            if (id === personId) continue;
+            if (!candidate.canMarry()) continue;
+            if (candidate.gender === person.gender) continue; // No same-sex marriage for now
+            if (candidate.parentIds.includes(personId)) continue; // Not your child
+            if (person.parentIds.includes(id)) continue; // Not your parent
+
+            candidates.push(candidate);
+          }
+
+          return candidates;
+        }
+
+        getPlayerDynasty() {
+          return this.dynasties.get(this.playerDynastyId);
+        }
+      }
+
+      // ============================================================================
+      // TREE LAYOUT ALGORITHM
+      // ============================================================================
+
+      class TreeLayoutEngine {
+        constructor(gameState) {
+          this.gameState = gameState;
+          this.nodeWidth = 100;
+          this.nodeHeight = 120;
+          this.horizontalSpacing = 40;
+          this.verticalSpacing = 150;
+        }
+
+        layoutDynastyTree(dynastyId) {
+          const dynasty = this.gameState.dynasties.get(dynastyId);
+          if (!dynasty) return;
+
+          const livingMembers = dynasty.getLivingMembers(this.gameState);
+          if (livingMembers.length === 0) return;
+
+          // Find root nodes (people with no parents in this dynasty)
+          const roots = livingMembers.filter((person) => {
+            const parentsInDynasty = person.parentIds.filter((pid) => {
+              const parent = this.gameState.people.get(pid);
+              return parent && parent.dynastyId === dynastyId /*&& parent.isAlive*/;
+            });
+            return parentsInDynasty.length === 0;
+          });
+
+          // Calculate generations
+          this.calculateGenerations(roots);
+
+          // Group by generation
+          const generations = new Map();
+          for (const person of livingMembers) {
+            if (!generations.has(person.generation)) {
+              generations.set(person.generation, []);
+            }
+            generations.get(person.generation).push(person);
+          }
+
+          // Layout each generation
+          let currentY = 100;
+          const sortedGens = Array.from(generations.keys()).sort(
+            (a, b) => a - b,
+          );
+
+          for (const gen of sortedGens) {
+            const people = generations.get(gen);
+            this.layoutGeneration(people, currentY);
+            currentY += this.nodeHeight + this.verticalSpacing;
+          }
+        }
+
+        calculateGenerations(roots, generation = 0) {
+          for (const person of roots) {
+            person.generation = generation;
+
+            // Process children
+            const children = person.childrenIds
+              .map((id) => this.gameState.people.get(id))
+              .filter((child) => child /*&& child.isAlive*/);
+
+            if (children.length > 0) {
+              this.calculateGenerations(children, generation + 1);
+            }
+          }
+        }
+
+        layoutGeneration(people, y) {
+          // Sort people by family groups (siblings together)
+          const familyGroups = this.groupByFamily(people);
+
+          let currentX = 100;
+
+          for (const group of familyGroups) {
+            // Layout spouses side by side
+            const spouseGroups = this.groupSpouses(group);
+
+            for (const spouseGroup of spouseGroups) {
+              for (let i = 0; i < spouseGroup.length; i++) {
+                spouseGroup[i].x = currentX;
+                spouseGroup[i].y = y;
+                currentX +=
+                  this.nodeWidth +
+                  (i < spouseGroup.length - 1 ? 10 : this.horizontalSpacing);
+              }
+            }
+          }
+        }
+
+        groupByFamily(people) {
+          const groups = [];
+          const processed = new Set();
+
+          for (const person of people) {
+            if (processed.has(person.id)) continue;
+
+            // Find all siblings
+            const siblings = [person];
+            processed.add(person.id);
+
+            for (const other of people) {
+              if (processed.has(other.id)) continue;
+              if (this.areSiblings(person, other)) {
+                siblings.push(other);
+                processed.add(other.id);
+              }
+            }
+
+            groups.push(siblings);
+          }
+
+          return groups;
+        }
+
+        areSiblings(person1, person2) {
+          if (person1.parentIds.length === 0 || person2.parentIds.length === 0)
+            return false;
+          return person1.parentIds.some((pid) =>
+            person2.parentIds.includes(pid),
+          );
+        }
+
+        groupSpouses(people) {
+          const groups = [];
+          const processed = new Set();
+
+          for (const person of people) {
+            if (processed.has(person.id)) continue;
+
+            const group = [person];
+            processed.add(person.id);
+
+            // Add spouse if exists and in same generation
+            if (person.spouseIds.length > 0) {
+              for (const spouseId of person.spouseIds) {
+                const spouse = this.gameState.people.get(spouseId);
+                if (spouse && /* spouse.isAlive && */ !processed.has(spouse.id)) {
+                  group.push(spouse);
+                  processed.add(spouse.id);
+                  break; // Only one spouse at a time for layout
+                }
+              }
+            }
+
+            groups.push(group);
+          }
+
+          return groups;
+        }
+      }
+
+      // ============================================================================
+      // RENDERER
+      // ============================================================================
+
+      class Renderer {
+        constructor(canvas, gameState) {
+          this.canvas = canvas;
+          this.ctx = canvas.getContext("2d");
+          this.gameState = gameState;
+          this.camera = { x: 0, y: 0, scale: 1 };
+        }
+
+        resize(width, height) {
+          this.canvas.width = width;
+          this.canvas.height = height;
+        }
+
+        clear() {
+          this.ctx.fillStyle = "#16213e";
+          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+
+        render() {
+          this.clear();
+          this.ctx.save();
+
+          // Apply camera transform
+          this.ctx.translate(this.camera.x, this.camera.y);
+          this.ctx.scale(this.camera.scale, this.camera.scale);
+
+          // Draw connections first
+          this.drawConnections();
+
+          // Draw people
+          this.drawPeople();
+
+          this.ctx.restore();
+        }
+
+        drawConnections() {
+          // Draw marriage connections
+          for (const [_, marriage] of this.gameState.marriages) {
+            const person1 = this.gameState.people.get(marriage.person1Id);
+            const person2 = this.gameState.people.get(marriage.person2Id);
+
+            if (!person1 || !person2)
+              continue;
+
+            this.ctx.strokeStyle = "#e94560";
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(person1.x + 50, person1.y + 60);
+            this.ctx.lineTo(person2.x + 50, person2.y + 60);
+            this.ctx.stroke();
+          }
+
+          // Draw parent-child connections
+          for (const [_, person] of this.gameState.people) {
+            // if (!person.isAlive) continue;
+
+            for (const childId of person.childrenIds) {
+              const child = this.gameState.people.get(childId);
+              if (!child /* || !child.isAlive */) continue;
+
+              const dynasty = this.gameState.dynasties.get(person.dynastyId);
+              const color = dynasty ? dynasty.color : "#666";
+
+              this.ctx.strokeStyle = color;
+              this.ctx.lineWidth = 2;
+              this.ctx.setLineDash([5, 5]);
+              this.ctx.beginPath();
+              this.ctx.moveTo(person.x + 50, person.y + 120);
+              this.ctx.lineTo(child.x + 50, child.y);
+              this.ctx.stroke();
+              this.ctx.setLineDash([]);
+            }
+          }
+        }
+
+        drawPeople() {
+          for (const [_, person] of this.gameState.people) {
+            this.drawPerson(person);
+          }
+        }
+
+        drawPerson(person) {
+          const dynasty = this.gameState.dynasties.get(person.dynastyId);
+          const color = dynasty ? dynasty.color : "#666";
+          const isSelected = person.id === this.gameState.selectedPersonId;
+
+          const x = person.x;
+          const y = person.y;
+
+          // Card background
+          this.ctx.fillStyle = isSelected
+            ? "rgba(233, 69, 96, 0.2)"
+            : "rgba(15, 52, 96, 0.6)";
+          this.ctx.strokeStyle = isSelected ? "#e94560" : color;
+          this.ctx.lineWidth = isSelected ? 3 : 2;
+
+          this.roundRect(x, y, 100, 120, 8);
+          this.ctx.fill();
+          this.ctx.stroke();
+
+          // Avatar circle
+          const avatarGradient = this.ctx.createLinearGradient(
+            x + 30,
+            y + 10,
+            x + 70,
+            y + 50,
+          );
+          avatarGradient.addColorStop(0, color);
+          avatarGradient.addColorStop(1, this.adjustColor(color, -30));
+
+          this.ctx.fillStyle = avatarGradient;
+          this.ctx.beginPath();
+          this.ctx.arc(x + 50, y + 30, 20, 0, Math.PI * 2);
+          this.ctx.fill();
+
+          // Gender icon
+          this.ctx.fillStyle = "#fff";
+          this.ctx.font = "16px Arial";
+          this.ctx.textAlign = "center";
+          this.ctx.fillText(
+            person.gender === "male" ? "♂" : "♀",
+            x + 50,
+            y + 35,
+          );
+
+          // Name
+          this.ctx.fillStyle = "#fff";
+          this.ctx.font = "bold 12px Arial";
+          this.ctx.textAlign = "center";
+          this.ctx.fillText(this.truncateText(person.name, 90), x + 50, y + 65);
+
+          // Age
+          this.ctx.fillStyle = "#aaa";
+          this.ctx.font = "11px Arial";
+          this.ctx.fillText(`Age ${person.age}`, x + 50, y + 80);
+
+          // Traits (small icons)
+          if (person.traits.length > 0) {
+            this.ctx.fillStyle = "#ffb3c1";
+            this.ctx.font = "10px Arial";
+            const traitText = person.traits
+              .slice(0, 2)
+              .map((t) => t.slice(0, 3))
+              .join(" ");
+            this.ctx.fillText(traitText, x + 50, y + 95);
+          }
+
+          // Marriage status
+          if (person.isMarried()) {
+            this.ctx.fillStyle = "#e94560";
+            this.ctx.font = "12px Arial";
+            this.ctx.fillText("♥", x + 50, y + 110);
+          }
+        }
+
+        roundRect(x, y, width, height, radius) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(x + radius, y);
+          this.ctx.lineTo(x + width - radius, y);
+          this.ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+          this.ctx.lineTo(x + width, y + height - radius);
+          this.ctx.quadraticCurveTo(
+            x + width,
+            y + height,
+            x + width - radius,
+            y + height,
+          );
+          this.ctx.lineTo(x + radius, y + height);
+          this.ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+          this.ctx.lineTo(x, y + radius);
+          this.ctx.quadraticCurveTo(x, y, x + radius, y);
+          this.ctx.closePath();
+        }
+
+        truncateText(text, maxWidth) {
+          this.ctx.font = "bold 12px Arial";
+          if (this.ctx.measureText(text).width <= maxWidth) {
+            return text;
+          }
+
+          let truncated = text;
+          while (
+            this.ctx.measureText(truncated + "...").width > maxWidth &&
+            truncated.length > 0
+          ) {
+            truncated = truncated.slice(0, -1);
+          }
+          return truncated + "...";
+        }
+
+        adjustColor(color, amount) {
+          const num = parseInt(color.replace("#", ""), 16);
+          const r = Math.max(0, Math.min(255, (num >> 16) + amount));
+          const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00ff) + amount));
+          const b = Math.max(0, Math.min(255, (num & 0x0000ff) + amount));
+          return "#" + ((r << 16) | (g << 8) | b).toString(16).padStart(6, "0");
+        }
+
+        worldToScreen(worldX, worldY) {
+          return {
+            x: worldX * this.camera.scale + this.camera.x,
+            y: worldY * this.camera.scale + this.camera.y,
+          };
+        }
+
+        screenToWorld(screenX, screenY) {
+          return {
+            x: (screenX - this.camera.x) / this.camera.scale,
+            y: (screenY - this.camera.y) / this.camera.scale,
+          };
+        }
+      }
+
+      // ============================================================================
+      // GAME ENGINE
+      // ============================================================================
+
+      class GameEngine {
+        constructor() {
+          this.canvas = document.getElementById("gameCanvas");
+          this.gameState = new GameState();
+          this.renderer = new Renderer(this.canvas, this.gameState);
+          this.layoutEngine = new TreeLayoutEngine(this.gameState);
+
+          this.isRunning = false;
+          this.isPaused = false;
+          this.timeSpeed = 1; // 1, 2, or 4
+          this.lastUpdateTime = 0;
+          this.updateInterval = 1000; // 1 second = 1 year
+
+          this.isDragging = false;
+          this.lastMousePos = { x: 0, y: 0 };
+
+          this.uiManager = new UIManager(this);
+
+          this.initialize();
+        }
+
+        initialize() {
+          this.setupCanvas();
+          this.setupEventListeners();
+          this.initializeGame();
+          this.start();
+        }
+
+        setupCanvas() {
+          const resize = () => {
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+            this.renderer.resize(this.canvas.width, this.canvas.height);
+          };
+
+          resize();
+          window.addEventListener("resize", resize);
+        }
+
+        setupEventListeners() {
+          // Mouse events for camera control
+          this.canvas.addEventListener("mousedown", (e) => {
+            this.isDragging = true;
+            this.lastMousePos = { x: e.clientX, y: e.clientY };
+          });
+
+          this.canvas.addEventListener("mousemove", (e) => {
+            if (this.isDragging) {
+              const dx = e.clientX - this.lastMousePos.x;
+              const dy = e.clientY - this.lastMousePos.y;
+
+              this.renderer.camera.x += dx;
+              this.renderer.camera.y += dy;
+
+              this.lastMousePos = { x: e.clientX, y: e.clientY };
+            }
+          });
+
+          this.canvas.addEventListener("mouseup", () => {
+            this.isDragging = false;
+          });
+
+          this.canvas.addEventListener("mouseleave", () => {
+            this.isDragging = false;
+          });
+
+          // Click to select person
+          this.canvas.addEventListener("click", (e) => {
+            if (this.isDragging) return;
+
+            const worldPos = this.renderer.screenToWorld(e.clientX, e.clientY);
+            const clickedPerson = this.getPersonAtPosition(
+              worldPos.x,
+              worldPos.y,
+            );
+
+            if (clickedPerson) {
+              this.gameState.selectedPersonId = clickedPerson.id;
+              this.uiManager.updateSelectedPersonInfo();
+            }
+          });
+
+          // Zoom with mouse wheel
+          this.canvas.addEventListener("wheel", (e) => {
+            e.preventDefault();
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            this.renderer.camera.scale *= zoomFactor;
+            this.renderer.camera.scale = Math.max(
+              0.5,
+              Math.min(2, this.renderer.camera.scale),
+            );
+          });
+        }
+
+        getPersonAtPosition(x, y) {
+          for (const [_, person] of this.gameState.people) {
+            // if (!person.isAlive) continue;
+
+            if (
+              x >= person.x &&
+              x <= person.x + 100 &&
+              y >= person.y &&
+              y <= person.y + 120
+            ) {
+              return person;
+            }
+          }
+          return null;
+        }
+
+        initializeGame() {
+          // Create player dynasty
+          const playerDynasty = this.gameState.createDynasty(
+            "House of Player",
+            "#3498db",
+            true,
+          );
+
+          // Create initial player family members
+          const father = this.gameState.createPerson(
+            "John",
+            30,
+            "male",
+            playerDynasty.id,
+          );
+          const mother = this.gameState.createPerson(
+            "Elizabeth",
+            28,
+            "female",
+            playerDynasty.id,
+          );
+          this.gameState.createMarriage(father.id, mother.id);
+
+          // Create AI dynasties
+          const dynastyConfigs = [
+            { name: "House of Dragons", color: "#e74c3c" },
+            { name: "House of Lions", color: "#f39c12" },
+            { name: "House of Eagles", color: "#2ecc71" },
+            { name: "House of Wolves", color: "#9b59b6" },
+            { name: "House of Bears", color: "#1abc9c" },
+          ];
+
+          for (const config of dynastyConfigs) {
+            const dynasty = this.gameState.createDynasty(
+              config.name,
+              config.color,
+              false,
+            );
+
+            // Create 2-3 initial members per AI dynasty
+            const memberCount = Math.floor(Math.random() * 2) + 2;
+            for (let i = 0; i < memberCount; i++) {
+              const gender = Math.random() < 0.5 ? "male" : "female";
+              const age = Math.floor(Math.random() * 20) + 18;
+              this.gameState.createPerson(
+                this.gameState.generateName(gender),
+                age,
+                gender,
+                dynasty.id,
+              );
+            }
+          }
+
+          // Initial layout
+          this.updateLayout();
+
+          // Center camera on player dynasty
+          this.centerCameraOnPlayerDynasty();
+
+          // Update UI
+          this.uiManager.updateAll();
+
+          // Hide loading screen
+          setTimeout(() => {
+            document.getElementById("loadingScreen").classList.add("hidden");
+          }, 1000);
+        }
+
+        centerCameraOnPlayerDynasty() {
+          const playerDynasty = this.gameState.getPlayerDynasty();
+          if (!playerDynasty) return;
+
+          const members = playerDynasty.getLivingMembers(this.gameState);
+          if (members.length === 0) return;
+
+          const avgX =
+            members.reduce((sum, p) => sum + p.x, 0) / members.length;
+          const avgY =
+            members.reduce((sum, p) => sum + p.y, 0) / members.length;
+
+          this.renderer.camera.x = this.canvas.width / 2 - avgX;
+          this.renderer.camera.y = 150 - avgY;
+        }
+
+        updateLayout() {
+          // Layout each dynasty's tree
+          //   for (const [_, dynasty] of this.gameState.dynasties) {
+          //     this.layoutEngine.layoutDynastyTree(dynasty.id);
+          //   }
+
+          this.layoutEngine.layoutDynastyTree(this.gameState.playerDynastyId);
+        }
+
+        start() {
+          this.isRunning = true;
+          this.lastUpdateTime = Date.now();
+          this.gameLoop();
+        }
+
+        gameLoop() {
+          if (!this.isRunning) return;
+
+          const now = Date.now();
+          const deltaTime = now - this.lastUpdateTime;
+
+          if (
+            !this.isPaused &&
+            deltaTime >= this.updateInterval / this.timeSpeed
+          ) {
+            this.update();
+            this.lastUpdateTime = now;
+          }
+
+          this.renderer.render();
+          requestAnimationFrame(() => this.gameLoop());
+        }
+
+        update() {
+          this.gameState.currentYear++;
+
+          // Age all people
+          for (const [_, person] of this.gameState.people) {
+            if (!person.isAlive) continue;
+            person.age++;
+
+            // Check for death
+            this.checkDeath(person);
+          }
+
+          // Random births for married couples
+          this.processBirths();
+
+          // AI dynasty management
+          this.manageAIDynasties();
+
+          // Update layout
+          this.updateLayout();
+
+          // Update UI
+          this.uiManager.updateAll();
+
+          // Check game over
+          this.checkGameOver();
+        }
+
+        checkDeath(person) {
+          if (!person.isAlive) return;
+
+          // Age-based death probability
+          let deathChance = 0;
+
+          if (person.age < 40) {
+            deathChance = 0.001; // 0.1% per year
+          } else if (person.age < 60) {
+            deathChance = 0.01; // 1% per year
+          } else if (person.age < 80) {
+            deathChance = 0.05; // 5% per year
+          } else {
+            deathChance = 0.15; // 15% per year
+          }
+
+          if (Math.random() < deathChance) {
+            this.killPerson(person);
+          }
+        }
+
+        killPerson(person) {
+          person.isAlive = false;
+          person.deathYear = this.gameState.currentYear;
+
+          // Remove from marriages
+          for (const spouseId of person.spouseIds) {
+            const spouse = this.gameState.people.get(spouseId);
+            if (spouse) {
+              spouse.removeSpouse(person.id);
+            }
+
+            // Deactivate marriage
+            const marriageId1 = `${person.id}-${spouseId}`;
+            const marriageId2 = `${spouseId}-${person.id}`;
+            const marriage =
+              this.gameState.marriages.get(marriageId1) ||
+              this.gameState.marriages.get(marriageId2);
+            if (marriage) {
+              marriage.isActive = false;
+            }
+          }
+        }
+
+        processBirths() {
+          const couples = this.getMarriedCouples();
+
+          for (const [person1, person2] of couples) {
+            if (!person1.canHaveChildren() || !person2.canHaveChildren())
+              continue;
+
+            // 10% chance per year for a child
+            if (Math.random() < 0.1) {
+              this.gameState.createChild(person1.id, person2.id);
+            }
+          }
+        }
+
+        getMarriedCouples() {
+          const couples = [];
+          const processed = new Set();
+
+          for (const [_, person] of this.gameState.people) {
+            if (!person.isAlive || processed.has(person.id)) continue;
+
+            for (const spouseId of person.spouseIds) {
+              const spouse = this.gameState.people.get(spouseId);
+              if (spouse && spouse.isAlive && !processed.has(spouseId)) {
+                couples.push([person, spouse]);
+                processed.add(person.id);
+                processed.add(spouseId);
+                break;
+              }
+            }
+          }
+
+          return couples;
+        }
+
+        manageAIDynasties() {
+          for (const [_, dynasty] of this.gameState.dynasties) {
+            if (dynasty.isPlayer) continue;
+
+            const eligibleMembers = dynasty
+              .getLivingMembers(this.gameState)
+              .filter((p) => p.canMarry());
+
+            if (eligibleMembers.length === 0) continue;
+
+            // Random chance for AI to arrange marriage (5% per year)
+            if (Math.random() < 0.05) {
+              const person =
+                eligibleMembers[
+                  Math.floor(Math.random() * eligibleMembers.length)
+                ];
+              const candidates = this.gameState.getMarriageCandidates(
+                person.id,
+              );
+
+              if (candidates.length > 0) {
+                const candidate =
+                  candidates[Math.floor(Math.random() * candidates.length)];
+                this.gameState.createMarriage(person.id, candidate.id);
+              }
+            }
+          }
+        }
+
+        checkGameOver() {
+          const playerDynasty = this.gameState.getPlayerDynasty();
+          if (!playerDynasty) return;
+
+          const livingMembers = playerDynasty.getLivingMembers(this.gameState);
+
+          if (livingMembers.length === 0) {
+            this.isPaused = true;
+            alert("Game Over! Your dynasty has ended. Reload to start again.");
+          }
+        }
+
+        pause() {
+          this.isPaused = true;
+        }
+
+        resume() {
+          this.isPaused = false;
+          this.lastUpdateTime = Date.now();
+        }
+
+        setTimeSpeed(speed) {
+          this.timeSpeed = speed;
+        }
+      }
+
+      // ============================================================================
+      // UI MANAGER
+      // ============================================================================
+
+      class UIManager {
+        constructor(gameEngine) {
+          this.game = gameEngine;
+          this.setupUI();
+        }
+
+        setupUI() {
+          // Control buttons
+          document.getElementById("pauseBtn").addEventListener("click", () => {
+            if (this.game.isPaused) {
+              this.game.resume();
+              document.getElementById("pauseBtn").textContent = "⏸ Pause";
+            } else {
+              this.game.pause();
+              document.getElementById("pauseBtn").textContent = "▶ Resume";
+            }
+          });
+
+          document.getElementById("speed1Btn").addEventListener("click", () => {
+            this.game.setTimeSpeed(1);
+            this.updateSpeedButtons(1);
+          });
+
+          document.getElementById("speed2Btn").addEventListener("click", () => {
+            this.game.setTimeSpeed(2);
+            this.updateSpeedButtons(2);
+          });
+
+          document.getElementById("speed4Btn").addEventListener("click", () => {
+            this.game.setTimeSpeed(4);
+            this.updateSpeedButtons(4);
+          });
+
+          // Side panel toggle
+          const sidePanel = document.getElementById("sidePanel");
+          const toggleBtn = document.getElementById("sidePanelToggle");
+
+          toggleBtn.addEventListener("click", () => {
+            sidePanel.classList.toggle("open");
+            toggleBtn.textContent = sidePanel.classList.contains("open")
+              ? "▶"
+              : "◀";
+          });
+
+          // Open side panel by default
+          sidePanel.classList.add("open");
+          toggleBtn.textContent = "▶";
+
+          // Marriage modal
+          document
+            .getElementById("modalClose")
+            .addEventListener("click", () => {
+              document.getElementById("marriageModal").classList.remove("open");
+            });
+        }
+
+        updateSpeedButtons(activeSpeed) {
+          document
+            .getElementById("speed1Btn")
+            .classList.toggle("active", activeSpeed === 1);
+          document
+            .getElementById("speed2Btn")
+            .classList.toggle("active", activeSpeed === 2);
+          document
+            .getElementById("speed4Btn")
+            .classList.toggle("active", activeSpeed === 4);
+        }
+
+        updateAll() {
+          this.updateYearDisplay();
+          this.updatePlayerDynastyInfo();
+          this.updateDynastyList();
+          this.updateSelectedPersonInfo();
+        }
+
+        updateYearDisplay() {
+          document.getElementById("yearDisplay").textContent =
+            this.game.gameState.currentYear;
+        }
+
+        updatePlayerDynastyInfo() {
+          const playerDynasty = this.game.gameState.getPlayerDynasty();
+          if (!playerDynasty) return;
+
+          document.getElementById("dynastyName").textContent =
+            playerDynasty.name;
+
+          const livingMembers = playerDynasty.getLivingMembers(
+            this.game.gameState,
+          );
+          document.getElementById("membersCount").textContent =
+            livingMembers.length;
+
+          const infoDiv = document.getElementById("playerDynastyInfo");
+          infoDiv.innerHTML = `
+            <div style="color: #aaa; font-size: 14px; margin-bottom: 10px;">
+                <div>Prestige: <span style="color: #fff;">${playerDynasty.prestige}</span></div>
+                <div>Wealth: <span style="color: #fff;">${playerDynasty.wealth}</span></div>
+                <div>Power: <span style="color: #fff;">${playerDynasty.power}</span></div>
+            </div>
+        `;
+        }
+
+        updateDynastyList() {
+          const listDiv = document.getElementById("dynastyList");
+          let html = "";
+
+          for (const [_, dynasty] of this.game.gameState.dynasties) {
+            const livingMembers = dynasty.getLivingMembers(this.game.gameState);
+            html += `
+                <div style="margin-bottom: 15px; padding: 10px; background: rgba(15, 52, 96, 0.3); border-radius: 6px; border-left: 4px solid ${dynasty.color};">
+                    <div style="font-weight: 600; margin-bottom: 5px;">${dynasty.name}</div>
+                    <div style="font-size: 12px; color: #aaa;">Members: ${livingMembers.length}</div>
+                </div>
+            `;
+          }
+
+          listDiv.innerHTML = html;
+        }
+
+        updateSelectedPersonInfo() {
+          const infoDiv = document.getElementById("selectedPersonInfo");
+          const actionsDiv = document.getElementById("actionButtons");
+
+          const personId = this.game.gameState.selectedPersonId;
+          if (!personId) {
+            infoDiv.innerHTML =
+              '<p style="color: #aaa; font-size: 14px;">Click on a person to view details</p>';
+            actionsDiv.innerHTML = "";
+            return;
+          }
+
+          const person = this.game.gameState.people.get(personId);
+          if (!person || !person.isAlive) {
+            infoDiv.innerHTML =
+              '<p style="color: #aaa; font-size: 14px;">Person not found or deceased</p>';
+            actionsDiv.innerHTML = "";
+            return;
+          }
+
+          const dynasty = this.game.gameState.dynasties.get(person.dynastyId);
+
+          // Person info
+          let html = `
+            <div class="person-card">
+                <div class="person-card-header">
+                    <div class="person-avatar" style="background: ${dynasty ? dynasty.color : "#666"};">
+                        ${person.gender === "male" ? "♂" : "♀"}
+                    </div>
+                    <div class="person-info">
+                        <div class="person-name">${person.name}</div>
+                        <div class="person-details">Age ${person.age} • ${dynasty ? dynasty.name : "Unknown"}</div>
+                    </div>
+                </div>
+                <div class="person-traits">
+                    ${person.traits.map((t) => `<span class="trait-badge">${t}</span>`).join("")}
+                </div>
+            </div>
+        `;
+
+          // Family info
+          html +=
+            '<div style="margin-top: 15px; font-size: 13px; color: #aaa;">';
+
+          if (person.spouseIds.length > 0) {
+            html +=
+              '<div style="margin-bottom: 8px;"><strong style="color: #e94560;">♥ Spouse:</strong> ';
+            const spouses = person.spouseIds
+              .map((id) => this.game.gameState.people.get(id))
+              .filter((s) => s && s.isAlive)
+              .map((s) => s.name);
+            html += spouses.join(", ") || "None (deceased)";
+            html += "</div>";
+          }
+
+          if (person.childrenIds.length > 0) {
+            html +=
+              '<div style="margin-bottom: 8px;"><strong style="color: #3498db;">Children:</strong> ';
+            const children = person.childrenIds
+              .map((id) => this.game.gameState.people.get(id))
+              .filter((c) => c && c.isAlive)
+              .map((c) => c.name);
+            html +=
+              children.length > 0 ? children.join(", ") : "None (deceased)";
+            html += "</div>";
+          }
+
+          if (person.parentIds.length > 0) {
+            html +=
+              '<div style="margin-bottom: 8px;"><strong style="color: #2ecc71;">Parents:</strong> ';
+            const parents = person.parentIds
+              .map((id) => this.game.gameState.people.get(id))
+              .filter((p) => p)
+              .map((p) => p.name + (p.isAlive ? "" : " †"));
+            html += parents.join(", ");
+            html += "</div>";
+          }
+
+          html += "</div>";
+
+          infoDiv.innerHTML = html;
+
+          // Action buttons
+          actionsDiv.innerHTML = "";
+
+          // Check if belongs to player dynasty
+          const playerDynasty = this.game.gameState.getPlayerDynasty();
+          if (playerDynasty && person.dynastyId === playerDynasty.id) {
+            if (person.canMarry()) {
+              const btn = document.createElement("button");
+              btn.textContent = "💍 Arrange Marriage";
+              btn.style.width = "100%";
+              btn.style.marginBottom = "10px";
+              btn.addEventListener("click", () =>
+                this.openMarriageModal(person),
+              );
+              actionsDiv.appendChild(btn);
+            }
+          }
+        }
+
+        openMarriageModal(person) {
+          const modal = document.getElementById("marriageModal");
+          const candidateList = document.getElementById("candidateList");
+
+          const candidates = this.game.gameState.getMarriageCandidates(
+            person.id,
+          );
+
+          if (candidates.length === 0) {
+            candidateList.innerHTML =
+              '<p style="color: #aaa; text-align: center;">No eligible candidates available</p>';
+          } else {
+            let html = "";
+            for (const candidate of candidates) {
+              const dynasty = this.game.gameState.dynasties.get(
+                candidate.dynastyId,
+              );
+              html += `
+                    <div class="person-card" data-candidate-id="${candidate.id}">
+                        <div class="person-card-header">
+                            <div class="person-avatar" style="background: ${dynasty ? dynasty.color : "#666"};">
+                                ${candidate.gender === "male" ? "♂" : "♀"}
+                            </div>
+                            <div class="person-info">
+                                <div class="person-name">${candidate.name}</div>
+                                <div class="person-details">Age ${candidate.age} • ${dynasty ? dynasty.name : "Unknown"}</div>
+                            </div>
+                        </div>
+                        <div class="person-traits">
+                            ${candidate.traits.map((t) => `<span class="trait-badge">${t}</span>`).join("")}
+                        </div>
+                    </div>
+                `;
+            }
+            candidateList.innerHTML = html;
+
+            // Add click handlers
+            candidateList.querySelectorAll(".person-card").forEach((card) => {
+              card.addEventListener("click", () => {
+                const candidateId = parseInt(card.dataset.candidateId);
+                this.game.gameState.createMarriage(person.id, candidateId);
+                this.game.updateLayout();
+                this.updateAll();
+                modal.classList.remove("open");
+              });
+            });
+          }
+
+          modal.classList.add("open");
+        }
+      }
+
+      // ============================================================================
+      // INIT
+      // ============================================================================
+
+      window.addEventListener("load", () => {
+        window.gameEngine = new GameEngine();
+      });
+    </script>
+  </body>
+</html>

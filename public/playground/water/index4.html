@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Liquid Jitter</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #080808;
+        font-family: "Courier New", monospace;
+      }
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+      }
+      #ui {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        color: #00ffcc;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border: 2px solid #00ffcc;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ui">
+      SYSTEM: <span id="status">INITIALIZING</span><br />VOLUME:
+      <span id="vol">0</span>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const statusEl = document.getElementById("status");
+      const volEl = document.getElementById("vol");
+
+      const PIXEL = 20;
+      let width, height;
+      let drops = [];
+      let splashes = [];
+
+      let poolVolume = 0;
+      let poolWidth = 0;
+      let poolHeight = 2;
+      let isFullWidth = false;
+
+      // Jitter state: An array to track vertical offsets for the top row of pixels
+      let surfaceOffsets = [];
+
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        width = Math.ceil(canvas.width / PIXEL);
+        height = Math.ceil(canvas.height / PIXEL);
+        surfaceOffsets = new Array(width).fill(0);
+      }
+
+      window.addEventListener("resize", resize);
+      resize();
+
+      class Drop {
+        constructor(x) {
+          this.gridX = Math.floor(x / PIXEL);
+          this.gridY = 0;
+          this.vy = 0.5;
+        }
+        update() {
+          this.gridY += this.vy;
+          this.vy += 0.15;
+
+          const surfaceY = height - poolHeight;
+          if (this.gridY >= surfaceY) {
+            this.impact();
+            return false;
+          }
+          return true;
+        }
+        impact() {
+          // 1. Create blocky particles
+          for (let i = 0; i < 6; i++) {
+            splashes.push({
+              x: this.gridX + (Math.random() - 0.5) * 2,
+              y: height - poolHeight,
+              vx: (Math.random() - 0.5) * 1.5,
+              vy: -Math.random() * 1.2,
+              life: 1.0,
+            });
+          }
+
+          // 2. Add "Jitter" energy at impact point
+          if (surfaceOffsets[this.gridX] !== undefined) {
+            surfaceOffsets[this.gridX] = 1.5; // "Push" the pixel down/up
+          }
+
+          // 3. Spreading logic
+          poolVolume += 4;
+          volEl.innerText = Math.floor(poolVolume);
+
+          if (!isFullWidth) {
+            statusEl.innerText = "SPREADING";
+            poolWidth += 3;
+            if (poolWidth >= width) {
+              poolWidth = width;
+              isFullWidth = true;
+            }
+          } else {
+            statusEl.innerText = "RISING";
+            poolHeight += 0.4;
+          }
+        }
+        draw() {
+          ctx.fillStyle = "#00ffcc";
+          ctx.fillRect(
+            this.gridX * PIXEL,
+            Math.floor(this.gridY) * PIXEL,
+            PIXEL,
+            PIXEL,
+          );
+        }
+      }
+
+      function draw() {
+        ctx.fillStyle = "#080808";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Update Jitter (Surface Physics)
+        for (let i = 0; i < surfaceOffsets.length; i++) {
+          // Spring-back effect
+          surfaceOffsets[i] *= 0.85;
+          // Propagate jitter to neighbors
+          if (Math.abs(surfaceOffsets[i]) > 0.05) {
+            if (i > 0) surfaceOffsets[i - 1] += surfaceOffsets[i] * 0.1;
+            if (i < width - 1) surfaceOffsets[i + 1] += surfaceOffsets[i] * 0.1;
+          }
+        }
+
+        // Draw Drops
+        drops = drops.filter((d) => d.update());
+        drops.forEach((d) => d.draw());
+
+        // Draw Splashes
+        splashes = splashes.filter((s) => {
+          s.x += s.vx;
+          s.y += s.vy;
+          s.vy += 0.1;
+          s.life -= 0.04;
+          ctx.fillStyle = `rgba(0, 255, 204, ${s.life})`;
+          ctx.fillRect(
+            Math.floor(s.x) * PIXEL,
+            Math.floor(s.y) * PIXEL,
+            PIXEL / 2,
+            PIXEL / 2,
+          );
+          return s.life > 0;
+        });
+
+        // Draw Pool
+        const startX = Math.floor((width - poolWidth) / 2);
+        for (let x = 0; x < poolWidth; x++) {
+          const currentX = startX + x;
+          const jitter = surfaceOffsets[currentX] || 0;
+
+          const xPos = currentX * PIXEL;
+          const yPos = (height - poolHeight + jitter) * PIXEL;
+          const pW = PIXEL;
+          const pH = (poolHeight - jitter) * PIXEL;
+
+          // Main body
+          ctx.fillStyle = "#005f5f";
+          ctx.fillRect(xPos, yPos, pW, pH);
+
+          // Highlighted Top Row
+          ctx.fillStyle = "#00ffcc";
+          ctx.fillRect(xPos, yPos, pW, PIXEL / 4);
+        }
+
+        requestAnimationFrame(draw);
+      }
+
+      let active = false;
+      window.addEventListener("mousedown", () => (active = true));
+      window.addEventListener("mouseup", () => (active = false));
+      window.addEventListener("mousemove", (e) => {
+        if (active && Math.random() > 0.7) drops.push(new Drop(e.clientX));
+      });
+
+      draw();
+    </script>
+  </body>
+</html>

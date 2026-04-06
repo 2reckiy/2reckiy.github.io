@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Proximity Sea Battle</title>
+
+    <style>
+      :root {
+        --bg: #0a192f;
+        --grid-line: #172a45;
+        --water: #112240;
+        --ship: #64ffda;
+        --hit: #f44336;
+        --miss: #4a5568;
+        --text: #ccd6f6;
+      }
+
+      body {
+        font-family: "Courier New", Courier, monospace;
+        background-color: var(--bg);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+        padding: 20px;
+      }
+
+      h1 {
+        margin-bottom: 10px;
+        color: var(--ship);
+        text-transform: uppercase;
+        letter-spacing: 3px;
+      }
+
+      .game-container {
+        display: flex;
+        gap: 40px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .board-wrapper {
+        text-align: center;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(10, 30px);
+        grid-template-rows: repeat(10, 30px);
+        gap: 2px;
+        background-color: var(--grid-line);
+        border: 2px solid var(--grid-line);
+        margin-top: 10px;
+        cursor: crosshair;
+      }
+
+      .cell {
+        width: 30px;
+        height: 30px;
+        background-color: var(--water);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        transition: 0.2s;
+      }
+
+      /* State Classes */
+      .cell.ship {
+        background-color: var(--ship);
+      }
+      .cell.hit {
+        background-color: var(--hit);
+        color: white;
+      }
+      .cell.miss {
+        background-color: var(--miss);
+      }
+      .cell.miss::after {
+        content: "•";
+        color: rgba(255, 255, 255, 0.3);
+      }
+      .hidden .ship {
+        background-color: var(--water);
+      } /* Hide AI ships */
+
+      .hidden .cell.ship.hit {
+        background-color: var(--hit);
+      }
+
+      .controls {
+        margin: 20px;
+        display: flex;
+        gap: 10px;
+      }
+      button {
+        padding: 10px 20px;
+        background: transparent;
+        border: 1px solid var(--ship);
+        color: var(--ship);
+        cursor: pointer;
+        font-family: inherit;
+        text-transform: uppercase;
+      }
+      button:hover {
+        background: rgba(100, 255, 218, 0.1);
+      }
+      button:disabled {
+        border-color: var(--miss);
+        color: var(--miss);
+        cursor: not-allowed;
+      }
+
+      #status {
+        font-size: 1.2rem;
+        min-height: 1.5em;
+        color: var(--ship);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Fleet Commander</h1>
+    <div id="status">Deploying 10-ship armada...</div>
+
+    <div class="controls">
+      <button id="btn-start">Randomize & Start</button>
+      <button id="btn-reset">Reset</button>
+    </div>
+
+    <div class="game-container">
+      <div class="board-wrapper">
+        <h3>Player Fleet</h3>
+        <div id="player-grid" class="grid"></div>
+      </div>
+      <div class="board-wrapper">
+        <h3>Enemy Fleet</h3>
+        <div id="enemy-grid" class="grid hidden"></div>
+      </div>
+    </div>
+
+    <script>
+      const GRID_SIZE = 3;
+      const SHIPS_TO_PLACE = [1];
+
+      let playerBoard = [];
+      let enemyBoard = [];
+      let gameActive = false;
+
+      const playerEl = document.getElementById("player-grid");
+      const enemyEl = document.getElementById("enemy-grid");
+      const statusEl = document.getElementById("status");
+
+      function init() {
+        renderEmpty(playerEl);
+        renderEmpty(enemyEl);
+
+        document.getElementById("btn-start").onclick = () => {
+          playerBoard = generateValidLayout();
+          enemyBoard = generateValidLayout();
+          render(playerEl, playerBoard, false);
+          render(enemyEl, enemyBoard, true);
+          gameActive = true;
+          enemyEl.classList.add("hidden");
+          statusEl.innerText = "Battle Active. Target the enemy grid.";
+        };
+
+        document.getElementById("btn-reset").onclick = () => location.reload();
+      }
+
+      function renderEmpty(el) {
+        el.innerHTML = "";
+        for (let i = 0; i < 100; i++) {
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          el.appendChild(cell);
+        }
+      }
+
+      function render(el, data, isEnemy) {
+        el.innerHTML = "";
+        data.forEach((val, idx) => {
+          const cell = document.createElement("div");
+          cell.className = "cell" + (val === 1 ? " ship" : "");
+          if (isEnemy) cell.onclick = () => handleAttack(idx);
+          el.appendChild(cell);
+        });
+      }
+
+      // PROXIMITY LOGIC: Checks the cell and all 8 neighbors
+      function isAreaClear(board, idx) {
+        const y = Math.floor(idx / GRID_SIZE);
+        const x = idx % GRID_SIZE;
+
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const ny = y + dy;
+            const nx = x + dx;
+            if (ny >= 0 && ny < GRID_SIZE && nx >= 0 && nx < GRID_SIZE) {
+              if (board[ny * GRID_SIZE + nx] === 1) return false;
+            }
+          }
+        }
+        return true;
+      }
+
+      function generateValidLayout() {
+        let board = Array(100).fill(0);
+
+        SHIPS_TO_PLACE.forEach((len) => {
+          let placed = false;
+          let attempts = 0;
+
+          while (!placed && attempts < 500) {
+            const isVert = Math.random() > 0.5;
+            const row = Math.floor(
+              Math.random() * (isVert ? GRID_SIZE - len + 1 : GRID_SIZE),
+            );
+            const col = Math.floor(
+              Math.random() * (isVert ? GRID_SIZE : GRID_SIZE - len + 1),
+            );
+
+            let shipIndices = [];
+            for (let i = 0; i < len; i++) {
+              shipIndices.push(
+                isVert
+                  ? (row + i) * GRID_SIZE + col
+                  : row * GRID_SIZE + (col + i),
+              );
+            }
+
+            // Must check if all cells and THEIR neighbors are clear
+            if (shipIndices.every((idx) => isAreaClear(board, idx))) {
+              shipIndices.forEach((idx) => (board[idx] = 1));
+              placed = true;
+            }
+            attempts++;
+          }
+        });
+        return board;
+      }
+
+      function handleAttack(idx) {
+        if (!gameActive) return;
+        const cell = enemyEl.children[idx];
+        if (cell.classList.contains("hit") || cell.classList.contains("miss"))
+          return;
+
+        if (enemyBoard[idx] === 1) {
+          cell.classList.add("hit");
+          statusEl.innerText = "HIT!";
+          if (checkWin(enemyEl)) endGame(true);
+        } else {
+          cell.classList.add("miss");
+          statusEl.innerText = "MISS.";
+          gameActive = false; // Pause player for "AI turn"
+          setTimeout(enemyTurn, 600);
+        }
+      }
+
+      function enemyTurn() {
+        let idx;
+        do {
+          idx = Math.floor(Math.random() * 100);
+        } while (
+          playerEl.children[idx].classList.contains("hit") ||
+          playerEl.children[idx].classList.contains("miss")
+        );
+
+        if (playerBoard[idx] === 1) {
+          playerEl.children[idx].classList.add("hit");
+          if (checkWin(playerEl)) endGame(false);
+          else setTimeout(enemyTurn, 600);
+        } else {
+          playerEl.children[idx].classList.add("miss");
+          gameActive = true;
+          statusEl.innerText = "Your turn, Commander.";
+        }
+      }
+
+      function checkWin(el) {
+        const hits = Array.from(el.querySelectorAll(".hit")).length;
+        const total = SHIPS_TO_PLACE.reduce((a, b) => a + b, 0);
+        return hits === total;
+      }
+
+      function endGame(win) {
+        gameActive = false;
+        statusEl.innerText = win ? "VICTORY!" : "FLEET LOST.";
+        enemyEl.classList.remove("hidden");
+      }
+
+      init();
+    </script>
+  </body>
+</html>

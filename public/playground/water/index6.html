@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mathematical Pixel Pool</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #0a0a0a;
+        font-family: "Courier New", monospace;
+      }
+      canvas {
+        display: block;
+      }
+      #stats {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        color: #00ffcc;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 12px;
+        border: 1px solid #00ffcc;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stats">
+      DROPS VALUE: <span id="v-drops">0</span><br />
+      POOL VOLUME: <span id="v-pool">0</span><br />
+      DIMENSIONS: <span id="dim">0 x 0</span>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const vDropsEl = document.getElementById("v-drops");
+      const vPoolEl = document.getElementById("v-pool");
+      const dimEl = document.getElementById("dim");
+
+      // Configuration
+      const PIXEL = 1;
+      const DROP_SIDE = 10; // 10x10 square
+      const DROP_VALUE = DROP_SIDE * DROP_SIDE; // 100 units
+      const MIN_SPREAD_HEIGHT = 2; // The fixed height while spreading
+
+      let width, height;
+      let drops = [];
+      let totalVolume = 0;
+      let surfaceJitter = [];
+
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        width = Math.ceil(canvas.width / PIXEL);
+        height = Math.ceil(canvas.height / PIXEL);
+        surfaceJitter = new Array(width).fill(0);
+      }
+
+      window.addEventListener("resize", resize);
+      resize();
+
+      class Drop {
+        constructor(x) {
+          this.gx = Math.floor(x / PIXEL);
+          this.gy = 0;
+          this.vel = 1;
+        }
+        update() {
+          this.gy += this.vel;
+          this.vel += 0.2;
+
+          // Calculate current pool height to find the surface
+          const currentPool = calculatePoolDimensions();
+          const surfaceY = height - currentPool.h;
+
+          if (this.gy >= surfaceY) {
+            totalVolume += DROP_VALUE;
+            if (surfaceJitter[this.gx] !== undefined)
+              surfaceJitter[this.gx] = 30;
+            return false;
+          }
+          return true;
+        }
+        draw() {
+          ctx.fillStyle = "#00f2ff";
+          // A drop is exactly DROP_SIDE x DROP_SIDE
+          ctx.fillRect(
+            this.gx * PIXEL,
+            Math.floor(this.gy) * PIXEL,
+            DROP_SIDE,
+            DROP_SIDE,
+          );
+        }
+      }
+
+      /**
+       * The Core Mathematical Method
+       * Calculates Pool Dimensions based on Volume Conservation
+       */
+      function calculatePoolDimensions() {
+        let pW, pH;
+
+        // Step 1: Try spreading at the minimum height
+        let potentialWidth = totalVolume / MIN_SPREAD_HEIGHT;
+
+        if (potentialWidth < width) {
+          // We are still in the "Spreading" phase
+          pW = potentialWidth;
+          pH = MIN_SPREAD_HEIGHT;
+        } else {
+          // We hit the walls! Switch to "Rising" phase
+          pW = width;
+          pH = totalVolume / width;
+        }
+
+        return { w: pW, h: pH };
+      }
+
+      function loop() {
+        ctx.fillStyle = "#0a0a0a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const pool = calculatePoolDimensions();
+
+        // Update UI
+        vPoolEl.innerText = totalVolume;
+        vDropsEl.innerText = totalVolume / DROP_VALUE;
+        dimEl.innerText = `${Math.floor(pool.w)} x ${pool.h.toFixed(1)}`;
+
+        // Surface Physics
+        for (let i = 0; i < surfaceJitter.length; i++) {
+          surfaceJitter[i] *= 0.85;
+          if (i > 0)
+            surfaceJitter[i - 1] +=
+              (surfaceJitter[i] - surfaceJitter[i - 1]) * 0.1;
+          if (i < width - 1)
+            surfaceJitter[i + 1] +=
+              (surfaceJitter[i] - surfaceJitter[i + 1]) * 0.1;
+        }
+
+        // Draw Pool
+        if (totalVolume > 0) {
+          const startX = (width - pool.w) / 2;
+
+          for (let i = 0; i < pool.w; i++) {
+            const xIdx = Math.floor(startX + i);
+            const jitter = surfaceJitter[xIdx] || 0;
+
+            const x = (startX + i) * PIXEL;
+            const y = (height - pool.h + jitter) * PIXEL;
+            const w = PIXEL;
+            const h = (pool.h - jitter) * PIXEL;
+
+            ctx.fillStyle = "#005a8d";
+            ctx.fillRect(x, y, w, h);
+
+            // Surface highlight
+            ctx.fillStyle = "#00f2ff";
+            ctx.fillRect(x, y, w, 2);
+          }
+        }
+
+        drops = drops.filter((d) => d.update());
+        drops.forEach((d) => d.draw());
+
+        requestAnimationFrame(loop);
+      }
+
+      window.addEventListener("mousedown", (e) => {
+        drops.push(new Drop(e.clientX));
+      });
+
+      
+      setInterval(() => {
+        const x = window.innerWidth * 0.3 + Math.random() * window.innerWidth * 0.4;
+        drops.push(new Drop(x));
+      }, 500);
+
+      loop();
+    </script>
+  </body>
+</html>

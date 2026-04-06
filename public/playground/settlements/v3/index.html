@@ -1,0 +1,2105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+    />
+    <title>Settled Worlds v0.1</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap");
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #0d0f1a;
+        --bg2: #141726;
+        --bg3: #1c2038;
+        --border: #2e3460;
+        --accent1: #f7c948;
+        --accent2: #6fcf97;
+        --accent3: #56ccf2;
+        --accent4: #eb5757;
+        --accent5: #bb6bd9;
+        --text: #dce3f0;
+        --dim: #7a88b0;
+        --pixel: "Press Start 2P", monospace;
+        --vt: "VT323", monospace;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        font-family: var(--vt);
+        font-size: 18px;
+      }
+
+      /* TOP BAR */
+      #topbar {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        background: var(--bg2);
+        border-bottom: 2px solid var(--border);
+        padding: 0 8px;
+        height: 44px;
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+      #game-title {
+        font-family: var(--pixel);
+        font-size: 8px;
+        color: var(--accent1);
+        margin-right: 12px;
+        white-space: nowrap;
+      }
+      .res-bar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-right: 10px;
+        font-size: 16px;
+      }
+      .res-icon {
+        font-size: 16px;
+        line-height: 1;
+      }
+      .res-val {
+        font-size: 14px;
+        color: var(--text);
+        min-width: 32px;
+      }
+      .res-delta {
+        font-size: 11px;
+        min-width: 28px;
+      }
+      .res-delta.pos {
+        color: var(--accent2);
+      }
+      .res-delta.neg {
+        color: var(--accent4);
+      }
+      .res-delta.zero {
+        color: var(--dim);
+      }
+      #topbar-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .stab-wrap {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #stab-label {
+        font-family: var(--pixel);
+        font-size: 7px;
+        color: var(--dim);
+      }
+      #stab-bar-bg {
+        width: 80px;
+        height: 10px;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+      }
+      #stab-bar {
+        height: 100%;
+        transition:
+          width 0.5s,
+          background 0.3s;
+      }
+      #stab-val {
+        font-size: 14px;
+        color: var(--text);
+        min-width: 28px;
+      }
+
+      /* MAIN AREA */
+      #main {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+      #canvas-wrap {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg);
+      }
+      #gameCanvas {
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        cursor: crosshair;
+      }
+
+      /* FLOATING INFO */
+      #float-info {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        background: rgba(13, 15, 26, 0.9);
+        border: 1px solid var(--border);
+        padding: 8px 12px;
+        font-size: 14px;
+        color: var(--dim);
+        pointer-events: none;
+        display: none;
+      }
+
+      /* SIDEBAR */
+      #sidebar {
+        width: 220px;
+        min-width: 220px;
+        background: var(--bg2);
+        border-left: 2px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .sb-section {
+        border-bottom: 1px solid var(--border);
+        padding: 8px;
+      }
+      .sb-title {
+        font-family: var(--pixel);
+        font-size: 7px;
+        color: var(--accent1);
+        margin-bottom: 6px;
+        letter-spacing: 1px;
+      }
+
+      /* BUILD PANEL */
+      #build-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+      }
+      .build-btn {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        padding: 5px 3px;
+        cursor: pointer;
+        text-align: center;
+        transition:
+          border-color 0.1s,
+          background 0.1s;
+        font-family: var(--vt);
+      }
+      .build-btn:hover:not(:disabled) {
+        border-color: var(--accent3);
+        background: rgba(86, 204, 242, 0.08);
+      }
+      .build-btn.selected {
+        border-color: var(--accent1);
+        background: rgba(247, 201, 72, 0.1);
+      }
+      .build-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .build-btn .b-icon {
+        font-size: 18px;
+        display: block;
+      }
+      .build-btn .b-name {
+        font-size: 11px;
+        color: var(--text);
+        display: block;
+        line-height: 1.3;
+        margin-top: 2px;
+      }
+      .build-btn .b-cost {
+        font-size: 10px;
+        color: var(--dim);
+        display: block;
+      }
+
+      /* JOB PANEL */
+      #job-panel {
+        display: none;
+      }
+      #job-title {
+        font-size: 15px;
+        color: var(--accent1);
+        margin-bottom: 4px;
+      }
+      #job-slots {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+      }
+      .job-slot {
+        width: 32px;
+        height: 32px;
+        border: 1px solid var(--border);
+        background: var(--bg3);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        transition: border-color 0.15s;
+      }
+      .job-slot.filled {
+        border-color: var(--accent2);
+      }
+      .job-slot.filled:hover {
+        border-color: var(--accent4);
+      }
+      .job-slot:not(.filled):hover {
+        border-color: var(--accent3);
+      }
+      #job-desc {
+        font-size: 13px;
+        color: var(--dim);
+        line-height: 1.4;
+      }
+
+      /* SETTLER LIST */
+      #settler-list {
+        flex: 1;
+        overflow-y: auto;
+        max-height: 160px;
+      }
+      .settler-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 0;
+        border-bottom: 1px solid rgba(46, 52, 96, 0.5);
+        font-size: 13px;
+      }
+      .settler-state {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .s-content {
+        background: var(--accent2);
+      }
+      .s-idle {
+        background: var(--accent1);
+      }
+      .s-hungry {
+        background: var(--accent4);
+      }
+      .s-cold {
+        background: var(--accent3);
+      }
+      .settler-name {
+        color: var(--text);
+        flex: 1;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .settler-job {
+        color: var(--dim);
+        font-size: 11px;
+      }
+
+      /* EVENTS LOG */
+      #events-log {
+        flex: 1;
+        overflow-y: auto;
+        max-height: 110px;
+        min-height: 60px;
+      }
+      .event-entry {
+        font-size: 13px;
+        color: var(--dim);
+        padding: 2px 0;
+        border-bottom: 1px solid rgba(46, 52, 96, 0.3);
+      }
+      .event-entry.good {
+        color: var(--accent2);
+      }
+      .event-entry.warn {
+        color: var(--accent1);
+      }
+      .event-entry.bad {
+        color: var(--accent4);
+      }
+      .event-entry.special {
+        color: var(--accent5);
+      }
+
+      /* BOTTOM BAR */
+      #bottombar {
+        background: var(--bg2);
+        border-top: 2px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        height: 60px;
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+      #collection-wrap {
+        display: flex;
+        gap: 6px;
+        flex: 1;
+        overflow-x: auto;
+        align-items: center;
+      }
+      .card-thumb {
+        width: 40px;
+        height: 52px;
+        border: 1px solid var(--border);
+        background: var(--bg3);
+        flex-shrink: 0;
+        cursor: pointer;
+        position: relative;
+        transition: transform 0.15s;
+        overflow: hidden;
+      }
+      .card-thumb:hover {
+        transform: translateY(-3px);
+      }
+      .card-thumb canvas {
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
+      }
+      .card-rarity-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+      }
+      .card-bonus-text {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        font-size: 8px;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.7);
+        color: var(--accent2);
+        padding: 1px;
+      }
+      .no-cards {
+        font-size: 13px;
+        color: var(--dim);
+      }
+      #seal-btn {
+        font-family: var(--pixel);
+        font-size: 7px;
+        padding: 8px 10px;
+        background: var(--bg3);
+        border: 2px solid var(--border);
+        color: var(--dim);
+        cursor: not-allowed;
+        white-space: nowrap;
+        line-height: 1.6;
+        transition: all 0.3s;
+      }
+      #seal-btn.ready {
+        border-color: var(--accent1);
+        color: var(--accent1);
+        cursor: pointer;
+        animation: pulse-gold 1s ease-in-out infinite;
+      }
+      @keyframes pulse-gold {
+        0%,
+        100% {
+          box-shadow: 0 0 6px rgba(247, 201, 72, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 18px rgba(247, 201, 72, 0.7);
+        }
+      }
+
+      /* TOOLTIP */
+      #tooltip {
+        position: fixed;
+        z-index: 1000;
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        padding: 8px 12px;
+        font-size: 14px;
+        pointer-events: none;
+        display: none;
+        max-width: 200px;
+        line-height: 1.5;
+      }
+      #tooltip .tt-title {
+        font-family: var(--pixel);
+        font-size: 8px;
+        color: var(--accent1);
+        margin-bottom: 4px;
+      }
+      #tooltip .tt-body {
+        color: var(--text);
+      }
+
+      /* SEAL OVERLAY */
+      #seal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 500;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0);
+        pointer-events: none;
+      }
+      #seal-overlay.active {
+        display: flex;
+        pointer-events: all;
+      }
+      #seal-card-anim {
+        width: 180px;
+        background: var(--bg2);
+        border: 3px solid var(--accent1);
+        padding: 16px;
+        text-align: center;
+        transform: scale(0);
+        transition: transform 0.4s ease;
+      }
+      #seal-card-anim.show {
+        transform: scale(1);
+      }
+      #seal-card-canvas {
+        width: 160px;
+        height: 100px;
+        image-rendering: pixelated;
+        border: 1px solid var(--border);
+        margin-bottom: 8px;
+      }
+      #seal-card-name {
+        font-family: var(--pixel);
+        font-size: 9px;
+        color: var(--accent1);
+        margin-bottom: 4px;
+        line-height: 1.6;
+      }
+      #seal-card-rarity {
+        font-size: 15px;
+        margin-bottom: 4px;
+      }
+      #seal-card-bonus {
+        font-size: 15px;
+        color: var(--accent2);
+      }
+      #seal-bg {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+      }
+
+      /* NIGHT OVERLAY on canvas */
+      #night-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: rgba(10, 15, 50, 0);
+        transition: background 4s;
+      }
+
+      /* scrollbar */
+      ::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--bg3);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="topbar">
+      <span id="game-title">SETTLED WORLDS</span>
+      <div class="res-bar" title="Food">
+        <span class="res-icon">🍖</span
+        ><span class="res-val" id="r-food">0</span
+        ><span class="res-delta" id="d-food">+0</span>
+      </div>
+      <div class="res-bar" title="Fallen Leaves">
+        <span class="res-icon">🍂</span
+        ><span class="res-val" id="r-leaves">0</span
+        ><span class="res-delta" id="d-leaves">+0</span>
+      </div>
+      <div class="res-bar" title="Warmth">
+        <span class="res-icon">🔥</span
+        ><span class="res-val" id="r-warmth">0</span
+        ><span class="res-delta" id="d-warmth">~</span>
+      </div>
+      <div class="res-bar" title="Settlers">
+        <span class="res-icon">👤</span
+        ><span class="res-val" id="r-settlers">0</span
+        ><span
+          class="res-delta"
+          id="d-settlers"
+          style="color: var(--dim); font-size: 11px"
+        ></span>
+      </div>
+      <div id="topbar-right">
+        <div class="stab-wrap">
+          <span id="stab-label">STABILITY</span>
+          <div id="stab-bar-bg">
+            <div
+              id="stab-bar"
+              style="width: 0%; background: var(--accent4)"
+            ></div>
+          </div>
+          <span id="stab-val">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="main">
+      <div id="canvas-wrap">
+        <canvas id="gameCanvas"></canvas>
+        <div id="float-info"></div>
+        <div id="night-overlay"></div>
+      </div>
+      <div id="sidebar">
+        <div class="sb-section">
+          <div class="sb-title">▶ BUILD</div>
+          <div id="build-list"></div>
+        </div>
+        <div class="sb-section" id="job-panel">
+          <div class="sb-title">▶ JOBS</div>
+          <div id="job-title"></div>
+          <div id="job-slots"></div>
+          <div id="job-desc"></div>
+        </div>
+        <div class="sb-section">
+          <div class="sb-title">▶ SETTLERS</div>
+          <div id="settler-list"></div>
+        </div>
+        <div
+          class="sb-section"
+          style="
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+          "
+        >
+          <div class="sb-title">▶ EVENTS</div>
+          <div id="events-log"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="bottombar">
+      <div id="collection-wrap">
+        <span class="no-cards">No sealed settlements yet</span>
+      </div>
+      <button id="seal-btn">SEAL<br />SETTLEMENT</button>
+    </div>
+
+    <div id="tooltip">
+      <div class="tt-title" id="tt-title"></div>
+      <div class="tt-body" id="tt-body"></div>
+    </div>
+
+    <div id="seal-overlay">
+      <div id="seal-bg"></div>
+      <div id="seal-card-anim">
+        <canvas id="seal-card-canvas" width="160" height="100"></canvas>
+        <div id="seal-card-name"></div>
+        <div id="seal-card-rarity"></div>
+        <div id="seal-card-bonus"></div>
+      </div>
+    </div>
+
+    <script>
+      // ═══════════════════════════════════════════════════════════
+      //  SETTLED WORLDS v0.1 — Complete Prototype
+      // ═══════════════════════════════════════════════════════════
+
+      // ── CONSTANTS ───────────────────────────────────────────────
+      const TILE = 16,
+        SCALE = 3,
+        CELL = TILE * SCALE; // 48px cells
+      const COLS = 8,
+        ROWS = 6;
+
+      const TERRAIN = {
+        GRASS: {
+          id: 0,
+          name: "Grassland",
+          color: "#5a8a3c",
+          color2: "#6fa84d",
+          buildable: true,
+        },
+        FOREST: {
+          id: 1,
+          name: "Forest",
+          color: "#2d5a1b",
+          color2: "#3d7a28",
+          buildable: false,
+          clearable: true,
+        },
+        WETLAND: {
+          id: 2,
+          name: "Wetland",
+          color: "#3060a0",
+          color2: "#4080c0",
+          buildable: false,
+        },
+        FERTILE: {
+          id: 3,
+          name: "Fertile",
+          color: "#8aaa3c",
+          color2: "#a0c44d",
+          buildable: true,
+        },
+        ROCKY: {
+          id: 4,
+          name: "Rocky",
+          color: "#706a60",
+          color2: "#908a80",
+          buildable: true,
+        },
+      };
+
+      const RARITY = [
+        { name: "Common", color: "#888888", prob: 0.55 },
+        { name: "Uncommon", color: "#6fcf97", prob: 0.25 },
+        { name: "Rare", color: "#56ccf2", prob: 0.12 },
+        { name: "Epic", color: "#bb6bd9", prob: 0.06 },
+        { name: "Legendary", color: "#f7c948", prob: 0.02 },
+      ];
+
+      const TRAIT_DEFS = [
+        {
+          id: "forest_born",
+          name: "Forest-born",
+          desc: "+20% yield near Forest",
+          effect: (s, b) => (b.terrainBonus === "forest" ? 1.2 : 1),
+        },
+        {
+          id: "hearty",
+          name: "Hearty",
+          desc: "-15% food use",
+          effect: () => 1,
+        },
+        {
+          id: "diligent",
+          name: "Diligent",
+          desc: "+10% production",
+          effect: () => 1.1,
+        },
+        {
+          id: "night_owl",
+          name: "Night Owl",
+          desc: "Full night efficiency",
+          effect: () => 1,
+        },
+        {
+          id: "hoarder",
+          name: "Hoarder",
+          desc: "+storage capacity",
+          effect: () => 1,
+        },
+        {
+          id: "flamekeeper",
+          name: "Flame-keeper",
+          desc: "-20% leaves for fires",
+          effect: () => 1,
+        },
+      ];
+
+      const SETTLER_NAMES = [
+        "Aldric",
+        "Brynn",
+        "Calder",
+        "Dwyn",
+        "Elowen",
+        "Fenn",
+        "Gareth",
+        "Hira",
+        "Idris",
+        "Jora",
+        "Kael",
+        "Lyra",
+        "Maren",
+        "Niles",
+        "Oryn",
+        "Petra",
+        "Quinn",
+        "Reva",
+        "Soren",
+        "Tilda",
+        "Ulric",
+        "Vela",
+        "Wren",
+        "Xan",
+        "Yael",
+        "Zora",
+      ];
+
+      const BLDG_DEFS = {
+        bonfire: {
+          name: "Bonfire",
+          icon: "🔥",
+          size: [1, 1],
+          jobs: 1,
+          jobName: "Tender",
+          cost: {}, // free first
+          desc: "Produces Warmth. Consumes Leaves.",
+          terrain: "any",
+          produces: { warmth: 3 },
+          consumes: { leaves: 0.5 },
+          limit: 3,
+          terrainBonus: null,
+        },
+        shelter: {
+          name: "Shelter",
+          icon: "🛖",
+          size: [1, 2],
+          jobs: 0,
+          jobName: null,
+          cost: { food: 0, leaves: 8 },
+          desc: "+3 settler cap. Food storage +50.",
+          terrain: "grass_or_fertile",
+          produces: {},
+          consumes: {},
+          passive: true,
+          cap: { food: 50 },
+          shelterCap: 3,
+          limit: 4,
+          terrainBonus: null,
+        },
+        gathering: {
+          name: "Gathering Hut",
+          icon: "🏕️",
+          size: [1, 1],
+          jobs: 2,
+          jobName: "Gatherer",
+          cost: { leaves: 6 },
+          desc: "+food/s per gatherer. Bonus near Forest/Wetland.",
+          terrain: "buildable",
+          produces: { food: 1.5 },
+          consumes: {},
+          limit: 3,
+          terrainBonus: "forest_wetland",
+        },
+        leafrake: {
+          name: "Leaf Raking Post",
+          icon: "🍃",
+          size: [1, 1],
+          jobs: 1,
+          jobName: "Raker",
+          cost: { food: 4 },
+          desc: "+Leaves/s. Must be near Forest.",
+          terrain: "near_forest",
+          produces: { leaves: 1.2 },
+          consumes: {},
+          limit: 3,
+          terrainBonus: "forest",
+        },
+        berrypatch: {
+          name: "Berry Patch",
+          icon: "🌾",
+          size: [2, 1],
+          jobs: 1,
+          jobName: "Picker",
+          cost: { leaves: 3 },
+          desc: "Steady food. Worker doubles output.",
+          terrain: "grass_or_fertile",
+          produces: { food: 0.8 },
+          consumes: {},
+          limit: 2,
+          terrainBonus: "fertile",
+        },
+        cache: {
+          name: "Cache",
+          icon: "📦",
+          size: [1, 1],
+          jobs: 0,
+          jobName: null,
+          cost: { food: 5, leaves: 5 },
+          desc: "+100 food storage, +80 leaves storage.",
+          terrain: "buildable",
+          produces: {},
+          consumes: {},
+          passive: true,
+          cap: { food: 100, leaves: 80 },
+          limit: 3,
+          terrainBonus: null,
+        },
+      };
+
+      const TERRAIN_WORDS = [
+        "Misty",
+        "Verdant",
+        "Ancient",
+        "Whispering",
+        "Hollow",
+        "Amber",
+        "Frosty",
+        "Silent",
+        "Golden",
+        "Mossy",
+      ];
+      const PLACE_WORDS = [
+        "Glen",
+        "Hollow",
+        "Creek",
+        "Copse",
+        "Dell",
+        "Mire",
+        "Ridge",
+        "Knoll",
+        "Vale",
+        "Thicket",
+      ];
+
+      // ── GAME STATE ───────────────────────────────────────────────
+      let G = {
+        tick: 0,
+        resources: { food: 20, leaves: 15, warmth: 0, settlers: 0 },
+        capacity: { food: 100, leaves: 60, warmth: 9999, settlers: 0 },
+        production: { food: 0, leaves: 0, warmth: 0 },
+        consumption: { food: 0, leaves: 0, warmth: 0 },
+        grid: [], // Cell[][]  [row][col]
+        buildings: [], // BuildingInstance[]
+        settlers: [], // Settler[]
+        stability: 30,
+        stabilityWindow: 0,
+        selectedBuilding: null, // cell [r,c] of selected building
+        placingType: null, // building type key being placed
+        collection: [], // sealed cards
+        events: [], // log entries
+        growthTimer: 0,
+        nightCycle: 0, // 0-1
+        time: 0,
+        firstBonfire: true,
+        dayLen: 300, // ticks per day
+      };
+
+      // ── NOISE (simple 2D) ──────────────────────────────────────
+      function noise2d(seed) {
+        const p = new Uint8Array(512);
+        const perm = new Uint8Array(256);
+        for (let i = 0; i < 256; i++) perm[i] = i;
+        let s = seed & 0xffffffff;
+        for (let i = 255; i > 0; i--) {
+          s = s ^ (s >>> 7);
+          s = s ^ (s << 17);
+          s = s ^ (s >>> 13);
+          const j = Math.abs(s) % (i + 1);
+          [perm[i], perm[j]] = [perm[j], perm[i]];
+        }
+        for (let i = 0; i < 512; i++) p[i] = perm[i & 255];
+        function fade(t) {
+          return t * t * t * (t * (t * 6 - 15) + 10);
+        }
+        function lerp(a, b, t) {
+          return a + (b - a) * t;
+        }
+        function grad(h, x, y) {
+          const v = h & 3;
+          const u = v < 2 ? x : y,
+            w = v < 2 ? y : x;
+          return (h & 1 ? -u : u) + (h & 2 ? -w : w);
+        }
+        return function (x, y) {
+          const X = Math.floor(x) & 255,
+            Y = Math.floor(y) & 255;
+          x -= Math.floor(x);
+          y -= Math.floor(y);
+          const u = fade(x),
+            v = fade(y);
+          const a = p[X] + Y,
+            aa = p[a],
+            ab = p[a + 1],
+            b = p[X + 1] + Y,
+            ba = p[b],
+            bb = p[b + 1];
+          return lerp(
+            lerp(grad(p[aa], x, y), grad(p[ba], x - 1, y), u),
+            lerp(grad(p[ab], x, y - 1), grad(p[bb], x - 1, y - 1), u),
+            v,
+          );
+        };
+      }
+
+      // ── TERRAIN GEN ────────────────────────────────────────────
+      function generateTerrain() {
+        const seed = Math.floor(Math.random() * 10000);
+        const n = noise2d(seed);
+        const n2 = noise2d(seed + 1000);
+        G.grid = [];
+        for (let r = 0; r < ROWS; r++) {
+          G.grid[r] = [];
+          for (let c = 0; c < COLS; c++) {
+            const v = n(c / 4, r / 4);
+            const v2 = n2(c / 3, r / 3);
+            let t;
+            if (v < -0.3) t = "WETLAND";
+            else if (v > 0.35 && v2 > 0.1) t = "FOREST";
+            else if (v > 0.25 && v2 < -0.2) t = "FERTILE";
+            else t = "GRASS";
+            G.grid[r][c] = {
+              terrain: t,
+              building: null,
+              cleared: false,
+              variant: Math.floor(Math.random() * 4),
+            };
+          }
+        }
+        // Ensure minimum 40% grassland / buildable
+        let buildable = G.grid
+          .flat()
+          .filter(
+            (c) => TERRAIN[c.terrain].buildable || c.terrain === "FOREST",
+          ).length;
+        let total = COLS * ROWS;
+        if (buildable / total < 0.4) {
+          // Convert some forest to grass
+          for (let r = 0; r < ROWS; r++)
+            for (let c = 0; c < COLS; c++) {
+              if (G.grid[r][c].terrain === "FOREST" && Math.random() < 0.3)
+                G.grid[r][c].terrain = "GRASS";
+            }
+        }
+        logEvent("A new settlement site has been found!", "special");
+      }
+
+      // ── BUILDING HELPERS ───────────────────────────────────────
+      function canPlace(type, r, c) {
+        const def = BLDG_DEFS[type];
+        if (!def) return false;
+        const [h, w] = def.size;
+        // Check bounds
+        if (r + h > ROWS || c + w > COLS) return false;
+        // Check cells
+        for (let dr = 0; dr < h; dr++)
+          for (let dc = 0; dc < w; dc++) {
+            const cell = G.grid[r + dr][c + dc];
+            if (cell.building) return false;
+            const t = cell.terrain;
+            if (def.terrain === "near_forest") {
+              // Need adjacent forest
+              if (!TERRAIN[t].buildable && !cell.cleared) return false;
+            } else if (def.terrain === "grass_or_fertile") {
+              if (t !== "GRASS" && t !== "FERTILE") return false;
+            } else if (def.terrain === "buildable") {
+              if (!TERRAIN[t].buildable && !cell.cleared) return false;
+            }
+            // any terrain is ok
+          }
+        if (def.terrain === "near_forest") {
+          // check adjacency
+          if (!hasAdjacentTerrain(r, c, "FOREST")) return false;
+        }
+        // Check limit
+        const count = G.buildings.filter((b) => b.type === type).length;
+        if (count >= def.limit) return false;
+        return true;
+      }
+
+      function hasAdjacentTerrain(r, c, terrain) {
+        const dirs = [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+          [-1, -1],
+          [-1, 1],
+          [1, -1],
+          [1, 1],
+        ];
+        for (const [dr, dc] of dirs) {
+          const nr = r + dr,
+            nc = c + dc;
+          if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+            const cell = G.grid[nr][nc];
+            if (cell.terrain === terrain) return true;
+          }
+        }
+        return false;
+      }
+
+      function placeBuilding(type, r, c) {
+        const def = BLDG_DEFS[type];
+        if (!def) return;
+        // Pay cost
+        for (const [res, amt] of Object.entries(def.cost || {})) {
+          G.resources[res] = (G.resources[res] || 0) - amt;
+        }
+        const bld = {
+          id: Date.now() + "_" + Math.random(),
+          type,
+          r,
+          c,
+          workers: [], // settler ids
+          level: 1,
+        };
+        const [h, w] = def.size;
+        for (let dr = 0; dr < h; dr++)
+          for (let dc = 0; dc < w; dc++) {
+            G.grid[r + dr][c + dc].building = bld.id;
+          }
+        // Clear forest if needed
+        for (let dr = 0; dr < h; dr++)
+          for (let dc = 0; dc < w; dc++) {
+            const cell = G.grid[r + dr][c + dc];
+            if (TERRAIN[cell.terrain].clearable) {
+              cell.cleared = true;
+              cell.terrain = "GRASS";
+            }
+          }
+        G.buildings.push(bld);
+        // Update caps
+        if (def.passive && def.cap) {
+          for (const [res, amt] of Object.entries(def.cap)) {
+            G.capacity[res] = (G.capacity[res] || 0) + amt;
+          }
+        }
+        if (def.shelterCap) G.capacity.settlers += def.shelterCap;
+        // First bonfire free
+        if (type === "bonfire") G.firstBonfire = false;
+        logEvent(`Built ${def.name}`, "good");
+        G.placingType = null;
+        updateBuildPanel();
+        renderAll();
+      }
+
+      function removeWorkerFromBuilding(bldId, settlerIdx) {
+        const bld = G.buildings.find((b) => b.id === bldId);
+        if (!bld || bld.workers.length === 0) return;
+        const sid = bld.workers[settlerIdx];
+        bld.workers.splice(settlerIdx, 1);
+        const s = G.settlers.find((s) => s.id === sid);
+        if (s) s.job = null;
+      }
+
+      function assignWorkerToBuilding(bldId) {
+        const bld = G.buildings.find((b) => b.id === bldId);
+        const def = BLDG_DEFS[bld.type];
+        if (bld.workers.length >= def.jobs) return;
+        const idle = G.settlers.find((s) => !s.job && s.alive);
+        if (!idle) {
+          logEvent("No idle settlers to assign!", "warn");
+          return;
+        }
+        idle.job = bld.id;
+        bld.workers.push(idle.id);
+      }
+
+      // ── SETTLER HELPERS ────────────────────────────────────────
+      function spawnSettler() {
+        if (G.settlers.filter((s) => s.alive).length >= G.capacity.settlers)
+          return;
+        const name =
+          SETTLER_NAMES[Math.floor(Math.random() * SETTLER_NAMES.length)];
+        const trait = TRAIT_DEFS[Math.floor(Math.random() * TRAIT_DEFS.length)];
+        const s = {
+          id: "s" + Date.now() + "_" + Math.random(),
+          name,
+          trait,
+          job: null,
+          alive: true,
+          state: "idle",
+          px: Math.random() * COLS * CELL,
+          py: Math.random() * ROWS * CELL,
+          tx: 0,
+          ty: 0,
+          frame: 0,
+          frameTick: 0,
+          moveT: 0,
+        };
+        // random start pos
+        s.tx = s.px;
+        s.ty = s.py;
+        G.settlers.push(s);
+        G.resources.settlers = G.settlers.filter((s) => s.alive).length;
+        logEvent(`${name} (${trait.name}) has joined!`, "good");
+      }
+
+      // ── RESOURCE TICK ──────────────────────────────────────────
+      function resourceTick(dt) {
+        // Base capacities
+        const baseFood = 100,
+          baseLeaves = 60;
+        G.capacity.food = baseFood;
+        G.capacity.leaves = baseLeaves;
+        for (const bld of G.buildings) {
+          const def = BLDG_DEFS[bld.type];
+          if (def.passive && def.cap) {
+            for (const [r, a] of Object.entries(def.cap))
+              G.capacity[r] = (G.capacity[r] || 0) + a;
+          }
+        }
+
+        let dFood = 0,
+          dLeaves = 0,
+          dWarmth = 0;
+        const alive = G.settlers.filter((s) => s.alive);
+
+        // Settler food consumption
+        for (const s of alive) {
+          const hungry = G.resources.food <= 0;
+          const mult = s.trait?.id === "hearty" ? 0.85 : 1;
+          dFood -= 0.15 * mult * dt;
+          s.state = hungry ? "hungry" : "idle";
+        }
+
+        // Building production
+        for (const bld of G.buildings) {
+          const def = BLDG_DEFS[bld.type];
+          if (def.passive) continue;
+          const workers = bld.workers.filter((id) =>
+            G.settlers.find((s) => s.id === id && s.alive),
+          );
+          const wc = workers.length;
+          if (wc === 0) continue;
+
+          // Night penalty
+          const isNight = G.nightCycle > 0.6;
+          const nightMult = isNight
+            ? G.settlers.find(
+                (s) => s.id === workers[0] && s.trait?.id === "night_owl",
+              )
+              ? 1
+              : 0.7
+            : 1;
+
+          // Trait multiplier
+          let traitMult = 1;
+          for (const sid of workers) {
+            const s = G.settlers.find((s) => s.id === sid);
+            if (s?.trait?.id === "diligent") traitMult *= 1.1;
+            if (s?.trait?.id === "forest_born" && def.terrainBonus === "forest")
+              traitMult *= 1.2;
+          }
+
+          // Terrain bonus
+          let terrainMult = 1;
+          if (def.terrainBonus === "forest_wetland") {
+            if (
+              hasAdjacentTerrain(bld.r, bld.c, "FOREST") ||
+              hasAdjacentTerrain(bld.r, bld.c, "WETLAND")
+            )
+              terrainMult = 1.3;
+          }
+          if (
+            def.terrainBonus === "fertile" &&
+            G.grid[bld.r][bld.c].terrain === "FERTILE"
+          )
+            terrainMult = 1.5;
+          if (def.terrainBonus === "forest") {
+            if (hasAdjacentTerrain(bld.r, bld.c, "FOREST")) terrainMult = 1.2;
+            else terrainMult = 0.5;
+          }
+
+          const mult = wc * nightMult * traitMult * terrainMult * dt;
+
+          if (def.produces.food) dFood += def.produces.food * mult;
+          if (def.produces.leaves) dLeaves += def.produces.leaves * mult;
+          if (def.produces.warmth) dWarmth += def.produces.warmth * wc; // warmth per tick not dt
+
+          if (def.consumes.leaves) {
+            let consumeMult = 1;
+            for (const sid of workers) {
+              const s = G.settlers.find((s) => s.id === sid);
+              if (s?.trait?.id === "flamekeeper") consumeMult *= 0.8;
+            }
+            dLeaves -= def.consumes.leaves * consumeMult * dt;
+          }
+          // Mark workers content
+          for (const sid of workers) {
+            const s = G.settlers.find((s) => s.id === sid);
+            if (s) s.state = "content";
+          }
+        }
+
+        // Berry patch passive (no worker needed)
+        for (const bld of G.buildings.filter((b) => b.type === "berrypatch")) {
+          dFood += BLDG_DEFS.berrypatch.produces.food * 0.3 * dt;
+        }
+
+        // Warmth demand
+        const warmthDemand = alive.length * 0.8;
+        const warmthProduced = dWarmth; // instant
+        G.resources.warmth = Math.max(0, warmthProduced);
+        const warmthOk = G.resources.warmth >= warmthDemand;
+
+        // Apply cold state
+        for (const s of alive) {
+          if (!warmthOk && s.state !== "hungry") s.state = "cold";
+        }
+
+        // Starvation / cold penalties already handled via state
+
+        // Apply deltas
+        G.resources.food = Math.max(
+          0,
+          Math.min(G.capacity.food, G.resources.food + dFood),
+        );
+        G.resources.leaves = Math.max(
+          0,
+          Math.min(G.capacity.leaves, G.resources.leaves + dLeaves),
+        );
+
+        // Store rates for display
+        G.production.food = Math.max(0, dFood / dt);
+        G.production.leaves = Math.max(0, dLeaves / dt);
+        G.consumption.food = Math.abs(Math.min(0, dFood / dt));
+        G.consumption.leaves = Math.abs(Math.min(0, dLeaves / dt));
+
+        // Growth timer
+        const foodSurplus = G.resources.food > 10;
+        const hasShelter = G.buildings.some((b) => b.type === "shelter");
+        if (foodSurplus && hasShelter && warmthOk) {
+          G.growthTimer += dt;
+          const growthInterval = 30 + G.settlers.length * 15;
+          if (G.growthTimer >= growthInterval) {
+            G.growthTimer = 0;
+            spawnSettler();
+          }
+        } else {
+          G.growthTimer = Math.max(0, G.growthTimer - dt * 0.5);
+        }
+
+        G.resources.settlers = G.settlers.filter((s) => s.alive).length;
+      }
+
+      // ── STABILITY ─────────────────────────────────────────────
+      function stabilityTick(dt) {
+        const alive = G.settlers.filter((s) => s.alive);
+        let delta = 0;
+        if (G.resources.food > 0) delta += 2 * dt;
+        const warmthOk = G.resources.warmth > alive.length * 0.6;
+        if (warmthOk) delta += 1.5 * dt;
+        for (const s of alive) {
+          if (s.state === "content") delta += 0.4 * dt;
+          if (s.state === "hungry") delta -= 1.5 * dt;
+          if (s.state === "cold") delta -= 1 * dt;
+        }
+        for (const bld of G.buildings) delta += 0.1 * dt;
+
+        G.stability = Math.max(0, Math.min(100, G.stability + delta));
+
+        // Window timer
+        if (G.stability >= 80) G.stabilityWindow += dt;
+        else G.stabilityWindow = Math.max(0, G.stabilityWindow - dt * 2);
+
+        // Update seal btn
+        const ready = G.stability >= 80 && G.stabilityWindow >= 20;
+        const btn = document.getElementById("seal-btn");
+        btn.classList.toggle("ready", ready);
+        btn.title = ready
+          ? "Click to seal this settlement!"
+          : `Hold stability ≥80 for ${Math.ceil(20 - G.stabilityWindow)}s more`;
+
+        // Stability bar
+        const bar = document.getElementById("stab-bar");
+        const pct = G.stability;
+        bar.style.width = pct + "%";
+        bar.style.background =
+          pct >= 80
+            ? "var(--accent2)"
+            : pct >= 50
+              ? "var(--accent1)"
+              : "var(--accent4)";
+        document.getElementById("stab-val").textContent = Math.floor(
+          G.stability,
+        );
+      }
+
+      // ── SEAL CEREMONY ─────────────────────────────────────────
+      function sealSettlement() {
+        const btn = document.getElementById("seal-btn");
+        if (!btn.classList.contains("ready")) return;
+
+        // Roll rarity
+        let r = Math.random();
+        let rarity = 0;
+        // Modifiers
+        const hasVolcanic = G.grid.flat().some((c) => c.terrain === "VOLCANIC");
+        const hasFertile = G.grid.flat().some((c) => c.terrain === "FERTILE");
+        let rarityBonus = 0;
+        if (hasFertile) rarityBonus += 0.1;
+        if (G.stability > 95) rarityBonus += 0.15;
+        if (G.settlers.every((s) => s.state === "content")) rarityBonus += 0.08;
+        r = Math.max(0, r - rarityBonus);
+
+        let cum = 0;
+        for (let i = 0; i < RARITY.length - 1; i++) {
+          cum += RARITY[i].prob;
+          if (r < cum) {
+            rarity = i;
+            break;
+          }
+        }
+        if (rarity === 0 && r > cum) rarity = RARITY.length - 1;
+
+        // Determine bonus
+        const bonusRes =
+          G.production.food > G.production.leaves ? "food" : "leaves";
+        const bonusRate = (rarity + 1) * 0.5 + Math.random();
+        const bonusIcon = bonusRes === "food" ? "🍖" : "🍂";
+
+        // Name
+        const name =
+          TERRAIN_WORDS[Math.floor(Math.random() * TERRAIN_WORDS.length)] +
+          " " +
+          PLACE_WORDS[Math.floor(Math.random() * PLACE_WORDS.length)];
+
+        // Thumbnail snapshot
+        const thumbCanvas = document.createElement("canvas");
+        thumbCanvas.width = COLS * 8;
+        thumbCanvas.height = ROWS * 8;
+        const tc = thumbCanvas.getContext("2d");
+        for (let row = 0; row < ROWS; row++)
+          for (let col = 0; col < COLS; col++) {
+            const cell = G.grid[row][col];
+            const t = TERRAIN[cell.terrain];
+            tc.fillStyle = (row + col) % 2 === 0 ? t.color : t.color2;
+            tc.fillRect(col * 8, row * 8, 8, 8);
+            if (cell.building) {
+              const bld = G.buildings.find((b) => b.id === cell.building);
+              if (bld) {
+                tc.fillStyle = "rgba(200,160,90,0.8)";
+                tc.fillRect(col * 8 + 1, row * 8 + 1, 6, 6);
+              }
+            }
+          }
+
+        const card = {
+          id: "card_" + Date.now(),
+          name,
+          rarity,
+          bonusRes,
+          bonusRate,
+          bonusIcon,
+          thumb: thumbCanvas.toDataURL(),
+          terrain: { forest: 0, wetland: 0, fertile: 0, grass: 0, rocky: 0 },
+          stability: Math.floor(G.stability),
+          settlerCount: G.settlers.length,
+        };
+
+        // Terrain composition
+        for (const cell of G.grid.flat()) {
+          const t = cell.terrain.toLowerCase();
+          if (card.terrain[t] !== undefined) card.terrain[t]++;
+        }
+
+        G.collection.push(card);
+
+        // Show ceremony
+        const overlay = document.getElementById("seal-overlay");
+        const cardEl = document.getElementById("seal-card-anim");
+        const sealCanvas = document.getElementById("seal-card-canvas");
+        const sc = sealCanvas.getContext("2d");
+        sc.clearRect(0, 0, 160, 100);
+        sc.drawImage(thumbCanvas, 0, 0, 160, 100);
+
+        document.getElementById("seal-card-name").textContent = name;
+        document.getElementById("seal-card-rarity").textContent =
+          RARITY[rarity].name;
+        document.getElementById("seal-card-rarity").style.color =
+          RARITY[rarity].color;
+        document.getElementById("seal-card-bonus").textContent =
+          `${bonusIcon} +${bonusRate.toFixed(1)}/min`;
+        cardEl.style.borderColor = RARITY[rarity].color;
+
+        overlay.classList.add("active");
+        overlay.style.background = "rgba(0,0,0,0)";
+        setTimeout(() => {
+          overlay.style.background = "rgba(0,0,0,0.8)";
+          cardEl.classList.add("show");
+        }, 50);
+
+        // Auto dismiss after 4s
+        setTimeout(() => {
+          cardEl.classList.remove("show");
+          setTimeout(() => {
+            overlay.classList.remove("active");
+            // New settlement!
+            resetSettlement(card.rarity);
+          }, 400);
+        }, 4000);
+
+        logEvent(`"${name}" sealed! [${RARITY[rarity].name}]`, "special");
+        updateCollectionPanel();
+      }
+
+      function resetSettlement(fromRarity) {
+        // Keep settlers, reset grid and buildings
+        G.stability = 30;
+        G.stabilityWindow = 0;
+        G.buildings = [];
+        G.capacity = { food: 100, leaves: 60, warmth: 9999, settlers: 3 };
+        for (const s of G.settlers) {
+          s.job = null;
+          s.state = "idle";
+        }
+        generateTerrain();
+        logEvent("New settlement site generated!", "special");
+        renderAll();
+        updateBuildPanel();
+        updateJobPanel();
+        updateSettlerList();
+      }
+
+      // ── SETTLER ANIMATION ──────────────────────────────────────
+      function updateSettlerPositions(dt) {
+        for (const s of G.settlers.filter((s) => s.alive)) {
+          if (s.job) {
+            const bld = G.buildings.find((b) => b.id === s.job);
+            if (bld) {
+              s.tx = (bld.c + 0.5) * CELL;
+              s.ty = (bld.r + 0.5) * CELL;
+            }
+          } else {
+            // Wander
+            s.moveT = (s.moveT || 0) + dt;
+            if (s.moveT > 3 + Math.random() * 4) {
+              s.moveT = 0;
+              s.tx = Math.random() * COLS * CELL;
+              s.ty = Math.random() * ROWS * CELL;
+            }
+          }
+          // Move towards target
+          const dx = s.tx - s.px,
+            dy = s.ty - s.py;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d > 2) {
+            const spd = 40 * dt;
+            s.px += (dx / d) * Math.min(spd, d);
+            s.py += (dy / d) * Math.min(spd, d);
+          }
+          // Frame
+          s.frameTick = (s.frameTick || 0) + dt;
+          if (s.frameTick > 0.2) {
+            s.frameTick = 0;
+            s.frame = (s.frame + 1) % 4;
+          }
+        }
+      }
+
+      // ── DAY/NIGHT ──────────────────────────────────────────────
+      function updateDayNight(dt) {
+        G.nightCycle = (G.nightCycle + dt / G.dayLen) % 1;
+        const night = document.getElementById("night-overlay");
+        const alpha =
+          G.nightCycle > 0.5
+            ? Math.min(0.45, (G.nightCycle - 0.5) * 2 * 0.45)
+            : Math.max(0, (0.3 - G.nightCycle) * 2 * 0.45);
+        night.style.background = `rgba(10,15,50,${alpha})`;
+      }
+
+      // ── CANVAS RENDER ─────────────────────────────────────────
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+
+      function resizeCanvas() {
+        const wrap = document.getElementById("canvas-wrap");
+        const W = wrap.clientWidth,
+          H = wrap.clientHeight;
+        const gameW = COLS * CELL,
+          gameH = ROWS * CELL;
+        canvas.width = gameW;
+        canvas.height = gameH;
+        // CSS scale to fit
+        const sx = W / gameW,
+          sy = H / gameH,
+          sc = Math.min(sx, sy, 1.5);
+        canvas.style.width = Math.floor(gameW * sc) + "px";
+        canvas.style.height = Math.floor(gameH * sc) + "px";
+      }
+
+      function renderAll() {
+        const W = COLS * CELL,
+          H = ROWS * CELL;
+        ctx.clearRect(0, 0, W, H);
+
+        // TERRAIN
+        for (let r = 0; r < ROWS; r++)
+          for (let c = 0; c < COLS; c++) {
+            const cell = G.grid[r][c];
+            const t = TERRAIN[cell.terrain];
+            // Checkerboard shading
+            ctx.fillStyle = (r + c) % 2 === 0 ? t.color : t.color2;
+            ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+            // Tree icons for forest
+            if (cell.terrain === "FOREST") {
+              ctx.font = `${CELL - 8}px serif`;
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              ctx.fillText("🌲", c * CELL + CELL / 2, r * CELL + CELL / 2);
+            }
+            if (cell.terrain === "WETLAND") {
+              ctx.fillStyle = "rgba(48,96,160,0.45)";
+              ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+              ctx.font = `${CELL - 12}px serif`;
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              ctx.fillText("💧", c * CELL + CELL / 2, r * CELL + CELL / 2);
+            }
+            if (cell.terrain === "FERTILE") {
+              ctx.font = `${CELL - 12}px serif`;
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              ctx.fillText("✨", c * CELL + CELL / 2, r * CELL + CELL / 2);
+            }
+            if (cell.terrain === "ROCKY") {
+              ctx.font = `${CELL - 12}px serif`;
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              ctx.fillText("🪨", c * CELL + CELL / 2, r * CELL + CELL / 2);
+            }
+          }
+
+        // GRID LINES (subtle)
+        ctx.strokeStyle = "rgba(0,0,0,0.15)";
+        ctx.lineWidth = 1;
+        for (let r = 0; r <= ROWS; r++) {
+          ctx.beginPath();
+          ctx.moveTo(0, r * CELL);
+          ctx.lineTo(W, r * CELL);
+          ctx.stroke();
+        }
+        for (let c = 0; c <= COLS; c++) {
+          ctx.beginPath();
+          ctx.moveTo(c * CELL, 0);
+          ctx.lineTo(c * CELL, H);
+          ctx.stroke();
+        }
+
+        // PLACEMENT HIGHLIGHT
+        if (G.placingType) {
+          for (let r = 0; r < ROWS; r++)
+            for (let c = 0; c < COLS; c++) {
+              if (canPlace(G.placingType, r, c)) {
+                ctx.fillStyle = "rgba(86,204,242,0.18)";
+                ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+                ctx.strokeStyle = "rgba(86,204,242,0.5)";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(c * CELL + 1, r * CELL + 1, CELL - 2, CELL - 2);
+              }
+            }
+          // Hover cell from mouse
+          if (G._hoverCell) {
+            const [hr, hc] = G._hoverCell;
+            const ok = canPlace(G.placingType, hr, hc);
+            ctx.fillStyle = ok
+              ? "rgba(111,207,151,0.3)"
+              : "rgba(235,87,87,0.3)";
+            ctx.fillRect(hc * CELL, hr * CELL, CELL, CELL);
+          }
+        }
+
+        // BUILDINGS
+        for (const bld of G.buildings) {
+          const def = BLDG_DEFS[bld.type];
+          const [h, w] = def.size;
+          const x = bld.c * CELL,
+            y = bld.r * CELL;
+          const bw = w * CELL,
+            bh = h * CELL;
+          // Shadow
+          ctx.fillStyle = "rgba(0,0,0,0.3)";
+          ctx.fillRect(x + 4, y + 4, bw, bh);
+          // Building body
+          ctx.fillStyle = "#c8a05a";
+          ctx.fillRect(x + 1, y + 1, bw - 2, bh - 2);
+          ctx.strokeStyle = "#a07840";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 1, y + 1, bw - 2, bh - 2);
+          // Icon
+          ctx.font = `${Math.min(bw, bh) * 0.6}px serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(def.icon, x + bw / 2, y + bh / 2);
+          // Worker dots
+          const jobCount = def.jobs;
+          if (jobCount > 0) {
+            for (let i = 0; i < jobCount; i++) {
+              const filled = i < bld.workers.length;
+              ctx.fillStyle = filled ? "#6fcf97" : "rgba(255,255,255,0.3)";
+              ctx.beginPath();
+              ctx.arc(x + bw - 8 - i * 10, y + 6, 4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+          // Selected highlight
+          if (
+            G.selectedBuilding &&
+            G.selectedBuilding[0] === bld.r &&
+            G.selectedBuilding[1] === bld.c
+          ) {
+            ctx.strokeStyle = "#f7c948";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x, y, bw, bh);
+          }
+          // Warmth glow for bonfire
+          if (bld.type === "bonfire" && bld.workers.length > 0) {
+            const grd = ctx.createRadialGradient(
+              x + bw / 2,
+              y + bh / 2,
+              4,
+              x + bw / 2,
+              y + bh / 2,
+              CELL * 1.5,
+            );
+            grd.addColorStop(0, "rgba(240,80,48,0.18)");
+            grd.addColorStop(1, "rgba(240,80,48,0)");
+            ctx.fillStyle = grd;
+            ctx.fillRect(x - CELL, y - CELL, bw + CELL * 2, bh + CELL * 2);
+          }
+        }
+
+        // SETTLERS
+        for (const s of G.settlers.filter((s) => s.alive)) {
+          const x = s.px,
+            y = s.py;
+          const stateColor =
+            s.state === "content"
+              ? "#6fcf97"
+              : s.state === "hungry"
+                ? "#eb5757"
+                : s.state === "cold"
+                  ? "#56ccf2"
+                  : "#f7c948";
+          // Body
+          ctx.fillStyle = stateColor;
+          ctx.fillRect(x - 6, y - 12, 12, 14);
+          // Head
+          ctx.fillStyle = "#f0d0a0";
+          ctx.fillRect(x - 5, y - 20, 10, 10);
+          // Walk bob
+          const bob = Math.sin(s.frame * 1.57) * 2;
+          ctx.fillStyle = stateColor;
+          ctx.fillRect(x - 4, y + 2 + bob, 4, 6);
+          ctx.fillRect(x, y + 2 - bob, 4, 6);
+        }
+
+        // FLOATING DAMAGE NUMBERS (simple effect store)
+        for (let i = G._floats?.length - 1; i >= 0; i--) {
+          const f = G._floats[i];
+          f.y -= 0.8;
+          f.life -= 1 / 60;
+          if (f.life <= 0) {
+            G._floats.splice(i, 1);
+            continue;
+          }
+          ctx.globalAlpha = f.life;
+          ctx.font = 'bold 14px "VT323"';
+          ctx.fillStyle = f.color;
+          ctx.textAlign = "center";
+          ctx.fillText(f.text, f.x, f.y);
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // ── FLOAT TEXT ────────────────────────────────────────────
+      G._floats = [];
+      function addFloat(x, y, text, color) {
+        G._floats.push({ x, y, text, color, life: 1.5 });
+      }
+
+      // ── UI UPDATES ────────────────────────────────────────────
+      function updateTopBar() {
+        const fmtDelta = (v) => {
+          const s = v >= 0 ? "+" : "-";
+          return s + Math.abs(v).toFixed(1);
+        };
+        const foodNet = G.production.food - G.consumption.food;
+        const leavesNet = G.production.leaves - G.consumption.leaves;
+
+        document.getElementById("r-food").textContent = Math.floor(
+          G.resources.food,
+        );
+        document.getElementById("r-leaves").textContent = Math.floor(
+          G.resources.leaves,
+        );
+        document.getElementById("r-warmth").textContent = Math.floor(
+          G.resources.warmth,
+        );
+        document.getElementById("r-settlers").textContent =
+          G.resources.settlers + "/" + G.capacity.settlers;
+        document.getElementById("d-settlers").textContent = "pop";
+
+        const fd = document.getElementById("d-food");
+        fd.textContent = fmtDelta(foodNet) + "/s";
+        fd.className =
+          "res-delta " + (foodNet > 0 ? "pos" : foodNet < 0 ? "neg" : "zero");
+
+        const ld = document.getElementById("d-leaves");
+        ld.textContent = fmtDelta(leavesNet) + "/s";
+        ld.className =
+          "res-delta " +
+          (leavesNet > 0 ? "pos" : leavesNet < 0 ? "neg" : "zero");
+
+        const w = G.resources.warmth;
+        const wd = document.getElementById("d-warmth");
+        const alive = G.settlers.filter((s) => s.alive).length;
+        wd.textContent = w >= alive * 0.8 ? "✓" : "LOW";
+        wd.style.color = w >= alive * 0.8 ? "var(--accent2)" : "var(--accent4)";
+      }
+
+      function updateBuildPanel() {
+        const list = document.getElementById("build-list");
+        list.innerHTML = "";
+        for (const [key, def] of Object.entries(BLDG_DEFS)) {
+          const btn = document.createElement("button");
+          btn.className =
+            "build-btn" + (G.placingType === key ? " selected" : "");
+          // Can afford?
+          let canAfford = true;
+          for (const [res, amt] of Object.entries(def.cost || {})) {
+            if ((G.resources[res] || 0) < amt) {
+              canAfford = false;
+              break;
+            }
+          }
+          // Free first bonfire
+          if (key === "bonfire" && G.firstBonfire) canAfford = true;
+          // Count limit
+          const count = G.buildings.filter((b) => b.type === key).length;
+          const atLimit = count >= def.limit;
+
+          btn.disabled = atLimit;
+          const costStr = Object.entries(def.cost || {})
+            .map(([r, a]) => `${a} ${r}`)
+            .join(", ");
+          btn.innerHTML = `<span class="b-icon">${def.icon}</span><span class="b-name">${def.name}</span><span class="b-cost">${atLimit ? "MAX" : costStr || "free"}</span>`;
+          btn.title = def.desc;
+          btn.addEventListener("click", () => {
+            if (atLimit) return;
+            G.placingType = G.placingType === key ? null : key;
+            G.selectedBuilding = null;
+            updateBuildPanel();
+            updateJobPanel(null);
+          });
+          list.appendChild(btn);
+        }
+      }
+
+      function updateJobPanel(bldId) {
+        const panel = document.getElementById("job-panel");
+        if (!bldId) {
+          panel.style.display = "none";
+          return;
+        }
+        panel.style.display = "block";
+        const bld = G.buildings.find((b) => b.id === bldId);
+        if (!bld) {
+          panel.style.display = "none";
+          return;
+        }
+        const def = BLDG_DEFS[bld.type];
+        document.getElementById("job-title").textContent =
+          `${def.icon} ${def.name}`;
+        document.getElementById("job-desc").textContent = def.desc;
+        const slots = document.getElementById("job-slots");
+        slots.innerHTML = "";
+        if (def.jobs === 0) {
+          slots.innerHTML =
+            '<span style="color:var(--dim);font-size:13px;">No job slots</span>';
+          return;
+        }
+        for (let i = 0; i < def.jobs; i++) {
+          const sid = bld.workers[i];
+          const s = sid ? G.settlers.find((s) => s.id === sid) : null;
+          const el = document.createElement("div");
+          el.className = "job-slot" + (s ? " filled" : "");
+          el.title = s
+            ? `${s.name} (${s.trait.name}) — click to unassign`
+            : "Click to assign idle settler";
+          el.textContent = s ? "👤" : "＋";
+          const idx = i;
+          if (s) {
+            el.addEventListener("click", () => {
+              removeWorkerFromBuilding(bldId, idx);
+              updateJobPanel(bldId);
+              updateSettlerList();
+              renderAll();
+            });
+          } else {
+            el.addEventListener("click", () => {
+              assignWorkerToBuilding(bldId);
+              updateJobPanel(bldId);
+              updateSettlerList();
+              renderAll();
+            });
+          }
+          slots.appendChild(el);
+        }
+      }
+
+      function updateSettlerList() {
+        const list = document.getElementById("settler-list");
+        list.innerHTML = "";
+        for (const s of G.settlers.filter((s) => s.alive)) {
+          const row = document.createElement("div");
+          row.className = "settler-row";
+          const dot = document.createElement("div");
+          dot.className = "settler-state s-" + s.state;
+          const nm = document.createElement("span");
+          nm.className = "settler-name";
+          nm.textContent = s.name;
+          nm.title = s.trait.name + ": " + s.trait.desc;
+          const jb = document.createElement("span");
+          jb.className = "settler-job";
+          if (s.job) {
+            const bld = G.buildings.find((b) => b.id === s.job);
+            jb.textContent = bld ? BLDG_DEFS[bld.type].icon : "?";
+          } else {
+            jb.textContent = "idle";
+          }
+          row.append(dot, nm, jb);
+          list.appendChild(row);
+        }
+      }
+
+      function updateCollectionPanel() {
+        const wrap = document.getElementById("collection-wrap");
+        if (G.collection.length === 0) {
+          wrap.innerHTML =
+            '<span class="no-cards">No sealed settlements yet</span>';
+          return;
+        }
+        wrap.innerHTML = "";
+        for (const card of G.collection) {
+          const el = document.createElement("div");
+          el.className = "card-thumb";
+          const bar = document.createElement("div");
+          bar.className = "card-rarity-bar";
+          bar.style.background = RARITY[card.rarity].color;
+          const img = document.createElement("img");
+          img.src = card.thumb;
+          img.style.cssText =
+            "width:100%;height:80%;display:block;image-rendering:pixelated;";
+          const bonus = document.createElement("div");
+          bonus.className = "card-bonus-text";
+          bonus.textContent = `${card.bonusIcon}+${card.bonusRate.toFixed(1)}`;
+          el.title = `${card.name}\n${RARITY[card.rarity].name}\n${card.bonusIcon} +${card.bonusRate.toFixed(1)}/min`;
+          el.append(bar, img, bonus);
+          wrap.appendChild(el);
+        }
+      }
+
+      function logEvent(msg, type = "") {
+        G.events.unshift({ msg, type, time: G.tick });
+        const log = document.getElementById("events-log");
+        const el = document.createElement("div");
+        el.className = "event-entry " + type;
+        el.textContent = msg;
+        log.prepend(el);
+        while (log.children.length > 20) log.lastChild.remove();
+      }
+
+      // ── INPUT ─────────────────────────────────────────────────
+      canvas.addEventListener("mousemove", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const mx = (e.clientX - rect.left) * scaleX;
+        const my = (e.clientY - rect.top) * scaleY;
+        const c = Math.floor(mx / CELL),
+          r = Math.floor(my / CELL);
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) G._hoverCell = [r, c];
+        else G._hoverCell = null;
+
+        // Tooltip
+        const tt = document.getElementById("tooltip");
+        if (G._hoverCell) {
+          const cell = G.grid[r][c];
+          if (cell.building) {
+            const bld = G.buildings.find((b) => b.id === cell.building);
+            if (bld) {
+              const def = BLDG_DEFS[bld.type];
+              document.getElementById("tt-title").textContent =
+                def.icon + " " + def.name;
+              const workers =
+                bld.workers
+                  .map((id) => G.settlers.find((s) => s.id === id)?.name || "?")
+                  .join(", ") || "none";
+              document.getElementById("tt-body").textContent =
+                `${def.desc}\nWorkers: ${workers}`;
+              tt.style.display = "block";
+              tt.style.left = e.clientX + 12 + "px";
+              tt.style.top = e.clientY - 20 + "px";
+            }
+          } else {
+            const t = TERRAIN[cell.terrain];
+            document.getElementById("tt-title").textContent = t.name;
+            document.getElementById("tt-body").textContent =
+              cell.terrain === "FOREST"
+                ? "Clearable. Use Leaf Raking Post nearby."
+                : cell.terrain === "WETLAND"
+                  ? "Not buildable. Gathering Huts love adjacency."
+                  : cell.terrain === "FERTILE"
+                    ? "Extra food production. Build Berry Patches here."
+                    : cell.terrain === "ROCKY"
+                      ? "Rocky surface. Reduces build speed."
+                      : "Buildable grassland.";
+            tt.style.display = "block";
+            tt.style.left = e.clientX + 12 + "px";
+            tt.style.top = e.clientY - 20 + "px";
+          }
+        } else {
+          tt.style.display = "none";
+        }
+      });
+
+      canvas.addEventListener("mouseleave", () => {
+        G._hoverCell = null;
+        document.getElementById("tooltip").style.display = "none";
+      });
+
+      canvas.addEventListener("click", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const mx = (e.clientX - rect.left) * scaleX;
+        const my = (e.clientY - rect.top) * scaleY;
+        const c = Math.floor(mx / CELL),
+          r = Math.floor(my / CELL);
+        if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+        const cell = G.grid[r][c];
+
+        if (G.placingType) {
+          if (canPlace(G.placingType, r, c)) {
+            placeBuilding(G.placingType, r, c);
+            addFloat(c * CELL + CELL / 2, r * CELL, "✓", "#6fcf97");
+          } else {
+            addFloat(c * CELL + CELL / 2, r * CELL, "✗", "#eb5757");
+          }
+          G.placingType = null;
+          updateBuildPanel();
+          return;
+        }
+
+        if (cell.building) {
+          const bld = G.buildings.find((b) => b.id === cell.building);
+          if (bld) {
+            G.selectedBuilding = [bld.r, bld.c];
+            updateJobPanel(bld.id);
+            renderAll();
+          }
+        } else {
+          G.selectedBuilding = null;
+          G.placingType = null;
+          updateJobPanel(null);
+          updateBuildPanel();
+          renderAll();
+        }
+      });
+
+      document
+        .getElementById("seal-btn")
+        .addEventListener("click", sealSettlement);
+
+      // ESC to cancel placement
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          G.placingType = null;
+          G.selectedBuilding = null;
+          updateBuildPanel();
+          updateJobPanel(null);
+          renderAll();
+        }
+      });
+
+      // ── GAME LOOP ─────────────────────────────────────────────
+      let lastTime = null,
+        lastUITime = 0,
+        lastRenderTime = 0;
+      const TICK_RATE = 1 / 20; // 20 ticks/sec simulation
+      const RENDER_RATE = 1 / 30;
+      const UI_RATE = 1 / 4;
+      let accumulator = 0;
+
+      function gameLoop(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+        lastTime = timestamp;
+        G.time += dt;
+        accumulator += dt;
+
+        // Simulation ticks
+        while (accumulator >= TICK_RATE) {
+          resourceTick(TICK_RATE);
+          stabilityTick(TICK_RATE);
+          updateDayNight(TICK_RATE);
+          updateSettlerPositions(TICK_RATE);
+          G.tick++;
+          accumulator -= TICK_RATE;
+        }
+
+        // Render
+        if (G.time - lastRenderTime >= RENDER_RATE) {
+          renderAll();
+          lastRenderTime = G.time;
+        }
+
+        // UI
+        if (G.time - lastUITime >= UI_RATE) {
+          updateTopBar();
+          updateSettlerList();
+          lastUITime = G.time;
+        }
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      // ── INIT ──────────────────────────────────────────────────
+      function init() {
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
+        generateTerrain();
+        updateBuildPanel();
+        updateJobPanel(null);
+        updateSettlerList();
+        updateCollectionPanel();
+
+        // Seed starting resources
+        G.resources.food = 25;
+        G.resources.leaves = 20;
+        G.capacity.settlers = 3;
+
+        // Spawn initial settler
+        setTimeout(() => {
+          spawnSettler();
+          updateSettlerList();
+        }, 500);
+
+        // Welcome log
+        logEvent("Welcome to your first Settlement!", "special");
+        logEvent("Build a Bonfire first for Warmth.", "warn");
+        logEvent("Place buildings on the canvas.", "");
+        logEvent("Assign settlers to jobs in sidebar.", "");
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      init();
+    </script>
+  </body>
+</html>

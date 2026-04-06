@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Merging Liquid Simulation</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #000; /* Dark background is required for the threshold effect */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      /* The Magic: Blur + High Contrast = Liquid Merging */
+      #canvas-container {
+        filter: blur(12px) contrast(30);
+        background: #000;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      canvas {
+        display: block;
+      }
+
+      .instruction {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: white;
+        font-family: sans-serif;
+        z-index: 10;
+        pointer-events: none;
+        opacity: 0.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="instruction">Click and hold to pour water</div>
+
+    <div id="canvas-container">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+
+      let width, height;
+      let particles = [];
+
+      const gravity = 0.6;
+      const friction = 0.9;
+      const radius = 18; // Larger radius helps the merging effect
+
+      function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      }
+
+      window.addEventListener("resize", resize);
+      resize();
+
+      class Particle {
+        constructor(x, y) {
+          this.x = x;
+          this.y = y;
+          this.vx = (Math.random() - 0.5) * 6;
+          this.vy = Math.random() * 2;
+        }
+
+        update() {
+          this.vy += gravity;
+          this.x += this.vx;
+          this.y += this.vy;
+
+          // Floor Interaction
+          if (this.y + radius > height) {
+            this.y = height - radius;
+            this.vy *= -0.1; // Minimal bounce for "heavier" feel
+            this.vx *= friction;
+          }
+
+          // Wall Interaction
+          if (this.x + radius > width) {
+            this.x = width - radius;
+            this.vx *= -0.5;
+          } else if (this.x - radius < 0) {
+            this.x = radius;
+            this.vx *= -0.5;
+          }
+
+          // Horizontal spreading (Surface Tension / Pressure)
+          // If they are on the bottom, they push each other to "level out"
+          if (this.y > height - 40) {
+            for (let i = 0; i < particles.length; i++) {
+              let other = particles[i];
+              if (other === this) continue;
+
+              let dx = other.x - this.x;
+              let dist = Math.abs(dx);
+
+              if (dist < radius * 1.5) {
+                let force = (radius * 1.5 - dist) * 0.08;
+                this.vx -= dx > 0 ? force : -force;
+              }
+            }
+          }
+        }
+
+        draw() {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = "#00aaff"; // Bright blue
+          ctx.fill();
+        }
+      }
+
+      let isPressing = false;
+      let pointerX = 0,
+        pointerY = 0;
+
+      const startAction = (e) => {
+        isPressing = true;
+        updatePointer(e);
+      };
+      const endAction = () => (isPressing = false);
+      const updatePointer = (e) => {
+        pointerX = e.clientX || e.touches[0].clientX;
+        pointerY = e.clientY || e.touches[0].clientY;
+      };
+
+      window.addEventListener("mousedown", startAction);
+      window.addEventListener("touchstart", startAction);
+      window.addEventListener("mouseup", endAction);
+      window.addEventListener("touchend", endAction);
+      window.addEventListener("mousemove", updatePointer);
+      window.addEventListener("touchmove", updatePointer);
+
+      function animate() {
+        ctx.clearRect(0, 0, width, height);
+
+        if (isPressing) {
+          particles.push(new Particle(pointerX, pointerY));
+        }
+
+        // Optimization: Keep particle count manageable
+        if (particles.length > 350) {
+          particles.shift();
+        }
+
+        for (let i = 0; i < particles.length; i++) {
+          particles[i].update();
+          particles[i].draw();
+        }
+
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    </script>
+  </body>
+</html>

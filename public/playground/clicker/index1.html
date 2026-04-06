@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Clicker Game – Neo Brutalism</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <style>
+      :root {
+        --bg: #fff44f;
+        --primary: #ff4d6d;
+        --secondary: #4d96ff;
+        --text: #000;
+      }
+
+      * {
+        box-sizing: border-box;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        width: 100vw;
+        height: 100vh;
+        background: var(--bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      #game {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* SCREEN SHAKE */
+      .shake {
+        animation: shake 0.15s linear;
+      }
+
+      @keyframes shake {
+        0% {
+          transform: translate(0, 0);
+        }
+        25% {
+          transform: translate(-6px, 4px);
+        }
+        50% {
+          transform: translate(6px, -4px);
+        }
+        75% {
+          transform: translate(-4px, -6px);
+        }
+        100% {
+          transform: translate(0, 0);
+        }
+      }
+
+      #score {
+        font-size: 48px;
+        font-weight: 900;
+        color: var(--text);
+        margin-bottom: 32px;
+      }
+
+      #button {
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        background: var(--primary);
+        border: 6px solid #000;
+        box-shadow: 8px 8px 0 #000;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        font-weight: 900;
+        color: #000;
+        user-select: none;
+      }
+
+      #button:active {
+        transform: translate(4px, 4px);
+        box-shadow: 4px 4px 0 #000;
+      }
+
+      /* FLOATING +1 */
+      .plus {
+        position: absolute;
+        font-size: 32px;
+        font-weight: 900;
+        color: var(--secondary);
+        pointer-events: none;
+        text-shadow: 2px 2px 0 #000;
+
+        animation: floatUpSway 1.1s linear forwards;
+      }
+
+      @keyframes floatUpSway {
+        0% {
+          opacity: 1;
+          transform: translateX(0) translateY(0);
+        }
+
+        20% {
+          transform: translateX(-14px) translateY(-20vh);
+        }
+
+        40% {
+          transform: translateX(14px) translateY(-40vh);
+        }
+
+        60% {
+          transform: translateX(-10px) translateY(-60vh);
+        }
+
+        80% {
+          transform: translateX(10px) translateY(-80vh);
+        }
+
+        100% {
+          opacity: 0;
+          transform: translateX(0) translateY(-100vh);
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="game">
+      <div id="score">0</div>
+      <div id="button">CLICK</div>
+    </div>
+
+    <script>
+      const button = document.getElementById("button");
+      const scoreEl = document.getElementById("score");
+      const game = document.getElementById("game");
+
+      let score = 0;
+
+      button.addEventListener("click", () => {
+        score++;
+        scoreEl.textContent = score;
+
+        // SCREEN SHAKE
+        game.classList.remove("shake");
+        void game.offsetWidth;
+        game.classList.add("shake");
+
+        // CREATE +1
+        const plus = document.createElement("div");
+        plus.className = "plus";
+        plus.textContent = "+1";
+
+        const rect = button.getBoundingClientRect();
+
+        // Random horizontal spawn offset
+        const koef = Math.random() > 0.5 ? 1 : -1
+        const startX = Math.random() * 60 * koef;
+
+        plus.style.left = rect.left + rect.width / 2 + startX + "px";
+        plus.style.top = rect.top + "px";
+
+        game.appendChild(plus);
+
+        plus.addEventListener("animationend", () => {
+          plus.remove();
+        });
+      });
+    </script>
+  </body>
+</html>
