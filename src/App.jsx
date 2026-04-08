@@ -1,22 +1,30 @@
-import { useCallback, useEffect, useState, version } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import classNames from "classnames";
 import { FaHome } from "react-icons/fa";
 import { MdArrowRight } from "react-icons/md";
-
 import snakeImage from "./assets/images/snake-logo.jpg";
 import catcherImage from "./assets/images/catcher-logo.png";
-
 import { AudioProvider } from "./providers/audio-provider";
 import { GameCatcher } from "./components/game-catcher/game-catcher";
 import { GameSnake } from "./components/game-snake/game-snake";
 import { GameFrame } from "./components/game-frame/game-frame";
-import "./App.css";
+import { GameVoting } from "./components/game-voting/game-voting";
+import { useGamesStore } from "./store/games-store";
+import { useFirebaseSync } from "./firebase/use-firebase-sync";
 
 import catalogue from "playground/output/catalogue.json";
+import "./App.css";
 
 export const App = () => {
+  const { votes, userVotes, toggleVote, setCatalogue } = useGamesStore();
   const [games, setGames] = useState({});
   const [game, setGame] = useState(null);
+  const [selectedVersion, setSelectedVersion] = useState("");
+
+  const isVoted = game && !!userVotes[`${game.id}-v${selectedVersion}`];
+  const votesCount = game && votes[`${game.id}-v${selectedVersion}`] || 0;
+
+  useFirebaseSync();
 
   useEffect(() => {
     const GAMES = {
@@ -54,15 +62,7 @@ export const App = () => {
       };
     });
 
-    // GAMES['formula'] = {
-    //   id: 'formula',
-    //   title: 'formula',
-    //   backgroundColor: "#4e4e4e",
-    //   isFramed: true,
-    //   versions: [],
-    //   path: `games/formula/index.html`,
-    // };
-
+    setCatalogue(catalogue);
     setGames(GAMES);
   }, []);
 
@@ -78,17 +78,53 @@ export const App = () => {
     [games, game],
   );
 
-  const handleHomeClick = () => setGame(null);
+  const handleHomeClick = () => {
+    setGame(null);
+    setSelectedVersion("");
+  };
+
+  const gamePath = useMemo(
+    () => (game && selectedVersion ? game.path.replace("index.html", `index${selectedVersion}.html`) : game?.path),
+    [game, selectedVersion],
+  );
+
+  const handleVote = (gameId, version) => {
+    console.log(`Voted for game "${gameId}" version "${version || "origin"}"`);
+    toggleVote(gameId, version);
+  };
 
   return (
     <div className="app-container">
       <header className="appHeader">
         {game && (
-          <div className="appBreadcrumps">
-            <FaHome className="appBreadcrumpHome" onClick={handleHomeClick} />
-            <MdArrowRight className="appBreadcrumpSeparator" />
-            <span className="appBreadcrumpTitle">{game.title}</span>
-          </div>
+          <>
+            <div className="appBreadcrumps">
+              <FaHome className="appBreadcrumpHome" onClick={handleHomeClick} />
+              <MdArrowRight className="appBreadcrumpSeparator" />
+              <span className="appBreadcrumpTitle">{game.title}</span>
+            </div>
+            <div className="gameVersionsContainer">
+              <span>version:</span>
+              {game.versions.length ? (
+                <select
+                  className="gameVersionsSelect"
+                  value={selectedVersion}
+                  onChange={(e) => setSelectedVersion(e.target.value)}
+                >
+                  <option value="">Origin</option>
+                  {game.versions.map((v) => (
+                    <option key={game.title + v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span>Origin</span>
+              )}
+            </div>
+
+            <GameVoting gameId={game.id} version={selectedVersion} votesCount={votesCount} voted={isVoted} onVote={handleVote} />
+          </>
         )}
       </header>
       {!game && (
@@ -109,6 +145,7 @@ export const App = () => {
                   style={{ backgroundImage: g.backgroundImage, backgroundColor: g.backgroundColor }}
                 >
                   {!g.backgroundImage && <span className="game-logo-placeholder">{g.title}</span>}
+                  <span className="game-versions">{g.versions?.length || 0 + 1} Versions</span>
                 </div>
                 <div className="game-title-container">
                   <span className="game-title">{g.title}</span>
@@ -120,7 +157,7 @@ export const App = () => {
       )}
 
       <AudioProvider>
-        {game?.isFramed ? <GameFrame gamePath={game.path} /> : game?.render && <game.render />}
+        {game?.isFramed ? <GameFrame gamePath={gamePath} /> : game?.render && <game.render />}
       </AudioProvider>
 
       {/* <footer className="footer">

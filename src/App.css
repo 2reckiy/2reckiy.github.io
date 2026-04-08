@@ -57,10 +57,10 @@
 .game-container .game-logo {
   height: 100%;
   width: 100%;
-
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   background-size: 100%;
   background-repeat: no-repeat;
   pointer-events: none;
@@ -97,14 +97,40 @@
 }
 
 .appHeader {
-  height: 32px;
+  min-height: 32px;
   padding: 4px 8px;
+
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
   background-color: #1b1b23;
   box-shadow:
     rgba(0, 0, 0, 0.2) 0px 2px 1px -1px,
     rgba(0, 0, 0, 0.14) 0px 1px 1px 0px,
     rgba(0, 0, 0, 0.12) 0px 1px 3px 0px;
   z-index: var(--zHeader);
+}
+
+.gameVersionsContainer {
+  display: flex;
+  align-items: center;
+  font-size: 0.8rem;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.gameVersionsSelect {
+  border: 1px solid #33333f;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 4px;
+  background: none;
+  font-size: 0.8rem;
+}
+
+.gameVersionsSelect:hover {
+  background: #33333f;
 }
 
 .appBreadcrumps {

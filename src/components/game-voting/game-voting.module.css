@@ -1,0 +1,26 @@
+.button {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid #33333f;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0 0.4rem;
+}
+
+.button:hover {
+  background-color: #33333f;
+}
+
+.content {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  align-items: center;
+  user-select: none;
+}
+
+.votesCount {
+  font-size: 0.8rem;
+}
