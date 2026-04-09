@@ -105,7 +105,7 @@ export const App = () => {
             </div>
             <div className="gameVersionsContainer">
               <span>version:</span>
-              {game.versions.length ? (
+              {game.versions?.length ? (
                 <select
                   className="gameVersionsSelect"
                   value={selectedVersion}
