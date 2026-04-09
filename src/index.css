@@ -23,7 +23,7 @@
   --zHeader: 999999;
   --zGameFrame: 100;
 
-  font: 18px/145% var(--mono);
+  font: 18px/1.45 var(--mono);
   letter-spacing: 0.18px;
   color-scheme: light dark;
   color: var(--text);

@@ -15,16 +15,10 @@ import charaTop from "./assets/chara_2.png";
 import charaEmpty from "./assets/chara_3.png";
 import { Lifes } from "./components/lifes/lifes";
 import { Settings } from "./components/settings/settings";
+import throttle from 'lodash/throttle';
 
 const BG_RATIO = 0.411;
 const LIFES_COUNT = 3;
-
-const getGridSize = () => {
-  return {
-    width: window.innerWidth,
-    height: window.innerHeight,
-  };
-};
 
 const loadImage = async (src) => {
   return new Promise((resolve, reject) => {
@@ -39,19 +33,18 @@ const loadImage = async (src) => {
 };
 
 export const GameCatcher = () => {
-  const canvasRef = useRef();
+  const containerRef = useRef(null);
+  const canvasRef = useRef(null);
   const engineRef = useRef(null);
   const audio = useAudio();
-  const [canvasSize, setCanvasSize] = useState({
-    width: 0,
-    height: 0,
-  });
 
   const gameOver = useGameStore((s) => s.gameOver);
   const settingsOpen = useGameStore((s) => s.settingsOpen);
 
   useEffect(() => {
     let engine;
+    let resizeObserver;
+
     const handleKeyDown = (e) => {
       switch (e.code) {
         case "Escape":
@@ -73,22 +66,25 @@ export const GameCatcher = () => {
     };
 
     const handleResize = () => {
-      const gridSize = getGridSize();
-      const width = gridSize.width;
-      const height = gridSize.height;
+      const rect = containerRef.current?.getBoundingClientRect();
+      const scaleFactor = 1; // Higher = more pixelated (try 3, 4, or 6)
 
-      engine.resize({
-        canvasWidth: width,
-        canvasHeight: height,
-      });
+      // Internal resolution is small
+      canvasRef.current.width = rect.width / scaleFactor;
+      canvasRef.current.height = rect.height / scaleFactor;
 
-      setCanvasSize({
-        width,
-        height,
+      // Visual size remains the same
+      canvasRef.current.style.width = `${rect.width}px`;
+      canvasRef.current.style.height = `${rect.height}px`;
+
+      engine?.resize({
+        canvasWidth: rect.width,
+        canvasHeight: rect.height,
       });
     };
 
     async function initGame() {
+      const container = containerRef.current;
       const canvas = canvasRef.current;
 
       let assets = [];
@@ -110,11 +106,14 @@ export const GameCatcher = () => {
       });
       engineRef.current = engine;
 
+      const callback = throttle(handleResize, 100);
+      resizeObserver = new ResizeObserver(callback);
+      resizeObserver.observe(container);
       handleResize();
+
       engine.start();
 
       window.addEventListener("keydown", handleKeyDown);
-      window.addEventListener("resize", handleResize);
     }
 
     initGame();
@@ -124,22 +123,21 @@ export const GameCatcher = () => {
       engineRef.current = null;
       engine = null;
 
+      resizeObserver?.disconnect();
+
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("resize", handleResize);
     };
   }, []);
 
   const restartGame = useCallback(() => {
     engineRef.current.restart();
-
-    audio.playMusic("/music/backgrround_1.wav");
   }, []);
 
   return (
-    <div className="game-catcher-container">
-      <div className="game-catcher-canvas-container">
-        <canvas ref={canvasRef} width={canvasSize.width} height={canvasSize.height} className="border" />
-      </div>
+    <div className="game-catcher-container" ref={containerRef}>
+      {/* <div className="game-catcher-canvas-container"> */}
+      <canvas ref={canvasRef} className="border" />
+      {/* </div> */}
       <div className="game-catcher-time-container">
         <Timer />
       </div>

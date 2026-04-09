@@ -6,29 +6,28 @@ import { GameOver } from "./components/game-over/game-over";
 import { Timer } from "./components/timer/timer";
 import "./game-snake.css";
 import { useGameStore } from "./store";
+import throttle from "lodash/throttle";
 
 const GRID_CELL_SIZE = 20;
 
-const getGridSize = () => {
+const getGridSize = (w, h) => {
   return {
-    width: Math.floor((window.innerWidth - 24) / GRID_CELL_SIZE),
-    height: Math.floor((window.innerHeight - 24) / GRID_CELL_SIZE),
+    width: Math.floor((w - 0) / GRID_CELL_SIZE),
+    height: Math.floor((h - 0) / GRID_CELL_SIZE),
   };
 };
 
 export const GameSnake = () => {
-  const canvasRef = useRef();
+  const containerRef = useRef(null);
+  const canvasRef = useRef(null);
   const engineRef = useRef(null);
   const audio = useAudio();
-  const [canvasSize, setCanvasSize] = useState({
-    width: 0,
-    height: 0,
-  });
 
   const gameOver = useGameStore((s) => s.gameOver);
 
   useEffect(() => {
     let engine;
+    let resizeObserver;
 
     const handleKeyDown = (e) => {
       switch (e.code) {
@@ -59,20 +58,26 @@ export const GameSnake = () => {
     };
 
     const handleResize = () => {
-      const gridSize = getGridSize();
+      const rect = containerRef.current?.getBoundingClientRect();
+      const gridSize = getGridSize(rect.width, rect.height);
       const width = gridSize.width * GRID_CELL_SIZE;
       const height = gridSize.height * GRID_CELL_SIZE;
 
-      engine.resize(gridSize.width, gridSize.height);
+      // Internal resolution is small
+      canvasRef.current.width = width;
+      canvasRef.current.height = height;
 
-      setCanvasSize({
-        width,
-        height,
-      });
+      // Visual size remains the same
+      canvasRef.current.style.width = `${width}px`;
+      canvasRef.current.style.height = `${height}px`;
+
+      engine.resize(gridSize.width, gridSize.height);
     };
 
     const initGame = () => {
+      const container = containerRef.current;
       const canvas = canvasRef.current;
+
       engine = new GameEngine({
         store: useGameStore.getState(),
         audio,
@@ -84,12 +89,16 @@ export const GameSnake = () => {
       });
 
       engineRef.current = engine;
+
+      const callback = throttle(handleResize, 100);
+      resizeObserver = new ResizeObserver(callback);
+      resizeObserver.observe(container);
       handleResize();
+
       engine.start();
 
       window.addEventListener("keydown", handleKeyDown);
       window.addEventListener("keyup", handleKeyUp);
-      window.addEventListener("resize", handleResize);
     };
 
     initGame();
@@ -99,9 +108,10 @@ export const GameSnake = () => {
       engine = null;
       engineRef.current = null;
 
+      resizeObserver?.disconnect();
+
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
-      window.removeEventListener("resize", handleResize);
     };
   }, []);
 
@@ -110,20 +120,19 @@ export const GameSnake = () => {
   }, []);
 
   return (
-    <div className="snake-container">
-      <div className="snake-canvas-container">
-        <canvas ref={canvasRef} width={canvasSize.width} height={canvasSize.height} className="border" />
-      </div>
+    <>
+      <div className="snake-container" ref={containerRef}>
+        <canvas ref={canvasRef} className="border" />
 
-      <div className="snake-time-container">
-        <Timer />
-      </div>
+        <div className="snake-furyoku-container">
+          <FuryokuBar />
+        </div>
 
-      <div className="snake-furyoku-container">
-        <FuryokuBar />
+        <div className="snake-time-container">
+          <Timer />
+        </div>
+        {gameOver && <GameOver onRestart={restartGame} />}
       </div>
-
-      {gameOver && <GameOver onRestart={restartGame} />}
-    </div>
+    </>
   );
 };
