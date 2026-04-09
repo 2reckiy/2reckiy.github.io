@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Only run if something is being committed (always true)
+# but avoid unnecessary updates by checking staged files
+
+if git diff --cached --name-only | grep -qE "(package.json|package-lock.json)"; then
+  echo "Updating playground dependency..."
+
+  npm update playground >/dev/null 2>&1
+
+  git diff --quiet package-lock.json || git add package-lock.json
+fi
