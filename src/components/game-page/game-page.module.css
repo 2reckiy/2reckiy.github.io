@@ -1,0 +1,279 @@
+.gamePage {
+  height: 100svh;
+  padding: 16px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 16px;
+  overflow: hidden;
+}
+
+.gamePageFocused {
+  padding: 8px;
+  gap: 8px;
+}
+
+.sectionEyebrow,
+.infoLabel {
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.gameHeader,
+.gameInfoPanel,
+.gameContent {
+  border: 1px solid rgba(33, 28, 22, 0.14);
+  border-radius: 22px;
+  background: rgba(255, 251, 245, 0.72);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 24px 60px rgba(69, 52, 32, 0.08);
+}
+
+.gameHeader {
+  min-height: 0;
+  padding: 14px 16px;
+}
+
+.gameHeaderCompact {
+  padding: 8px 10px;
+}
+
+.gameHeaderMain {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.gameHeaderLead {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.gameHeading {
+  min-width: 0;
+}
+
+.gameHeading h2,
+.gameInfoBlock h3 {
+  color: var(--text-strong);
+  font-size: clamp(1.2rem, 2vw, 1.7rem);
+  line-height: 1.1;
+}
+
+.gameHeading h2 {
+  margin-top: 4px;
+}
+
+.gameTools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.gamePageFocused .gameTools {
+  gap: 8px;
+}
+
+.gameSelectWrap {
+  min-width: 170px;
+  display: flex;
+  align-items: center;
+}
+
+.gameSelectWrapSingle {
+  min-width: 0;
+}
+
+.gameSelect,
+.gameBadge,
+.ghostButton {
+  min-height: 48px;
+}
+
+.gameSelect {
+  width: 100%;
+  border: 1px solid rgba(33, 28, 22, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 14px 16px;
+  font: inherit;
+  color: var(--text-strong);
+}
+
+.gameSelect:focus {
+  outline: 2px solid rgba(111, 143, 114, 0.22);
+  outline-offset: 2px;
+}
+
+.gameBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(33, 28, 22, 0.14);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-strong);
+}
+
+.backButton,
+.ghostButton {
+  border: 0;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease;
+  font: inherit;
+}
+
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-strong);
+  align-self: flex-start;
+}
+
+.ghostButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text-strong);
+  border: 1px solid rgba(33, 28, 22, 0.14);
+}
+
+.backButton:hover,
+.ghostButton:hover {
+  transform: translateY(-1px);
+}
+
+.gamePageFocused .gameSelect,
+.gamePageFocused .gameBadge,
+.gamePageFocused .ghostButton {
+  min-height: 40px;
+}
+
+.gameMain {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 16px;
+  overflow: hidden;
+}
+
+.gamePageFocused .gameMain {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.gameInfoPanel,
+.gameContent {
+  min-height: 0;
+}
+
+.gameInfoPanel {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.gameInfoBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gameInfoBlock p {
+  line-height: 1.55;
+}
+
+.gameInfoGrid {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.gameInfoGrid > div {
+  flex: 1;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(33, 28, 22, 0.08);
+}
+
+.gameInfoGrid strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-strong);
+}
+
+.gameContent {
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.46);
+}
+
+@media (max-width: 1100px) {
+  .gameMain {
+    grid-template-columns: 1fr;
+  }
+
+  .gamePage {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .gamePageFocused {
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .gameContent {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .gameInfoPanel,
+  .gameHeader {
+    padding: 16px;
+  }
+
+  .gameHeaderCompact {
+    padding: 8px;
+  }
+
+  .gameHeaderMain,
+  .gameHeaderLead,
+  .gameInfoGrid,
+  .gameTools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .gameSelectWrap,
+  .ghostButton {
+    width: 100%;
+  }
+
+  .gameTools {
+    flex-wrap: wrap;
+  }
+}

@@ -25,15 +25,34 @@ export const GameFrame = ({ gamePath }) => {
   const [blobUrl, setBlobUrl] = useState(null);
 
   useEffect(() => {
+    let isActive = true;
+
     loadGame(gamePath)
       .then((res) => {
-        console.log("Loaded HTML module:", res);
-        setBlobUrl(res);
+        if (isActive) {
+          setBlobUrl(res);
+        } else {
+          URL.revokeObjectURL(res);
+        }
       })
       .catch((err) => {
-        setBlobUrl(null);
+        if (isActive) {
+          setBlobUrl(null);
+        }
         console.error(err);
       });
+
+    return () => {
+      isActive = false;
+
+      setBlobUrl((currentBlobUrl) => {
+        if (currentBlobUrl) {
+          URL.revokeObjectURL(currentBlobUrl);
+        }
+
+        return null;
+      });
+    };
   }, [gamePath]);
 
   return (
@@ -44,7 +63,7 @@ export const GameFrame = ({ gamePath }) => {
           title="Game Frame"
           allowtransparency="true"
           scrolling="no"
-          frameBorder="0"
+          frameBorder="none"
           className={styles.iframeContainer}
         />
       </>

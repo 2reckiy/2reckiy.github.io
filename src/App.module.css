@@ -1,0 +1,342 @@
+.appShell {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(181, 146, 102, 0.18), transparent 28%),
+    linear-gradient(180deg, #f5f0e7 0%, #ece5d8 100%);
+  color: var(--text);
+}
+
+.cataloguePage {
+  min-height: 100%;
+  padding: 20px clamp(20px, 4vw, 56px) 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.introPanel,
+.gameCard {
+  border: 1px solid rgba(33, 28, 22, 0.14);
+  border-radius: 22px;
+  background: rgba(255, 251, 245, 0.72);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 24px 60px rgba(69, 52, 32, 0.08);
+}
+
+.introPanel {
+  width: 100%;
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.introCopy {
+  min-width: 0;
+}
+
+.eyebrow,
+.sectionEyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.introTitle {
+  margin-top: 8px;
+  font-size: clamp(1.25rem, 2vw, 1.8rem);
+  line-height: 1.15;
+  color: var(--text-strong);
+}
+
+.introText {
+  margin-top: 8px;
+  max-width: 72ch;
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.introStats {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.introStat {
+  min-width: 96px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(33, 28, 22, 0.08);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.introStatValue {
+  display: block;
+  font-size: 1.15rem;
+  color: var(--text-strong);
+}
+
+.introStatLabel {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.sectionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sectionHeading,
+.sectionHeadingSplit,
+.catalogueControls,
+.catalogueFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.sectionHeadingSplit {
+  align-items: flex-end;
+}
+
+.sectionHeading h2,
+.gameCardBody h3 {
+  color: var(--text-strong);
+  font-size: clamp(1.2rem, 2vw, 1.7rem);
+  line-height: 1.1;
+}
+
+.featuredGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.catalogueGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.gameCard {
+  overflow: hidden;
+}
+
+.gameCardVisual {
+  min-height: 180px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+
+  box-shadow: 0px 0px 8px rgb(0 0 0);
+  border-radius: 22px;
+  background: linear-gradient(90deg, #1c1a16 0%, #292622 60%, #383632 100%);
+}
+
+.gameCardVisualCompact {
+  min-height: 120px;
+}
+
+.gameCardVisual::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 50%;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.18) 100%);
+}
+
+.gameCardVisualLabel {
+  position: absolute;
+  left: 18px;
+  bottom: 16px;
+  z-index: 1;
+  color: #fff;
+  font-size: 1.3rem;
+}
+
+.gameCardBody {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gameCardBody p,
+.catalogueSummary {
+  line-height: 1.55;
+}
+
+.gameMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.metaPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 0.73rem;
+  line-height: 1;
+}
+
+.metaPillType {
+  background: rgba(111, 143, 114, 0.12);
+  color: #47634c;
+}
+
+.metaPillBuilds {
+  background: rgba(96, 108, 145, 0.12);
+  color: #4d587b;
+}
+
+.gameVotesCount {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.catalogueControls {
+  flex-wrap: wrap;
+}
+
+.searchField {
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.searchField input {
+  width: 100%;
+  border: 1px solid rgba(33, 28, 22, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 14px 16px;
+  font: inherit;
+  color: var(--text-strong);
+}
+
+.searchField input:focus {
+  outline: 2px solid rgba(111, 143, 114, 0.22);
+  outline-offset: 2px;
+}
+
+.filterGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(33, 28, 22, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.filterButton,
+.actionButton {
+  border: 0;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease;
+  font: inherit;
+}
+
+.filterButton {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.filterButtonActive {
+  background: #1c1a16;
+  color: #f8f4ee;
+}
+
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 18px;
+  border-radius: 999px;
+  background: #1c1a16;
+  color: #f8f4ee;
+}
+
+.actionButtonCompact {
+  padding-inline: 16px;
+}
+
+.actionButton:hover,
+.filterButton:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 1100px) {
+  .featuredGrid,
+  .catalogueGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .introPanel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 720px) {
+  .cataloguePage {
+    padding: 14px 14px 40px;
+    gap: 24px;
+  }
+
+  .introPanel,
+  .gameCardBody {
+    padding: 16px;
+  }
+
+  .sectionHeading,
+  .sectionHeadingSplit,
+  .catalogueControls,
+  .catalogueFooter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .introStats {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .introStat {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .actionButton,
+  .filterButton,
+  .searchField {
+    width: 100%;
+  }
+
+  .searchField {
+    min-width: 0;
+  }
+
+  .filterGroup {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
